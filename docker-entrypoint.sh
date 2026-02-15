@@ -2,11 +2,25 @@
 set -e
 
 echo "🔄 Pushing Prisma schema to database (non-destructive)..."
-npx prisma db push --skip-generate --accept-data-loss 2>/dev/null || \
-  npx prisma db push --skip-generate
 
-echo "🌱 Running database seed (idempotent)..."
-npx prisma db seed 2>/dev/null || echo "⚠️  Seed skipped or already applied"
+MAX_RETRIES=5
+RETRY_COUNT=0
+
+until npx prisma db push || [ $RETRY_COUNT -eq $MAX_RETRIES ]; do
+  RETRY_COUNT=$((RETRY_COUNT + 1))
+  echo "⏳ Database not ready yet. Retrying in 5 seconds... (Attempt $RETRY_COUNT/$MAX_RETRIES)"
+  sleep 5
+done
+
+if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+  echo "❌ Failed to push schema after $MAX_RETRIES attempts."
+  exit 1
+fi
+
+echo "✅ Database schema pushed successfully."
+
+echo "🌱 Seeding database..."
+npx prisma db seed || echo "⚠️ Seeding skipped or already seeded."
 
 echo "🚀 Starting Next.js server..."
 exec node server.js
