@@ -1,0 +1,35 @@
+# ─── Lab Oven Booking System ──────────────────────────────────────────
+# Docker Compose service block for the web-oven app.
+# Connects to the existing x01_db PostgreSQL container via the
+# external network x01-bot_x01_net.
+#
+# USAGE:
+#   docker compose up -d --build
+#
+# PRE-REQUISITE: Create the database and user in x01_db first.
+# See README.md for the one-time SQL setup.
+# ──────────────────────────────────────────────────────────────────────
+
+services:
+  web-oven:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: web-oven
+    restart: unless-stopped
+    ports:
+      - "3005:3000"
+    environment:
+      - DATABASE_URL=postgresql://oven_user:CHANGE_ME_STRONG_PASSWORD@x01_db:5432/oven_booking_db
+      - NEXTAUTH_URL=http://YOUR_DOMAIN_OR_IP:3005
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-generate-with-openssl-rand-base64-32}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@g-labs.local}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-CHANGE_ME}
+      - ADMIN_NAME=${ADMIN_NAME:-Gerald}
+    networks:
+      - x01_net
+
+networks:
+  x01_net:
+    external: true
+    name: x01-bot_x01_net

@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  USER
+
+  @@map("oven_role")
+}
+
+enum UserStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("oven_user_status")
+}
+
+enum OvenType {
+  NON_AQUEOUS
+  AQUEOUS
+
+  @@map("oven_type")
+}
+
+enum OvenStatus {
+  AVAILABLE
+  MAINTENANCE
+
+  @@map("oven_status")
+}
+
+enum BookingStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  AUTO_CANCELLED
+
+  @@map("oven_booking_status")
+}
+
+// ─── Models ──────────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  phone        String     @unique
+  passwordHash String     @map("password_hash")
+  role         Role       @default(USER)
+  status       UserStatus @default(PENDING)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  bookings Booking[]
+
+  @@map("oven_users")
+}
+
+model Oven {
+  id          Int        @id @default(autoincrement())
+  name        String
+  type        OvenType
+  status      OvenStatus @default(AVAILABLE)
+  description String?
+
+  bookings Booking[]
+
+  @@map("oven_ovens")
+}
+
+model Booking {
+  id        String        @id @default(uuid())
+  userId    String        @map("user_id")
+  ovenId    Int           @map("oven_id")
+  startDate DateTime      @map("start_date")
+  endDate   DateTime      @map("end_date")
+  purpose   String
+  status    BookingStatus @default(ACTIVE)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+  oven Oven @relation(fields: [ovenId], references: [id])
+
+  @@index([ovenId, startDate, endDate])
+  @@map("oven_bookings")
+}
