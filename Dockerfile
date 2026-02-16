@@ -42,11 +42,15 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 # Install runtime deps needed for prisma db push, seed, and adapter
-RUN npm install prisma @prisma/adapter-pg pg dotenv bcryptjs tsx typescript @types/node
+RUN npm install prisma @prisma/adapter-pg pg postgres-array dotenv bcryptjs tsx typescript @types/node
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
+
+# Fix permissions so nextjs user can write to .next cache
+RUN chown -R nextjs:nodejs /app/.next
+RUN chown -R nextjs:nodejs /app/node_modules
 
 USER nextjs
 

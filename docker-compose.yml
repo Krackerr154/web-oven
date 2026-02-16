@@ -20,11 +20,11 @@ services:
     ports:
       - "3005:3000"
     environment:
-      - DATABASE_URL=postgresql://oven_user:CHANGE_ME_STRONG_PASSWORD@x01_db:5432/oven_booking_db
-      - NEXTAUTH_URL=http://YOUR_DOMAIN_OR_IP:3005
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-generate-with-openssl-rand-base64-32}
+      - DATABASE_URL=postgresql://oven_user:x154@x01_db:5432/oven_booking_db
+      - NEXTAUTH_URL=http://oven.g-labs.my.id:3005
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-pQVq8zaXw69TMcXKIe+grxUI77FmaXnZb66G6jvY5ZU=}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@g-labs.local}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-CHANGE_ME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - ADMIN_NAME=${ADMIN_NAME:-Gerald}
     networks:
       - x01_net
