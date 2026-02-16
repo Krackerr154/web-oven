@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createBooking } from "@/app/actions/booking";
 import { useRouter } from "next/navigation";
 import { CalendarPlus, Loader2, Flame } from "lucide-react";
+import BookingCalendar from "@/components/booking-calendar";
 
 type Oven = {
   id: number;
@@ -16,9 +17,12 @@ type Oven = {
 export default function BookPage() {
   const router = useRouter();
   const [ovens, setOvens] = useState<Oven[]>([]);
+  const [selectedOvenId, setSelectedOvenId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [calendarKey, setCalendarKey] = useState(0);
+  const startDateRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/ovens")
@@ -26,6 +30,13 @@ export default function BookPage() {
       .then(setOvens)
       .catch(() => setError("Failed to load ovens"));
   }, []);
+
+  function handleDateClick(dateStr: string) {
+    if (startDateRef.current) {
+      startDateRef.current.value = dateStr;
+      startDateRef.current.focus();
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -40,6 +51,7 @@ export default function BookPage() {
 
     if (result.success) {
       setSuccess(result.message);
+      setCalendarKey((k) => k + 1); // refresh calendar
       setTimeout(() => router.push("/my-bookings"), 1500);
     } else {
       setError(result.message);
@@ -47,13 +59,20 @@ export default function BookPage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Book an Oven</h1>
         <p className="text-slate-400 mt-1">
           Select an oven and choose your time slot (max 7 days)
         </p>
       </div>
+
+      {/* Calendar View */}
+      <BookingCalendar
+        key={calendarKey}
+        selectedOvenId={selectedOvenId}
+        onDateClick={handleDateClick}
+      />
 
       <form
         onSubmit={handleSubmit}
@@ -94,6 +113,7 @@ export default function BookPage() {
                     disabled={!isAvailable}
                     required
                     className="sr-only"
+                    onChange={() => setSelectedOvenId(oven.id)}
                   />
                   <Flame className="h-5 w-5 text-orange-400 shrink-0" />
                   <div>
@@ -120,6 +140,7 @@ export default function BookPage() {
               name="startDate"
               type="datetime-local"
               required
+              ref={startDateRef}
               className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
             />
           </div>

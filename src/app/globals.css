@@ -9,3 +9,94 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* ─── FullCalendar Dark Theme ──────────────────────────────────────── */
+
+.fc-dark-theme {
+  --fc-border-color: #334155;
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: rgba(30, 41, 59, 0.5);
+  --fc-today-bg-color: rgba(234, 88, 12, 0.08);
+  --fc-event-border-color: transparent;
+  --fc-event-text-color: #f1f5f9;
+  --fc-neutral-text-color: #94a3b8;
+  --fc-button-bg-color: #1e293b;
+  --fc-button-border-color: #475569;
+  --fc-button-text-color: #e2e8f0;
+  --fc-button-hover-bg-color: #334155;
+  --fc-button-hover-border-color: #64748b;
+  --fc-button-active-bg-color: #ea580c;
+  --fc-button-active-border-color: #ea580c;
+}
+
+.fc-dark-theme .fc-toolbar-title {
+  color: #f1f5f9;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.fc-dark-theme .fc-col-header-cell-cushion {
+  color: #94a3b8;
+  font-weight: 500;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.fc-dark-theme .fc-daygrid-day-number {
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+}
+
+.fc-dark-theme .fc-day-today .fc-daygrid-day-number {
+  color: #ea580c;
+  font-weight: 700;
+}
+
+.fc-dark-theme .fc-daygrid-day:hover {
+  background: rgba(234, 88, 12, 0.05);
+  cursor: pointer;
+}
+
+.fc-dark-theme .fc-event {
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: none;
+}
+
+.fc-dark-theme .fc-more-link {
+  color: #f97316;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.fc-dark-theme .fc-button {
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 4px 12px;
+  transition: all 0.15s;
+}
+
+.fc-dark-theme .fc-button:focus {
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.3);
+}
+
+.fc-dark-theme .fc-button-primary:not(:disabled).fc-button-active {
+  background-color: #ea580c;
+  border-color: #ea580c;
+}
+
+.fc-dark-theme .fc-scrollgrid {
+  border-color: #334155;
+}
+
+.fc-dark-theme .fc-daygrid-day-frame {
+  min-height: 80px;
+}
+
+.fc-dark-theme .fc-day-other .fc-daygrid-day-number {
+  color: #475569;
+}

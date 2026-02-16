@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 type ActionResult = {
   success: boolean;
@@ -146,4 +147,110 @@ export async function getAllBookings() {
       oven: { select: { name: true, type: true } },
     },
   });
+}
+
+// ─── Oven CRUD ───────────────────────────────────────────────────────
+
+const ovenSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100),
+  type: z.enum(["NON_AQUEOUS", "AQUEOUS"]),
+  description: z.string().max(500).optional(),
+});
+
+export async function createOven(formData: FormData): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
+  try {
+    const parsed = ovenSchema.parse({
+      name: formData.get("name"),
+      type: formData.get("type"),
+      description: formData.get("description") || undefined,
+    });
+
+    await prisma.oven.create({
+      data: {
+        name: parsed.name,
+        type: parsed.type,
+        description: parsed.description || null,
+      },
+    });
+
+    revalidatePath("/admin/ovens");
+    revalidatePath("/book");
+    revalidatePath("/");
+    return { success: true, message: "Oven created successfully" };
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return { success: false, message: err.issues[0]?.message || "Validation failed" };
+    }
+    return { success: false, message: "Failed to create oven" };
+  }
+}
+
+export async function updateOven(
+  ovenId: number,
+  formData: FormData
+): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
+  try {
+    const parsed = ovenSchema.parse({
+      name: formData.get("name"),
+      type: formData.get("type"),
+      description: formData.get("description") || undefined,
+    });
+
+    await prisma.oven.update({
+      where: { id: ovenId },
+      data: {
+        name: parsed.name,
+        type: parsed.type,
+        description: parsed.description || null,
+      },
+    });
+
+    revalidatePath("/admin/ovens");
+    revalidatePath("/book");
+    revalidatePath("/");
+    return { success: true, message: "Oven updated successfully" };
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return { success: false, message: err.issues[0]?.message || "Validation failed" };
+    }
+    return { success: false, message: "Failed to update oven" };
+  }
+}
+
+export async function deleteOven(ovenId: number): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
+  try {
+    // Check for active bookings
+    const activeCount = await prisma.booking.count({
+      where: { ovenId, status: "ACTIVE" },
+    });
+
+    if (activeCount > 0) {
+      return {
+        success: false,
+        message: `Cannot delete: ${activeCount} active booking(s) exist. Cancel them first or set oven to maintenance.`,
+      };
+    }
+
+    // Delete all related bookings first (completed/cancelled), then the oven
+    await prisma.$transaction(async (tx) => {
+      await tx.booking.deleteMany({ where: { ovenId } });
+      await tx.oven.delete({ where: { id: ovenId } });
+    });
+
+    revalidatePath("/admin/ovens");
+    revalidatePath("/book");
+    revalidatePath("/");
+    return { success: true, message: "Oven deleted successfully" };
+  } catch {
+    return { success: false, message: "Failed to delete oven" };
+  }
 }
