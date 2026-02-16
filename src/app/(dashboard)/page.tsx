@@ -44,7 +44,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Oven Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         {ovens.map((oven) => {
           const currentBooking = oven.bookings[0];
           const isMaintenance = oven.status === "MAINTENANCE";
@@ -84,6 +84,7 @@ export default async function DashboardPage() {
                     </h2>
                     <p className="text-sm text-slate-400">
                       {oven.type === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
+                      {" \u00b7 Max "}{oven.maxTemp}{"\u00b0C"}
                     </p>
                   </div>
                 </div>
@@ -140,7 +141,7 @@ export default async function DashboardPage() {
             <p className="text-slate-400">No active bookings</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {userBookings.map((booking) => (
               <div
                 key={booking.id}

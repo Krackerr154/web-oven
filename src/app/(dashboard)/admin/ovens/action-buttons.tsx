@@ -15,6 +15,7 @@ type OvenData = {
   name: string;
   type: string;
   description: string | null;
+  maxTemp: number;
 };
 
 export function OvenActionButtons({

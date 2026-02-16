@@ -11,6 +11,8 @@ const bookingSchema = z.object({
   startDate: z.string().transform((s) => new Date(s)),
   endDate: z.string().transform((s) => new Date(s)),
   purpose: z.string().min(3, "Purpose must be at least 3 characters"),
+  usageTemp: z.number().int().min(1, "Usage temperature is required"),
+  flap: z.number().int().min(0, "Flap must be 0-100%").max(100, "Flap must be 0-100%"),
 });
 
 export type BookingResult = {
@@ -34,6 +36,8 @@ export async function createBooking(formData: FormData): Promise<BookingResult> 
       startDate: formData.get("startDate") as string,
       endDate: formData.get("endDate") as string,
       purpose: formData.get("purpose") as string,
+      usageTemp: Number(formData.get("usageTemp")),
+      flap: Number(formData.get("flap")),
     };
 
     const parsed = bookingSchema.safeParse(raw);
@@ -41,7 +45,7 @@ export async function createBooking(formData: FormData): Promise<BookingResult> 
       return { success: false, message: parsed.error.issues[0].message };
     }
 
-    const { ovenId, startDate, endDate, purpose } = parsed.data;
+    const { ovenId, startDate, endDate, purpose, usageTemp, flap } = parsed.data;
     const userId = session.user.id;
 
     // ── Rule: Max 7 days duration ───────────────────────────────────
@@ -77,6 +81,14 @@ export async function createBooking(formData: FormData): Promise<BookingResult> 
         return { success: false, message: `${oven.name} is currently under maintenance` };
       }
 
+      // Rule: Usage temperature must not exceed oven max
+      if (usageTemp > oven.maxTemp) {
+        return {
+          success: false,
+          message: `Usage temperature (${usageTemp}°C) exceeds oven maximum (${oven.maxTemp}°C)`,
+        };
+      }
+
       // Rule: No overlapping active bookings on the same oven
       const overlap = await tx.booking.findFirst({
         where: {
@@ -102,6 +114,8 @@ export async function createBooking(formData: FormData): Promise<BookingResult> 
           startDate,
           endDate,
           purpose,
+          usageTemp,
+          flap,
           status: "ACTIVE",
         },
       });

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createBooking } from "@/app/actions/booking";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Loader2, Flame } from "lucide-react";
+import { CalendarPlus, Loader2, Flame, Clock } from "lucide-react";
 import BookingCalendar from "@/components/booking-calendar";
+import { formatDuration } from "@/lib/utils";
 
 type Oven = {
   id: number;
@@ -12,6 +13,7 @@ type Oven = {
   type: string;
   status: string;
   description: string | null;
+  maxTemp: number;
 };
 
 export default function BookPage() {
@@ -22,7 +24,19 @@ export default function BookPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [calendarKey, setCalendarKey] = useState(0);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const startDateRef = useRef<HTMLInputElement>(null);
+
+  const selectedOven = useMemo(
+    () => ovens.find((o) => o.id === selectedOvenId) ?? null,
+    [ovens, selectedOvenId]
+  );
+
+  const duration = useMemo(() => {
+    if (!startDate || !endDate) return "—";
+    return formatDuration(startDate, endDate);
+  }, [startDate, endDate]);
 
   useEffect(() => {
     fetch("/api/ovens")
@@ -34,6 +48,7 @@ export default function BookPage() {
   function handleDateClick(dateStr: string) {
     if (startDateRef.current) {
       startDateRef.current.value = dateStr;
+      setStartDate(dateStr);
       startDateRef.current.focus();
     }
   }
@@ -51,7 +66,7 @@ export default function BookPage() {
 
     if (result.success) {
       setSuccess(result.message);
-      setCalendarKey((k) => k + 1); // refresh calendar
+      setCalendarKey((k) => k + 1);
       setTimeout(() => router.push("/my-bookings"), 1500);
     } else {
       setError(result.message);
@@ -76,7 +91,7 @@ export default function BookPage() {
 
       <form
         onSubmit={handleSubmit}
-        className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 space-y-5"
+        className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6 space-y-5"
       >
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300">
@@ -100,7 +115,7 @@ export default function BookPage() {
               return (
                 <label
                   key={oven.id}
-                  className={`relative flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
+                  className={`relative flex items-center gap-3 p-3 sm:p-4 rounded-lg border cursor-pointer transition-all ${
                     isAvailable
                       ? "border-slate-600 hover:border-orange-500/50 has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10"
                       : "border-slate-700 bg-slate-800/30 opacity-50 cursor-not-allowed"
@@ -116,10 +131,11 @@ export default function BookPage() {
                     onChange={() => setSelectedOvenId(oven.id)}
                   />
                   <Flame className="h-5 w-5 text-orange-400 shrink-0" />
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-medium text-white">{oven.name}</p>
                     <p className="text-xs text-slate-400">
                       {oven.type === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
+                      {" · Max " + oven.maxTemp + "°C"}
                       {!isAvailable && " — Maintenance"}
                     </p>
                   </div>
@@ -129,8 +145,8 @@ export default function BookPage() {
           </div>
         </div>
 
-        {/* Date Range */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Date Range + Duration */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label htmlFor="startDate" className="block text-sm font-medium text-slate-300 mb-1.5">
               Start Date & Time
@@ -141,6 +157,7 @@ export default function BookPage() {
               type="datetime-local"
               required
               ref={startDateRef}
+              onChange={(e) => setStartDate(e.target.value)}
               className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
             />
           </div>
@@ -153,8 +170,63 @@ export default function BookPage() {
               name="endDate"
               type="datetime-local"
               required
+              onChange={(e) => setEndDate(e.target.value)}
               className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              Duration
+            </label>
+            <div className="flex items-center gap-2 h-[42px] px-3 py-2.5 rounded-lg bg-slate-900/60 border border-slate-700 text-slate-300">
+              <Clock className="h-4 w-4 text-slate-500 shrink-0" />
+              <span className="text-sm font-medium">{duration}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Temperature & Flap */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="usageTemp" className="block text-sm font-medium text-slate-300 mb-1.5">
+              Usage Temperature (°C)
+            </label>
+            <input
+              id="usageTemp"
+              name="usageTemp"
+              type="number"
+              required
+              min={1}
+              max={selectedOven?.maxTemp ?? 1000}
+              step={1}
+              placeholder={selectedOven ? `Max ${selectedOven.maxTemp}°C` : "Select oven first"}
+              className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+            />
+            {selectedOven && (
+              <p className="text-xs text-slate-500 mt-1">
+                Max for {selectedOven.name}: {selectedOven.maxTemp}°C
+              </p>
+            )}
+          </div>
+          <div>
+            <label htmlFor="flap" className="block text-sm font-medium text-slate-300 mb-1.5">
+              Flap Opening (%)
+            </label>
+            <input
+              id="flap"
+              name="flap"
+              type="number"
+              required
+              min={0}
+              max={100}
+              step={1}
+              defaultValue={0}
+              placeholder="0 – 100"
+              className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              Damper/vent opening percentage (0% = closed, 100% = fully open)
+            </p>
           </div>
         </div>
 
@@ -177,6 +249,7 @@ export default function BookPage() {
           <p>• Maximum booking duration: 7 days</p>
           <p>• Maximum 2 active bookings per user</p>
           <p>• Bookings cannot overlap on the same oven</p>
+          <p>• Usage temperature cannot exceed oven max temperature</p>
         </div>
 
         <button

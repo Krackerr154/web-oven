@@ -56,6 +56,9 @@ export default async function AdminOvensPage() {
                     {oven.description && (
                       <p className="text-sm text-slate-500 mt-1">{oven.description}</p>
                     )}
+                    <p className="text-sm text-slate-400 mt-1">
+                      Max Temp: <span className="text-white font-medium">{oven.maxTemp}°C</span>
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <div
@@ -79,6 +82,7 @@ export default async function AdminOvensPage() {
                       name: oven.name,
                       type: oven.type,
                       description: oven.description,
+                      maxTemp: oven.maxTemp,
                     }}
                     isMaintenance={isMaintenance}
                   />

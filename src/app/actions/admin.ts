@@ -155,6 +155,7 @@ const ovenSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   type: z.enum(["NON_AQUEOUS", "AQUEOUS"]),
   description: z.string().max(500).optional(),
+  maxTemp: z.coerce.number().int().min(1, "Max temp must be at least 1°C").max(1000, "Max temp cannot exceed 1000°C").default(200),
 });
 
 export async function createOven(formData: FormData): Promise<ActionResult> {
@@ -166,6 +167,7 @@ export async function createOven(formData: FormData): Promise<ActionResult> {
       name: formData.get("name"),
       type: formData.get("type"),
       description: formData.get("description") || undefined,
+      maxTemp: formData.get("maxTemp") || 200,
     });
 
     await prisma.oven.create({
@@ -173,6 +175,7 @@ export async function createOven(formData: FormData): Promise<ActionResult> {
         name: parsed.name,
         type: parsed.type,
         description: parsed.description || null,
+        maxTemp: parsed.maxTemp,
       },
     });
 
@@ -200,6 +203,7 @@ export async function updateOven(
       name: formData.get("name"),
       type: formData.get("type"),
       description: formData.get("description") || undefined,
+      maxTemp: formData.get("maxTemp") || 200,
     });
 
     await prisma.oven.update({
@@ -208,6 +212,7 @@ export async function updateOven(
         name: parsed.name,
         type: parsed.type,
         description: parsed.description || null,
+        maxTemp: parsed.maxTemp,
       },
     });
 

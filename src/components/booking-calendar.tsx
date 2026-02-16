@@ -17,6 +17,8 @@ type EventExtendedProps = {
   ovenType: string;
   userName: string;
   purpose: string;
+  usageTemp: number;
+  flap: number;
   isOwn: boolean;
 };
 
@@ -175,6 +177,14 @@ export default function BookingCalendar({
             <p>
               <span className="text-slate-300">Purpose:</span>{" "}
               {tooltip.data.purpose}
+            </p>
+            <p>
+              <span className="text-slate-300">Temp:</span>{" "}
+              {tooltip.data.usageTemp}°C
+            </p>
+            <p>
+              <span className="text-slate-300">Flap:</span>{" "}
+              {tooltip.data.flap}%
             </p>
           </div>
         </div>

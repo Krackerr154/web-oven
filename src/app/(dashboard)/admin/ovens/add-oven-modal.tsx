@@ -105,6 +105,22 @@ export function AddOvenModal() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                  Max Temperature (°C)
+                </label>
+                <input
+                  name="maxTemp"
+                  type="number"
+                  required
+                  defaultValue={200}
+                  min={1}
+                  max={1000}
+                  step={1}
+                  className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+                />
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"

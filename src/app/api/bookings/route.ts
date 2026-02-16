@@ -43,6 +43,8 @@ export async function GET(request: NextRequest) {
       ovenType: b.oven.type,
       userName: b.user.name,
       purpose: b.purpose,
+      usageTemp: b.usageTemp,
+      flap: b.flap,
       isOwn: b.userId === session.user.id,
     },
   }));

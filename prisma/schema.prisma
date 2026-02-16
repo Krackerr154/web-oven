@@ -71,6 +71,7 @@ model Oven {
   type        OvenType
   status      OvenStatus @default(AVAILABLE)
   description String?
+  maxTemp     Int        @default(200) @map("max_temp")
 
   bookings Booking[]
 
@@ -84,6 +85,8 @@ model Booking {
   startDate DateTime      @map("start_date")
   endDate   DateTime      @map("end_date")
   purpose   String
+  usageTemp Int           @map("usage_temp")
+  flap      Int           @default(0)
   status    BookingStatus @default(ACTIVE)
   createdAt DateTime      @default(now()) @map("created_at")
   updatedAt DateTime      @updatedAt @map("updated_at")
