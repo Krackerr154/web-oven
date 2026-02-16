@@ -85,7 +85,7 @@ model Booking {
   startDate DateTime      @map("start_date")
   endDate   DateTime      @map("end_date")
   purpose   String
-  usageTemp Int           @map("usage_temp")
+  usageTemp Int           @default(0) @map("usage_temp")
   flap      Int           @default(0)
   status    BookingStatus @default(ACTIVE)
   createdAt DateTime      @default(now()) @map("created_at")
