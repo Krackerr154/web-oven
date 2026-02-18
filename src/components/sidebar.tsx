@@ -35,7 +35,7 @@ export function Sidebar() {
   const isAdmin = session?.user?.role === "ADMIN";
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const NavContent = () => (
+  const navContent = (
     <>
       {/* Brand */}
       <div className="flex items-center gap-2 px-4 py-6 border-b border-slate-700">
@@ -147,7 +147,7 @@ export function Sidebar() {
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <NavContent />
+        {navContent}
       </aside>
     </>
   );

@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { differenceInDays } from "date-fns";
 import { parseWibDateTimeLocal } from "@/lib/utils";
+import type { Prisma } from "@/generated/prisma/client";
 
 type ActionResult = {
   success: boolean;
@@ -53,7 +54,7 @@ async function getAdminId() {
 }
 
 async function logBookingEvent(
-  tx: any,
+  tx: Prisma.TransactionClient,
   args: {
     bookingId: string;
     actorId?: string;
@@ -66,7 +67,7 @@ async function logBookingEvent(
       | "COMPLETED"
       | "REMOVED";
     note?: string;
-    payload?: any;
+    payload?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
   }
 ) {
   await tx.bookingEvent.create({

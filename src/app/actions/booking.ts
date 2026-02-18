@@ -7,6 +7,7 @@ import { z } from "zod";
 import { differenceInDays } from "date-fns";
 import { parseWibDateTimeLocal } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@/generated/prisma/client";
 
 const bookingSchema = z.object({
   ovenId: z.number().int().positive(),
@@ -29,26 +30,7 @@ export type BookingResult = {
 const CANCEL_WINDOW_MINUTES = 15;
 
 async function logBookingEvent(
-  tx: {
-    bookingEvent: {
-      create: (args: {
-        data: {
-          bookingId: string;
-          actorId?: string;
-          actorType: "USER" | "ADMIN" | "SYSTEM";
-          eventType:
-            | "CREATED"
-            | "EDITED"
-            | "CANCELLED"
-            | "AUTO_CANCELLED"
-            | "COMPLETED"
-            | "REMOVED";
-          note?: string;
-          payload?: unknown;
-        };
-      }) => Promise<unknown>;
-    };
-  },
+  tx: Prisma.TransactionClient,
   args: {
     bookingId: string;
     actorId?: string;
@@ -61,7 +43,7 @@ async function logBookingEvent(
       | "COMPLETED"
       | "REMOVED";
     note?: string;
-    payload?: unknown;
+    payload?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
   }
 ) {
   await tx.bookingEvent.create({
