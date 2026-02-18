@@ -1,6 +1,7 @@
 import { getAllUsers } from "@/app/actions/admin";
 import { format } from "date-fns";
 import { UserActionButtons } from "./action-buttons";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,14 @@ export default async function AdminUsersPage() {
                     <UserActionButtons userId={user.id} />
                   </div>
                 )}
+                <div className="pt-1">
+                  <Link
+                    href={`/admin/users/${user.id}`}
+                    className="text-xs text-orange-300 hover:text-orange-200"
+                  >
+                    View 6-month booking stats
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
@@ -126,9 +135,17 @@ export default async function AdminUsersPage() {
                         {user._count.bookings}
                       </td>
                       <td className="px-4 py-3">
-                        {user.status === "PENDING" && (
-                          <UserActionButtons userId={user.id} />
-                        )}
+                        <div className="flex items-center gap-3">
+                          {user.status === "PENDING" && (
+                            <UserActionButtons userId={user.id} />
+                          )}
+                          <Link
+                            href={`/admin/users/${user.id}`}
+                            className="text-xs text-orange-300 hover:text-orange-200"
+                          >
+                            Stats
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}

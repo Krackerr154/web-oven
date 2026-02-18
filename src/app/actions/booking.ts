@@ -5,11 +5,17 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { z } from "zod";
 import { differenceInDays } from "date-fns";
+import { parseWibDateTimeLocal } from "@/lib/utils";
+import { revalidatePath } from "next/cache";
 
 const bookingSchema = z.object({
   ovenId: z.number().int().positive(),
-  startDate: z.string().transform((s) => new Date(s)),
-  endDate: z.string().transform((s) => new Date(s)),
+  startDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Start date must use valid WIB date-time format"),
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "End date must use valid WIB date-time format"),
   purpose: z.string().min(3, "Purpose must be at least 3 characters"),
   usageTemp: z.number().int().min(1, "Usage temperature is required"),
   flap: z.number().int().min(0, "Flap must be 0-100%").max(100, "Flap must be 0-100%"),
@@ -19,6 +25,56 @@ export type BookingResult = {
   success: boolean;
   message: string;
 };
+
+const CANCEL_WINDOW_MINUTES = 15;
+
+async function logBookingEvent(
+  tx: {
+    bookingEvent: {
+      create: (args: {
+        data: {
+          bookingId: string;
+          actorId?: string;
+          actorType: "USER" | "ADMIN" | "SYSTEM";
+          eventType:
+            | "CREATED"
+            | "EDITED"
+            | "CANCELLED"
+            | "AUTO_CANCELLED"
+            | "COMPLETED"
+            | "REMOVED";
+          note?: string;
+          payload?: unknown;
+        };
+      }) => Promise<unknown>;
+    };
+  },
+  args: {
+    bookingId: string;
+    actorId?: string;
+    actorType: "USER" | "ADMIN" | "SYSTEM";
+    eventType:
+      | "CREATED"
+      | "EDITED"
+      | "CANCELLED"
+      | "AUTO_CANCELLED"
+      | "COMPLETED"
+      | "REMOVED";
+    note?: string;
+    payload?: unknown;
+  }
+) {
+  await tx.bookingEvent.create({
+    data: {
+      bookingId: args.bookingId,
+      actorId: args.actorId,
+      actorType: args.actorType,
+      eventType: args.eventType,
+      note: args.note,
+      payload: args.payload,
+    },
+  });
+}
 
 export async function createBooking(formData: FormData): Promise<BookingResult> {
   try {
@@ -45,7 +101,15 @@ export async function createBooking(formData: FormData): Promise<BookingResult> 
       return { success: false, message: parsed.error.issues[0].message };
     }
 
-    const { ovenId, startDate, endDate, purpose, usageTemp, flap } = parsed.data;
+    const { ovenId, purpose, usageTemp, flap } = parsed.data;
+
+    const startDate = parseWibDateTimeLocal(parsed.data.startDate);
+    const endDate = parseWibDateTimeLocal(parsed.data.endDate);
+
+    if (!startDate || !endDate) {
+      return { success: false, message: "Invalid booking date format (expected WIB local date-time)" };
+    }
+
     const userId = session.user.id;
 
     // ── Rule: Max 7 days duration ───────────────────────────────────
@@ -94,6 +158,7 @@ export async function createBooking(formData: FormData): Promise<BookingResult> 
         where: {
           ovenId,
           status: "ACTIVE",
+          deletedAt: null,
           startDate: { lt: endDate },
           endDate: { gt: startDate },
         },
@@ -107,7 +172,7 @@ export async function createBooking(formData: FormData): Promise<BookingResult> 
       }
 
       // All checks passed — create booking
-      await tx.booking.create({
+      const createdBooking = await tx.booking.create({
         data: {
           userId,
           ovenId,
@@ -118,6 +183,13 @@ export async function createBooking(formData: FormData): Promise<BookingResult> 
           flap,
           status: "ACTIVE",
         },
+      });
+
+      await logBookingEvent(tx, {
+        bookingId: createdBooking.id,
+        actorId: userId,
+        actorType: session.user.role === "ADMIN" ? "ADMIN" : "USER",
+        eventType: "CREATED",
       });
 
       return { success: true, message: "Booking created successfully!" };
@@ -145,6 +217,10 @@ export async function cancelBooking(bookingId: string): Promise<BookingResult> {
       return { success: false, message: "Booking not found" };
     }
 
+    if (booking.deletedAt) {
+      return { success: false, message: "This booking has been removed" };
+    }
+
     // Users can only cancel their own bookings; admins can cancel any
     if (booking.userId !== session.user.id && session.user.role !== "ADMIN") {
       return { success: false, message: "You can only cancel your own bookings" };
@@ -154,14 +230,80 @@ export async function cancelBooking(bookingId: string): Promise<BookingResult> {
       return { success: false, message: "Only active bookings can be cancelled" };
     }
 
-    await prisma.booking.update({
-      where: { id: bookingId },
-      data: { status: "CANCELLED" },
+    const isAdmin = session.user.role === "ADMIN";
+    if (!isAdmin) {
+      const cancelDeadline = new Date(booking.createdAt.getTime() + CANCEL_WINDOW_MINUTES * 60 * 1000);
+      if (new Date() > cancelDeadline) {
+        return {
+          success: false,
+          message: "Cancellation window has passed (15 minutes). Please contact admin.",
+        };
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: "CANCELLED",
+          cancelledAt: new Date(),
+          cancelledById: session.user.id,
+          cancelReason: isAdmin ? "Cancelled by admin" : "Cancelled by user",
+        },
+      });
+
+      await logBookingEvent(tx, {
+        bookingId,
+        actorId: session.user.id,
+        actorType: isAdmin ? "ADMIN" : "USER",
+        eventType: "CANCELLED",
+        note: isAdmin ? "Admin override cancellation" : "Cancelled within 15-minute window",
+      });
     });
+
+    revalidatePath("/my-bookings");
+    revalidatePath("/admin/bookings");
+    revalidatePath("/");
 
     return { success: true, message: "Booking cancelled successfully" };
   } catch (error) {
     console.error("Cancel booking error:", error);
     return { success: false, message: "An unexpected error occurred" };
   }
+}
+
+export async function getMyBookingDetail(bookingId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return null;
+
+  const booking = await prisma.booking.findFirst({
+    where: {
+      id: bookingId,
+      userId: session.user.id,
+      deletedAt: null,
+    },
+    include: {
+      oven: true,
+      user: {
+        select: {
+          name: true,
+          email: true,
+          phone: true,
+        },
+      },
+      events: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          actor: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return booking;
 }

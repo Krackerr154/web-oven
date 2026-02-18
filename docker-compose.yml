@@ -26,6 +26,8 @@ services:
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@g-labs.local}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - ADMIN_NAME=${ADMIN_NAME:-Gerald}
+      - TZ=Asia/Jakarta
+      - PGTZ=Asia/Jakarta
     networks:
       - x01_net
 

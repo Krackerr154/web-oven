@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Flame, Clock, User, AlertTriangle } from "lucide-react";
-import { format } from "date-fns";
+import { formatDateTimeWib, formatDateWib, formatMonthDayWib } from "@/lib/utils";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function DashboardPage() {
       bookings: {
         where: {
           status: "ACTIVE",
+          deletedAt: null,
           startDate: { lte: new Date() },
           endDate: { gte: new Date() },
         },
@@ -27,7 +29,7 @@ export default async function DashboardPage() {
 
   const userBookings = session?.user?.id
     ? await prisma.booking.findMany({
-        where: { userId: session.user.id, status: "ACTIVE" },
+        where: { userId: session.user.id, status: "ACTIVE", deletedAt: null },
         include: { oven: { select: { name: true, type: true } } },
         orderBy: { startDate: "asc" },
       })
@@ -105,7 +107,7 @@ export default async function DashboardPage() {
                   <div className="flex items-center gap-2 text-sm text-slate-300">
                     <Clock className="h-4 w-4" />
                     <span>
-                      Until {format(new Date(currentBooking.endDate), "MMM d, yyyy HH:mm")}
+                      Until {formatDateTimeWib(currentBooking.endDate)}
                     </span>
                   </div>
                 </div>
@@ -143,8 +145,9 @@ export default async function DashboardPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {userBookings.map((booking) => (
-              <div
+              <Link
                 key={booking.id}
+                href={`/my-bookings/${booking.id}`}
                 className="rounded-xl border border-slate-700 bg-slate-800/50 p-5"
               >
                 <div className="flex items-center justify-between mb-3">
@@ -155,12 +158,11 @@ export default async function DashboardPage() {
                 </div>
                 <div className="space-y-1 text-sm text-slate-400">
                   <p>
-                    {format(new Date(booking.startDate), "MMM d")} —{" "}
-                    {format(new Date(booking.endDate), "MMM d, yyyy")}
+                    {formatMonthDayWib(booking.startDate)} — {formatDateWib(booking.endDate)}
                   </p>
                   <p className="truncate">{booking.purpose}</p>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

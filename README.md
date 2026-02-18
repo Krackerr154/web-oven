@@ -49,6 +49,12 @@ Copy `.env.example` to `.env` and fill in values:
 | `ADMIN_PASSWORD` | Bootstrap admin password |
 | `ADMIN_NAME` | Bootstrap admin display name |
 
+### Timezone Policy (WIB)
+
+- Booking input and display are fixed to **WIB** (`Asia/Jakarta`).
+- App persists booking moments as UTC instants derived from WIB input (no legacy data migration in this change).
+- Runtime container timezone is pinned with `TZ=Asia/Jakarta` and `PGTZ=Asia/Jakarta` in Docker Compose.
+
 ## Deploy
 
 ```bash

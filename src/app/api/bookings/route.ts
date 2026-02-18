@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
 
   const where: Record<string, unknown> = {
     status: "ACTIVE",
+    deletedAt: null,
   };
 
   if (ovenId) {

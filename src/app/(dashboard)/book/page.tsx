@@ -78,7 +78,7 @@ export default function BookPage() {
       <div>
         <h1 className="text-2xl font-bold text-white">Book an Oven</h1>
         <p className="text-slate-400 mt-1">
-          Select an oven and choose your time slot (max 7 days)
+          Select an oven and choose your time slot in WIB (max 7 days)
         </p>
       </div>
 
@@ -149,7 +149,7 @@ export default function BookPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label htmlFor="startDate" className="block text-sm font-medium text-slate-300 mb-1.5">
-              Start Date & Time
+              Start Date & Time (WIB)
             </label>
             <input
               id="startDate"
@@ -163,7 +163,7 @@ export default function BookPage() {
           </div>
           <div>
             <label htmlFor="endDate" className="block text-sm font-medium text-slate-300 mb-1.5">
-              End Date & Time
+              End Date & Time (WIB)
             </label>
             <input
               id="endDate"

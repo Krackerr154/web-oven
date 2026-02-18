@@ -1,6 +1,7 @@
 import { getAllBookings } from "@/app/actions/admin";
-import { format } from "date-fns";
-import { formatDuration } from "@/lib/utils";
+import { formatDateTimeWib, formatDuration } from "@/lib/utils";
+import Link from "next/link";
+import { BookingActionButtons } from "./action-buttons";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +36,10 @@ export default async function AdminBookingsPage() {
                 className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div>
+                  <Link href={`/admin/bookings/${booking.id}`} className="block hover:opacity-90">
                     <p className="font-medium text-white">{booking.user.name}</p>
                     <p className="text-xs text-slate-400">{booking.user.email}</p>
-                  </div>
+                  </Link>
                   <span
                     className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${
                       statusStyles[booking.status] || ""
@@ -60,13 +61,13 @@ export default async function AdminBookingsPage() {
                   <div>
                     <p className="text-xs text-slate-500">Start</p>
                     <p className="text-slate-300">
-                      {format(new Date(booking.startDate), "MMM d, yyyy HH:mm")}
+                      {formatDateTimeWib(booking.startDate)}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">End</p>
                     <p className="text-slate-300">
-                      {format(new Date(booking.endDate), "MMM d, yyyy HH:mm")}
+                      {formatDateTimeWib(booking.endDate)}
                     </p>
                   </div>
                   <div>
@@ -86,6 +87,7 @@ export default async function AdminBookingsPage() {
                   <p className="text-xs text-slate-500">Purpose</p>
                   <p className="text-sm text-slate-300">{booking.purpose}</p>
                 </div>
+                <BookingActionButtons bookingId={booking.id} status={booking.status} />
               </div>
             ))}
           </div>
@@ -105,14 +107,17 @@ export default async function AdminBookingsPage() {
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Flap</th>
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Purpose</th>
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Status</th>
+                    <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/50">
                   {bookings.map((booking) => (
                     <tr key={booking.id} className="hover:bg-slate-700/20">
                       <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-white">{booking.user.name}</p>
-                        <p className="text-xs text-slate-400">{booking.user.email}</p>
+                        <Link href={`/admin/bookings/${booking.id}`} className="block hover:opacity-90">
+                          <p className="text-sm font-medium text-white">{booking.user.name}</p>
+                          <p className="text-xs text-slate-400">{booking.user.email}</p>
+                        </Link>
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-sm text-white">{booking.oven.name}</p>
@@ -121,10 +126,10 @@ export default async function AdminBookingsPage() {
                         </p>
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
-                        {format(new Date(booking.startDate), "MMM d, yyyy HH:mm")}
+                        {formatDateTimeWib(booking.startDate)}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
-                        {format(new Date(booking.endDate), "MMM d, yyyy HH:mm")}
+                        {formatDateTimeWib(booking.endDate)}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
                         {formatDuration(booking.startDate, booking.endDate)}
@@ -144,6 +149,9 @@ export default async function AdminBookingsPage() {
                         }`}>
                           {booking.status.replace("_", " ")}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <BookingActionButtons bookingId={booking.id} status={booking.status} />
                       </td>
                     </tr>
                   ))}

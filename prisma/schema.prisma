@@ -47,6 +47,25 @@ enum BookingStatus {
   @@map("oven_booking_status")
 }
 
+enum BookingEventType {
+  CREATED
+  EDITED
+  CANCELLED
+  AUTO_CANCELLED
+  COMPLETED
+  REMOVED
+
+  @@map("oven_booking_event_type")
+}
+
+enum BookingActorType {
+  USER
+  ADMIN
+  SYSTEM
+
+  @@map("oven_booking_actor_type")
+}
+
 // ─── Models ──────────────────────────────────────────────────────────
 
 model User {
@@ -60,7 +79,10 @@ model User {
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
-  bookings Booking[]
+  bookings          Booking[]
+  cancelledBookings Booking[]     @relation("booking_cancelled_by")
+  deletedBookings   Booking[]     @relation("booking_deleted_by")
+  bookingEvents     BookingEvent[] @relation("booking_event_actor")
 
   @@map("oven_users")
 }
@@ -88,12 +110,39 @@ model Booking {
   usageTemp Int           @default(0) @map("usage_temp")
   flap      Int           @default(0)
   status    BookingStatus @default(ACTIVE)
+  cancelledAt   DateTime? @map("cancelled_at")
+  cancelledById String?   @map("cancelled_by_id")
+  cancelReason  String?   @map("cancel_reason")
+  deletedAt     DateTime? @map("deleted_at")
+  deletedById   String?   @map("deleted_by_id")
   createdAt DateTime      @default(now()) @map("created_at")
   updatedAt DateTime      @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id])
   oven Oven @relation(fields: [ovenId], references: [id])
+  cancelledBy User? @relation("booking_cancelled_by", fields: [cancelledById], references: [id])
+  deletedBy User? @relation("booking_deleted_by", fields: [deletedById], references: [id])
+  events BookingEvent[]
 
   @@index([ovenId, startDate, endDate])
+  @@index([deletedAt])
   @@map("oven_bookings")
+}
+
+model BookingEvent {
+  id        String           @id @default(uuid())
+  bookingId String           @map("booking_id")
+  actorId   String?          @map("actor_id")
+  actorType BookingActorType @default(SYSTEM) @map("actor_type")
+  eventType BookingEventType @map("event_type")
+  note      String?
+  payload   Json?
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  actor   User?   @relation("booking_event_actor", fields: [actorId], references: [id])
+
+  @@index([bookingId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("oven_booking_events")
 }

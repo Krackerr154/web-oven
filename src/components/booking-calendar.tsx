@@ -6,6 +6,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
 import type { EventInput, EventClickArg } from "@fullcalendar/core";
 import { CalendarDays, X } from "lucide-react";
+import { formatDateTimeWib, WIB_TIME_ZONE } from "@/lib/utils";
 
 type BookingCalendarProps = {
   selectedOvenId: number | null;
@@ -59,12 +60,7 @@ export default function BookingCalendar({
   }, [fetchEvents]);
 
   function handleDateClick(info: DateClickArg) {
-    // Convert clicked date to datetime-local format
-    const date = new Date(info.dateStr);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const formatted = `${year}-${month}-${day}T08:00`;
+    const formatted = `${info.dateStr}T08:00`;
     onDateClick?.(formatted);
   }
 
@@ -121,6 +117,7 @@ export default function BookingCalendar({
         <FullCalendar
           plugins={[dayGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
+          timeZone={WIB_TIME_ZONE}
           events={events}
           dateClick={handleDateClick}
           eventClick={handleEventClick}
@@ -168,11 +165,11 @@ export default function BookingCalendar({
             </p>
             <p>
               <span className="text-slate-300">Start:</span>{" "}
-              {new Date(tooltip.start).toLocaleString()}
+              {formatDateTimeWib(tooltip.start)}
             </p>
             <p>
               <span className="text-slate-300">End:</span>{" "}
-              {new Date(tooltip.end).toLocaleString()}
+              {formatDateTimeWib(tooltip.end)}
             </p>
             <p>
               <span className="text-slate-300">Purpose:</span>{" "}

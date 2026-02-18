@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { format } from "date-fns";
 import { CancelBookingButton } from "./cancel-button";
-import { formatDuration } from "@/lib/utils";
+import { formatDateTimeWib, formatDuration, getCancellationWindowInfo } from "@/lib/utils";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export default async function MyBookingsPage() {
   const session = await getServerSession(authOptions);
 
   const bookings = await prisma.booking.findMany({
-    where: { userId: session?.user?.id },
+    where: { userId: session?.user?.id, deletedAt: null },
     include: {
       oven: { select: { name: true, type: true } },
     },
@@ -45,32 +45,34 @@ export default async function MyBookingsPage() {
                 key={booking.id}
                 className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-white">{booking.oven.name}</p>
-                    <p className="text-xs text-slate-400">
-                      {booking.oven.type === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
-                    </p>
+                <Link href={`/my-bookings/${booking.id}`} className="block">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-white">{booking.oven.name}</p>
+                      <p className="text-xs text-slate-400">
+                        {booking.oven.type === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${
+                        statusStyles[booking.status] || ""
+                      }`}
+                    >
+                      {booking.status.replace("_", " ")}
+                    </span>
                   </div>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${
-                      statusStyles[booking.status] || ""
-                    }`}
-                  >
-                    {booking.status.replace("_", " ")}
-                  </span>
-                </div>
+                </Link>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <p className="text-xs text-slate-500">Start</p>
                     <p className="text-slate-300">
-                      {format(new Date(booking.startDate), "MMM d, yyyy HH:mm")}
+                      {formatDateTimeWib(booking.startDate)}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">End</p>
                     <p className="text-slate-300">
-                      {format(new Date(booking.endDate), "MMM d, yyyy HH:mm")}
+                      {formatDateTimeWib(booking.endDate)}
                     </p>
                   </div>
                   <div>
@@ -92,7 +94,19 @@ export default async function MyBookingsPage() {
                 </div>
                 {booking.status === "ACTIVE" && (
                   <div className="pt-2 border-t border-slate-700/50">
-                    <CancelBookingButton bookingId={booking.id} />
+                    {(() => {
+                      const cancelInfo = getCancellationWindowInfo(booking.createdAt, 15);
+                      return (
+                        <div className="space-y-1">
+                          <CancelBookingButton bookingId={booking.id} />
+                          <p className="text-[11px] text-slate-500">
+                            {cancelInfo.canCancel
+                              ? `Can be cancelled for ${cancelInfo.minutesRemaining} more minute(s)`
+                              : "Cancellation window passed. Please contact admin."}
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
@@ -120,18 +134,18 @@ export default async function MyBookingsPage() {
                   {bookings.map((booking) => (
                     <tr key={booking.id} className="hover:bg-slate-700/20">
                       <td className="px-4 py-3">
-                        <div>
+                        <Link href={`/my-bookings/${booking.id}`} className="block hover:opacity-90">
                           <p className="text-sm font-medium text-white">{booking.oven.name}</p>
                           <p className="text-xs text-slate-400">
                             {booking.oven.type === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
                           </p>
-                        </div>
+                        </Link>
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
-                        {format(new Date(booking.startDate), "MMM d, yyyy HH:mm")}
+                        {formatDateTimeWib(booking.startDate)}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
-                        {format(new Date(booking.endDate), "MMM d, yyyy HH:mm")}
+                        {formatDateTimeWib(booking.endDate)}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300">
                         {formatDuration(booking.startDate, booking.endDate)}
@@ -156,7 +170,19 @@ export default async function MyBookingsPage() {
                       </td>
                       <td className="px-4 py-3">
                         {booking.status === "ACTIVE" && (
-                          <CancelBookingButton bookingId={booking.id} />
+                          <div className="space-y-1">
+                            <CancelBookingButton bookingId={booking.id} />
+                            {(() => {
+                              const cancelInfo = getCancellationWindowInfo(booking.createdAt, 15);
+                              return (
+                                <p className="text-[11px] text-slate-500">
+                                  {cancelInfo.canCancel
+                                    ? `${cancelInfo.minutesRemaining}m left`
+                                    : "Contact admin"}
+                                </p>
+                              );
+                            })()}
+                          </div>
                         )}
                       </td>
                     </tr>
