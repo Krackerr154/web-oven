@@ -2,7 +2,8 @@ node_modules
 .next
 .git
 .env
-.env.local
+.env.*
 *.md
 .vscode
 .idea
+.gemini

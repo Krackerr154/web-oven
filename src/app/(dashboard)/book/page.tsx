@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createBooking } from "@/app/actions/booking";
 import { useRouter } from "next/navigation";
 import { CalendarPlus, Loader2, Flame, Clock, AlertCircle } from "lucide-react";
-import BookingCalendar from "@/components/booking-calendar";
+import DateTimePicker from "@/components/date-time-picker";
 import { formatDuration } from "@/lib/utils";
 import { useToast } from "@/components/toast";
 
@@ -24,10 +24,8 @@ export default function BookPage() {
   const [selectedOvenId, setSelectedOvenId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [calendarKey, setCalendarKey] = useState(0);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const startDateRef = useRef<HTMLInputElement>(null);
 
   const selectedOven = useMemo(
     () => ovens.find((o) => o.id === selectedOvenId) ?? null,
@@ -60,14 +58,6 @@ export default function BookPage() {
       .catch(() => setError("Failed to load ovens"));
   }, []);
 
-  function handleDateClick(dateStr: string) {
-    if (startDateRef.current) {
-      startDateRef.current.value = dateStr;
-      setStartDate(dateStr);
-      startDateRef.current.focus();
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
@@ -80,7 +70,6 @@ export default function BookPage() {
 
     if (result.success) {
       toast.success(result.message);
-      setCalendarKey((k) => k + 1);
       router.push("/my-bookings");
     } else {
       setError(result.message);
@@ -98,7 +87,7 @@ export default function BookPage() {
 
       <form
         onSubmit={handleSubmit}
-        className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6 space-y-5"
+        className="space-y-5"
       >
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300 flex items-start gap-2">
@@ -107,9 +96,9 @@ export default function BookPage() {
           </div>
         )}
 
-        {/* Oven Selection — First */}
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
+        {/* Oven Selection */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
+          <label className="block text-sm font-medium text-slate-300 mb-3">
             Select Oven
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -119,8 +108,8 @@ export default function BookPage() {
                 <label
                   key={oven.id}
                   className={`relative flex items-center gap-3 p-3 sm:p-4 rounded-lg border cursor-pointer transition-all ${isAvailable
-                      ? "border-slate-600 hover:border-orange-500/50 has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10"
-                      : "border-slate-700 bg-slate-800/30 opacity-50 cursor-not-allowed"
+                    ? "border-slate-600 hover:border-orange-500/50 has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10"
+                    : "border-slate-700 bg-slate-800/30 opacity-50 cursor-not-allowed"
                     }`}
                 >
                   <input
@@ -147,45 +136,24 @@ export default function BookPage() {
           </div>
         </div>
 
-        {/* Date Range + Duration */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label htmlFor="startDate" className="block text-sm font-medium text-slate-300 mb-1.5">
-              Start Date & Time (WIB)
-            </label>
-            <input
-              id="startDate"
-              name="startDate"
-              type="datetime-local"
-              required
-              ref={startDateRef}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
-            />
+        {/* Date/Time Picker — replaces datetime-local inputs + reference calendar */}
+        <DateTimePicker
+          ovenId={selectedOvenId}
+          startValue={startDate}
+          endValue={endDate}
+          onStartChange={setStartDate}
+          onEndChange={setEndDate}
+        />
+
+        {/* Duration display */}
+        {(startDate || endDate) && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-slate-800/50 border border-slate-700">
+            <Clock className="h-4 w-4 text-slate-500 shrink-0" />
+            <span className="text-sm text-slate-300">
+              Duration: <span className="font-medium text-white">{duration}</span>
+            </span>
           </div>
-          <div>
-            <label htmlFor="endDate" className="block text-sm font-medium text-slate-300 mb-1.5">
-              End Date & Time (WIB)
-            </label>
-            <input
-              id="endDate"
-              name="endDate"
-              type="datetime-local"
-              required
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1.5">
-              Duration
-            </label>
-            <div className="flex items-center gap-2 h-[42px] px-3 py-2.5 rounded-lg bg-slate-900/60 border border-slate-700 text-slate-300">
-              <Clock className="h-4 w-4 text-slate-500 shrink-0" />
-              <span className="text-sm font-medium">{duration}</span>
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Client-side duration warning */}
         {durationWarning && (
@@ -196,58 +164,60 @@ export default function BookPage() {
         )}
 
         {/* Temperature & Flap — disabled until oven selected */}
-        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 transition-opacity ${ovenSelected ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
-          <div>
-            <label htmlFor="usageTemp" className="block text-sm font-medium text-slate-300 mb-1.5">
-              Usage Temperature (°C)
-            </label>
-            <input
-              id="usageTemp"
-              name="usageTemp"
-              type="number"
-              required
-              min={1}
-              max={selectedOven?.maxTemp ?? 1000}
-              step={1}
-              placeholder={selectedOven ? `Max ${selectedOven.maxTemp}°C` : "Select oven first"}
-              className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
-            />
-            {selectedOven && (
+        <div className={`bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6 transition-opacity ${ovenSelected ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="usageTemp" className="block text-sm font-medium text-slate-300 mb-1.5">
+                Usage Temperature (°C)
+              </label>
+              <input
+                id="usageTemp"
+                name="usageTemp"
+                type="number"
+                required
+                min={1}
+                max={selectedOven?.maxTemp ?? 1000}
+                step={1}
+                placeholder={selectedOven ? `Max ${selectedOven.maxTemp}°C` : "Select oven first"}
+                className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+              />
+              {selectedOven && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Max for {selectedOven.name}: {selectedOven.maxTemp}°C
+                </p>
+              )}
+            </div>
+            <div>
+              <label htmlFor="flap" className="block text-sm font-medium text-slate-300 mb-1.5">
+                Flap Opening (%)
+              </label>
+              <input
+                id="flap"
+                name="flap"
+                type="number"
+                required
+                min={0}
+                max={100}
+                step={1}
+                defaultValue={0}
+                placeholder="0 – 100"
+                className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+              />
               <p className="text-xs text-slate-500 mt-1">
-                Max for {selectedOven.name}: {selectedOven.maxTemp}°C
+                Damper/vent opening percentage (0% = closed, 100% = fully open)
               </p>
-            )}
+            </div>
           </div>
-          <div>
-            <label htmlFor="flap" className="block text-sm font-medium text-slate-300 mb-1.5">
-              Flap Opening (%)
-            </label>
-            <input
-              id="flap"
-              name="flap"
-              type="number"
-              required
-              min={0}
-              max={100}
-              step={1}
-              defaultValue={0}
-              placeholder="0 – 100"
-              className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
-            />
-            <p className="text-xs text-slate-500 mt-1">
-              Damper/vent opening percentage (0% = closed, 100% = fully open)
+
+          {!ovenSelected && (
+            <p className="text-xs text-slate-500 italic mt-3">
+              ↑ Select an oven above to enable these fields
             </p>
-          </div>
+          )}
         </div>
 
-        {!ovenSelected && (
-          <p className="text-xs text-slate-500 italic">
-            ↑ Select an oven above to enable temperature and flap fields
-          </p>
-        )}
-
         {/* Purpose */}
-        <div>
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
           <label htmlFor="purpose" className="block text-sm font-medium text-slate-300 mb-1.5">
             Purpose
           </label>
@@ -270,7 +240,7 @@ export default function BookPage() {
 
         <button
           type="submit"
-          disabled={loading || !!durationWarning}
+          disabled={loading || !!durationWarning || !startDate || !endDate}
           className="w-full py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {loading ? (
@@ -286,19 +256,6 @@ export default function BookPage() {
           )}
         </button>
       </form>
-
-      {/* Calendar — Reference view below the form */}
-      <div>
-        <h2 className="text-lg font-semibold text-white mb-3">Booking Calendar</h2>
-        <p className="text-xs text-slate-400 mb-3">
-          Click a date to auto-fill the start time. Colors: orange = Non-Aqueous, blue = Aqueous.
-        </p>
-        <BookingCalendar
-          key={calendarKey}
-          selectedOvenId={selectedOvenId}
-          onDateClick={handleDateClick}
-        />
-      </div>
     </div>
   );
 }

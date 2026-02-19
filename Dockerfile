@@ -1,9 +1,10 @@
+# syntax=docker/dockerfile:1
 # ─── Stage 1: Dependencies ────────────────────────────────────────────
 FROM node:20-alpine AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline
 
 # ─── Stage 2: Builder ────────────────────────────────────────────────
 FROM node:20-alpine AS builder
@@ -43,7 +44,7 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 # Install runtime deps needed for prisma db push, seed, and adapter
-RUN npm install prisma @prisma/adapter-pg pg postgres-array dotenv bcryptjs tsx typescript @types/node
+RUN --mount=type=cache,target=/root/.npm npm install --no-save prisma @prisma/adapter-pg pg postgres-array dotenv bcryptjs tsx typescript @types/node
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
