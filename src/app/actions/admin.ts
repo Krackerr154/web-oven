@@ -8,6 +8,7 @@ import { z } from "zod";
 import { differenceInDays } from "date-fns";
 import { parseWibDateTimeLocal } from "@/lib/utils";
 import type { Prisma } from "@/generated/prisma/client";
+import { hash } from "bcryptjs";
 
 type ActionResult = {
   success: boolean;
@@ -94,6 +95,69 @@ function revalidateBookingPaths(bookingId?: string) {
 }
 
 // ─── User Management ─────────────────────────────────────────────────
+
+const createUserSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  phone: z.string().min(8, "Phone must be at least 8 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  role: z.enum(["USER", "ADMIN"]),
+});
+
+export async function createUser(formData: FormData): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
+  try {
+    const raw = {
+      name: formData.get("name"),
+      email: formData.get("email"),
+      phone: formData.get("phone"),
+      password: formData.get("password"),
+      role: formData.get("role"),
+    };
+
+    const parsed = createUserSchema.parse(raw);
+
+    // Check uniqueness
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: parsed.email }, { phone: parsed.phone }],
+      },
+    });
+
+    if (existingUser) {
+      return {
+        success: false,
+        message:
+          existingUser.email === parsed.email
+            ? "Email already registered"
+            : "Phone number already registered",
+      };
+    }
+
+    const passwordHash = await hash(parsed.password, 12);
+
+    await prisma.user.create({
+      data: {
+        name: parsed.name,
+        email: parsed.email,
+        phone: parsed.phone,
+        passwordHash,
+        role: parsed.role,
+        status: "APPROVED", // Auto-approve admin created users
+      },
+    });
+
+    revalidatePath("/admin/users");
+    return { success: true, message: "User created successfully" };
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return { success: false, message: err.issues[0]?.message || "Validation failed" };
+    }
+    return { success: false, message: "Failed to create user" };
+  }
+}
 
 export async function approveUser(userId: string): Promise<ActionResult> {
   const guard = await requireAdmin();
