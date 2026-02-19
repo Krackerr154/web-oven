@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
   // Map to FullCalendar event format
   const events = bookings.map((b) => ({
     id: b.id,
+    ovenId: b.ovenId,
     title: `${b.oven.name} — ${b.userId === session.user.id ? "You" : b.user.name}`,
     start: b.startDate.toISOString(),
     end: b.endDate.toISOString(),

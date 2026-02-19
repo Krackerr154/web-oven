@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { createBooking } from "@/app/actions/booking";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Loader2, Flame, Clock, AlertCircle } from "lucide-react";
+import { CalendarPlus, Loader2, Flame, Clock, AlertCircle, AlertTriangle } from "lucide-react";
 import DateTimePicker from "@/components/date-time-picker";
 import { formatDuration } from "@/lib/utils";
 import { useToast } from "@/components/toast";
@@ -17,6 +17,8 @@ type Oven = {
   maxTemp: number;
 };
 
+const FLAP_VALUES = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+
 export default function BookPage() {
   const router = useRouter();
   const toast = useToast();
@@ -26,6 +28,9 @@ export default function BookPage() {
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [hasConflict, setHasConflict] = useState(false);
+  const [usageTemp, setUsageTemp] = useState("");
+  const [flap, setFlap] = useState(0);
 
   const selectedOven = useMemo(
     () => ovens.find((o) => o.id === selectedOvenId) ?? null,
@@ -37,19 +42,31 @@ export default function BookPage() {
     return formatDuration(startDate, endDate);
   }, [startDate, endDate]);
 
-  // Client-side validation warnings
+  // Duration validation
   const durationWarning = useMemo(() => {
     if (!startDate || !endDate) return null;
     const start = new Date(startDate);
     const end = new Date(endDate);
     if (end <= start) return "End date must be after start date";
-    const diffMs = end.getTime() - start.getTime();
-    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    const diffDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
     if (diffDays > 7) return "Maximum booking duration is 7 days";
     return null;
   }, [startDate, endDate]);
 
+  // Temp validation — inline alert
+  const tempWarning = useMemo(() => {
+    if (!usageTemp || !selectedOven) return null;
+    const t = Number(usageTemp);
+    if (isNaN(t)) return null;
+    if (t > selectedOven.maxTemp) {
+      return `Temperature exceeds ${selectedOven.name} max of ${selectedOven.maxTemp}°C`;
+    }
+    if (t <= 0) return "Temperature must be greater than 0°C";
+    return null;
+  }, [usageTemp, selectedOven]);
+
   const ovenSelected = selectedOvenId !== null;
+  const canSubmit = !loading && !durationWarning && !hasConflict && !tempWarning && !!startDate && !!endDate;
 
   useEffect(() => {
     fetch("/api/ovens")
@@ -85,10 +102,7 @@ export default function BookPage() {
         </p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-5"
-      >
+      <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300 flex items-start gap-2">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -136,13 +150,15 @@ export default function BookPage() {
           </div>
         </div>
 
-        {/* Date/Time Picker — replaces datetime-local inputs + reference calendar */}
+        {/* Date/Time Picker */}
         <DateTimePicker
           ovenId={selectedOvenId}
+          ovens={ovens}
           startValue={startDate}
           endValue={endDate}
           onStartChange={setStartDate}
           onEndChange={setEndDate}
+          onConflict={setHasConflict}
         />
 
         {/* Duration display */}
@@ -155,7 +171,7 @@ export default function BookPage() {
           </div>
         )}
 
-        {/* Client-side duration warning */}
+        {/* Duration warning */}
         {durationWarning && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-sm text-amber-300 flex items-start gap-2">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -163,9 +179,10 @@ export default function BookPage() {
           </div>
         )}
 
-        {/* Temperature & Flap — disabled until oven selected */}
+        {/* Temperature & Flap */}
         <div className={`bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6 transition-opacity ${ovenSelected ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Temperature */}
             <div>
               <label htmlFor="usageTemp" className="block text-sm font-medium text-slate-300 mb-1.5">
                 Usage Temperature (°C)
@@ -178,33 +195,47 @@ export default function BookPage() {
                 min={1}
                 max={selectedOven?.maxTemp ?? 1000}
                 step={1}
+                value={usageTemp}
+                onChange={(e) => setUsageTemp(e.target.value)}
                 placeholder={selectedOven ? `Max ${selectedOven.maxTemp}°C` : "Select oven first"}
-                className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+                className={`w-full px-3 py-2.5 rounded-lg bg-slate-900 border text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 ${tempWarning ? "border-red-500/60" : "border-slate-600"
+                  }`}
               />
-              {selectedOven && (
+              {tempWarning ? (
+                <div className="flex items-center gap-1.5 mt-1.5 text-xs text-red-400 bg-red-500/10 rounded-md px-2.5 py-1.5 animate-toast-in">
+                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  {tempWarning}
+                </div>
+              ) : selectedOven ? (
                 <p className="text-xs text-slate-500 mt-1">
                   Max for {selectedOven.name}: {selectedOven.maxTemp}°C
                 </p>
-              )}
+              ) : null}
             </div>
+
+            {/* Flap — button row at 10% increments */}
             <div>
-              <label htmlFor="flap" className="block text-sm font-medium text-slate-300 mb-1.5">
-                Flap Opening (%)
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Flap Opening
               </label>
-              <input
-                id="flap"
-                name="flap"
-                type="number"
-                required
-                min={0}
-                max={100}
-                step={1}
-                defaultValue={0}
-                placeholder="0 – 100"
-                className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
-              />
-              <p className="text-xs text-slate-500 mt-1">
-                Damper/vent opening percentage (0% = closed, 100% = fully open)
+              <div className="flex flex-wrap gap-1.5">
+                {FLAP_VALUES.map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setFlap(v)}
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${flap === v
+                        ? "bg-orange-500 text-white shadow-sm"
+                        : "bg-slate-900 text-slate-400 border border-slate-600 hover:border-orange-500/50 hover:text-slate-200"
+                      }`}
+                  >
+                    {v}%
+                  </button>
+                ))}
+              </div>
+              <input type="hidden" name="flap" value={flap} />
+              <p className="text-xs text-slate-500 mt-1.5">
+                Damper/vent opening (0% = closed, 100% = fully open)
               </p>
             </div>
           </div>
@@ -240,7 +271,7 @@ export default function BookPage() {
 
         <button
           type="submit"
-          disabled={loading || !!durationWarning || !startDate || !endDate}
+          disabled={!canSubmit}
           className="w-full py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {loading ? (
