@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { UserActionButtons } from "./action-buttons";
 import Link from "next/link";
 import { AddUserModal } from "./add-user-modal";
+import { Users } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function AdminUsersPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">User Management</h1>
@@ -27,6 +28,7 @@ export default async function AdminUsersPage() {
 
       {users.length === 0 ? (
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center">
+          <Users className="h-10 w-10 text-slate-600 mx-auto mb-3" />
           <p className="text-slate-400">No users found</p>
         </div>
       ) : (
@@ -44,9 +46,8 @@ export default async function AdminUsersPage() {
                     <p className="text-xs text-slate-400 truncate">{user.email}</p>
                   </div>
                   <span
-                    className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${
-                      statusStyles[user.status] || ""
-                    }`}
+                    className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${statusStyles[user.status] || ""
+                      }`}
                   >
                     {user.status}
                   </span>
@@ -58,11 +59,10 @@ export default async function AdminUsersPage() {
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Role</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      user.role === "ADMIN"
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${user.role === "ADMIN"
                         ? "bg-purple-500/20 text-purple-300"
                         : "bg-slate-500/20 text-slate-300"
-                    }`}>
+                      }`}>
                       {user.role}
                     </span>
                   </div>
@@ -117,18 +117,16 @@ export default async function AdminUsersPage() {
                       <td className="px-4 py-3 text-sm text-slate-300">{user.email}</td>
                       <td className="px-4 py-3 text-sm text-slate-300">{user.phone}</td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                          user.role === "ADMIN"
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${user.role === "ADMIN"
                             ? "bg-purple-500/20 text-purple-300"
                             : "bg-slate-500/20 text-slate-300"
-                        }`}>
+                          }`}>
                           {user.role}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                          statusStyles[user.status] || ""
-                        }`}>
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusStyles[user.status] || ""
+                          }`}>
                           {user.status}
                         </span>
                       </td>

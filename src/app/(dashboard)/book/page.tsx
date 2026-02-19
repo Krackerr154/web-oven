@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createBooking } from "@/app/actions/booking";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Loader2, Flame, Clock } from "lucide-react";
+import { CalendarPlus, Loader2, Flame, Clock, AlertCircle } from "lucide-react";
 import BookingCalendar from "@/components/booking-calendar";
 import { formatDuration } from "@/lib/utils";
+import { useToast } from "@/components/toast";
 
 type Oven = {
   id: number;
@@ -18,10 +19,10 @@ type Oven = {
 
 export default function BookPage() {
   const router = useRouter();
+  const toast = useToast();
   const [ovens, setOvens] = useState<Oven[]>([]);
   const [selectedOvenId, setSelectedOvenId] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [calendarKey, setCalendarKey] = useState(0);
   const [startDate, setStartDate] = useState("");
@@ -37,6 +38,20 @@ export default function BookPage() {
     if (!startDate || !endDate) return "—";
     return formatDuration(startDate, endDate);
   }, [startDate, endDate]);
+
+  // Client-side validation warnings
+  const durationWarning = useMemo(() => {
+    if (!startDate || !endDate) return null;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (end <= start) return "End date must be after start date";
+    const diffMs = end.getTime() - start.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    if (diffDays > 7) return "Maximum booking duration is 7 days";
+    return null;
+  }, [startDate, endDate]);
+
+  const ovenSelected = selectedOvenId !== null;
 
   useEffect(() => {
     fetch("/api/ovens")
@@ -56,7 +71,6 @@ export default function BookPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
-    setSuccess("");
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
@@ -65,16 +79,16 @@ export default function BookPage() {
     setLoading(false);
 
     if (result.success) {
-      setSuccess(result.message);
+      toast.success(result.message);
       setCalendarKey((k) => k + 1);
-      setTimeout(() => router.push("/my-bookings"), 1500);
+      router.push("/my-bookings");
     } else {
       setError(result.message);
     }
   }
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-4xl space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold text-white">Book an Oven</h1>
         <p className="text-slate-400 mt-1">
@@ -82,29 +96,18 @@ export default function BookPage() {
         </p>
       </div>
 
-      {/* Calendar View */}
-      <BookingCalendar
-        key={calendarKey}
-        selectedOvenId={selectedOvenId}
-        onDateClick={handleDateClick}
-      />
-
       <form
         onSubmit={handleSubmit}
         className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6 space-y-5"
       >
         {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300">
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300 flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
             {error}
           </div>
         )}
-        {success && (
-          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-sm text-emerald-300">
-            {success}
-          </div>
-        )}
 
-        {/* Oven Selection */}
+        {/* Oven Selection — First */}
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">
             Select Oven
@@ -115,11 +118,10 @@ export default function BookPage() {
               return (
                 <label
                   key={oven.id}
-                  className={`relative flex items-center gap-3 p-3 sm:p-4 rounded-lg border cursor-pointer transition-all ${
-                    isAvailable
+                  className={`relative flex items-center gap-3 p-3 sm:p-4 rounded-lg border cursor-pointer transition-all ${isAvailable
                       ? "border-slate-600 hover:border-orange-500/50 has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10"
                       : "border-slate-700 bg-slate-800/30 opacity-50 cursor-not-allowed"
-                  }`}
+                    }`}
                 >
                   <input
                     type="radio"
@@ -185,8 +187,16 @@ export default function BookPage() {
           </div>
         </div>
 
-        {/* Temperature & Flap */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Client-side duration warning */}
+        {durationWarning && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-sm text-amber-300 flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            {durationWarning}
+          </div>
+        )}
+
+        {/* Temperature & Flap — disabled until oven selected */}
+        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 transition-opacity ${ovenSelected ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
           <div>
             <label htmlFor="usageTemp" className="block text-sm font-medium text-slate-300 mb-1.5">
               Usage Temperature (°C)
@@ -230,6 +240,12 @@ export default function BookPage() {
           </div>
         </div>
 
+        {!ovenSelected && (
+          <p className="text-xs text-slate-500 italic">
+            ↑ Select an oven above to enable temperature and flap fields
+          </p>
+        )}
+
         {/* Purpose */}
         <div>
           <label htmlFor="purpose" className="block text-sm font-medium text-slate-300 mb-1.5">
@@ -254,7 +270,7 @@ export default function BookPage() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !!durationWarning}
           className="w-full py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {loading ? (
@@ -270,6 +286,19 @@ export default function BookPage() {
           )}
         </button>
       </form>
+
+      {/* Calendar — Reference view below the form */}
+      <div>
+        <h2 className="text-lg font-semibold text-white mb-3">Booking Calendar</h2>
+        <p className="text-xs text-slate-400 mb-3">
+          Click a date to auto-fill the start time. Colors: orange = Non-Aqueous, blue = Aqueous.
+        </p>
+        <BookingCalendar
+          key={calendarKey}
+          selectedOvenId={selectedOvenId}
+          onDateClick={handleDateClick}
+        />
+      </div>
     </div>
   );
 }

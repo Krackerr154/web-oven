@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { Flame, Clock, User, AlertTriangle } from "lucide-react";
+import { Flame, Clock, User, AlertTriangle, CalendarPlus } from "lucide-react";
 import { formatDateTimeWib, formatDateWib, formatMonthDayWib } from "@/lib/utils";
 import Link from "next/link";
 
@@ -29,14 +29,14 @@ export default async function DashboardPage() {
 
   const userBookings = session?.user?.id
     ? await prisma.booking.findMany({
-        where: { userId: session.user.id, status: "ACTIVE", deletedAt: null },
-        include: { oven: { select: { name: true, type: true } } },
-        orderBy: { startDate: "asc" },
-      })
+      where: { userId: session.user.id, status: "ACTIVE", deletedAt: null },
+      include: { oven: { select: { name: true, type: true } } },
+      orderBy: { startDate: "asc" },
+    })
     : [];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fade-in">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
@@ -69,7 +69,7 @@ export default async function DashboardPage() {
           return (
             <div
               key={oven.id}
-              className={`rounded-xl border p-6 ${statusColor}`}
+              className={`rounded-xl border p-6 hover-lift ${statusColor}`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
@@ -91,7 +91,7 @@ export default async function DashboardPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className={`h-2.5 w-2.5 rounded-full ${statusDot} animate-pulse`} />
+                  <div className={`h-2.5 w-2.5 rounded-full ${statusDot} animate-pulse`} role="status" aria-label={`Status: ${statusText}`} />
                   <span className="text-sm font-medium text-slate-200">
                     {statusText}
                   </span>
@@ -139,8 +139,16 @@ export default async function DashboardPage() {
           Your Active Bookings ({userBookings.length}/2)
         </h2>
         {userBookings.length === 0 ? (
-          <div className="rounded-xl border border-slate-700 p-6 text-center">
-            <p className="text-slate-400">No active bookings</p>
+          <div className="rounded-xl border border-slate-700 p-8 text-center">
+            <CalendarPlus className="h-10 w-10 text-slate-600 mx-auto mb-3" />
+            <p className="text-slate-400 mb-3">No active bookings</p>
+            <Link
+              href="/book"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-colors"
+            >
+              <CalendarPlus className="h-4 w-4" />
+              Book an Oven
+            </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -148,7 +156,7 @@ export default async function DashboardPage() {
               <Link
                 key={booking.id}
                 href={`/my-bookings/${booking.id}`}
-                className="rounded-xl border border-slate-700 bg-slate-800/50 p-5"
+                className="rounded-xl border border-slate-700 bg-slate-800/50 p-5 hover-lift"
               >
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-medium text-white">{booking.oven.name}</h3>

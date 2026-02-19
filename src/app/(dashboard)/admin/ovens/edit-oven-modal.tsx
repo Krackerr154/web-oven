@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { updateOven } from "@/app/actions/admin";
 import { useRouter } from "next/navigation";
 import { Pencil, X, Loader2 } from "lucide-react";
+import { useToast } from "@/components/toast";
 
 type OvenData = {
   id: number;
@@ -15,9 +16,28 @@ type OvenData = {
 
 export function EditOvenModal({ oven }: { oven: OvenData }) {
   const router = useRouter();
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const firstInputRef = useRef<HTMLInputElement>(null);
+
+  // Escape key handler
+  useEffect(() => {
+    if (!open) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [open]);
+
+  // Auto-focus first input
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => firstInputRef.current?.focus(), 50);
+    }
+  }, [open]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -31,6 +51,7 @@ export function EditOvenModal({ oven }: { oven: OvenData }) {
 
     if (result.success) {
       setOpen(false);
+      toast.success(result.message);
       router.refresh();
     } else {
       setError(result.message);
@@ -56,9 +77,14 @@ export function EditOvenModal({ oven }: { oven: OvenData }) {
           />
 
           {/* Modal */}
-          <div className="relative bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md shadow-2xl">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-oven-title"
+            className="relative bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md shadow-2xl animate-toast-in"
+          >
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-semibold text-white">Edit {oven.name}</h2>
+              <h2 id="edit-oven-title" className="text-lg font-semibold text-white">Edit {oven.name}</h2>
               <button
                 onClick={() => setOpen(false)}
                 className="text-slate-400 hover:text-white transition-colors"
@@ -79,6 +105,7 @@ export function EditOvenModal({ oven }: { oven: OvenData }) {
                   Name
                 </label>
                 <input
+                  ref={firstInputRef}
                   name="name"
                   type="text"
                   required

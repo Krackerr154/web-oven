@@ -2,8 +2,21 @@ import { getAllBookings } from "@/app/actions/admin";
 import { formatDateTimeWib, formatDuration } from "@/lib/utils";
 import Link from "next/link";
 import { BookingActionButtons } from "./action-buttons";
+import { ListChecks } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+type BookingItem = {
+  id: string;
+  startDate: Date;
+  endDate: Date;
+  purpose: string;
+  usageTemp: number;
+  flap: number;
+  status: "ACTIVE" | "COMPLETED" | "CANCELLED" | "AUTO_CANCELLED";
+  user: { name: string | null; email: string };
+  oven: { name: string; type: string };
+};
 
 export default async function AdminBookingsPage() {
   const bookings = await getAllBookings();
@@ -16,7 +29,7 @@ export default async function AdminBookingsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold text-white">All Bookings</h1>
         <p className="text-slate-400 mt-1">Overview of all oven bookings</p>
@@ -24,13 +37,14 @@ export default async function AdminBookingsPage() {
 
       {bookings.length === 0 ? (
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center">
+          <ListChecks className="h-10 w-10 text-slate-600 mx-auto mb-3" />
           <p className="text-slate-400">No bookings found</p>
         </div>
       ) : (
         <>
           {/* Mobile: Card layout */}
           <div className="lg:hidden space-y-4">
-            {bookings.map((booking) => (
+            {(bookings as BookingItem[]).map((booking) => (
               <div
                 key={booking.id}
                 className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3"
@@ -41,9 +55,8 @@ export default async function AdminBookingsPage() {
                     <p className="text-xs text-slate-400">{booking.user.email}</p>
                   </Link>
                   <span
-                    className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${
-                      statusStyles[booking.status] || ""
-                    }`}
+                    className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${statusStyles[booking.status] || ""
+                      }`}
                   >
                     {booking.status.replace("_", " ")}
                   </span>
@@ -111,7 +124,7 @@ export default async function AdminBookingsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/50">
-                  {bookings.map((booking) => (
+                  {(bookings as BookingItem[]).map((booking) => (
                     <tr key={booking.id} className="hover:bg-slate-700/20">
                       <td className="px-4 py-3">
                         <Link href={`/admin/bookings/${booking.id}`} className="block hover:opacity-90">
@@ -144,9 +157,8 @@ export default async function AdminBookingsPage() {
                         {booking.purpose}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                          statusStyles[booking.status] || ""
-                        }`}>
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusStyles[booking.status] || ""
+                          }`}>
                           {booking.status.replace("_", " ")}
                         </span>
                       </td>

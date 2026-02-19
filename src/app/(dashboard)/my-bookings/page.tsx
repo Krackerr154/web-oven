@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { CancelBookingButton } from "./cancel-button";
 import { formatDateTimeWib, formatDuration, getCancellationWindowInfo } from "@/lib/utils";
 import Link from "next/link";
+import { CalendarPlus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export default async function MyBookingsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold text-white">My Bookings</h1>
         <p className="text-slate-400 mt-1">View and manage your oven bookings</p>
@@ -34,7 +35,15 @@ export default async function MyBookingsPage() {
 
       {bookings.length === 0 ? (
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center">
-          <p className="text-slate-400">No bookings yet</p>
+          <CalendarPlus className="h-10 w-10 text-slate-600 mx-auto mb-3" />
+          <p className="text-slate-400 mb-3">No bookings yet</p>
+          <Link
+            href="/book"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-colors"
+          >
+            <CalendarPlus className="h-4 w-4" />
+            Book an Oven
+          </Link>
         </div>
       ) : (
         <>
@@ -54,9 +63,8 @@ export default async function MyBookingsPage() {
                       </p>
                     </div>
                     <span
-                      className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${
-                        statusStyles[booking.status] || ""
-                      }`}
+                      className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${statusStyles[booking.status] || ""
+                        }`}
                     >
                       {booking.status.replace("_", " ")}
                     </span>
@@ -161,9 +169,8 @@ export default async function MyBookingsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`text-xs px-2 py-1 rounded-full font-medium ${
-                            statusStyles[booking.status] || ""
-                          }`}
+                          className={`text-xs px-2 py-1 rounded-full font-medium ${statusStyles[booking.status] || ""
+                            }`}
                         >
                           {booking.status.replace("_", " ")}
                         </span>
