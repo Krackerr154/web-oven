@@ -31,6 +31,7 @@ export default function BookPage() {
   const [hasConflict, setHasConflict] = useState(false);
   const [usageTemp, setUsageTemp] = useState("");
   const [flap, setFlap] = useState(0);
+  const [purpose, setPurpose] = useState("");
 
   const selectedOven = useMemo(
     () => ovens.find((o) => o.id === selectedOvenId) ?? null,
@@ -66,7 +67,42 @@ export default function BookPage() {
   }, [usageTemp, selectedOven]);
 
   const ovenSelected = selectedOvenId !== null;
-  const canSubmit = !loading && !durationWarning && !hasConflict && !tempWarning && !!startDate && !!endDate;
+
+  // Live validation — updates automatically as user fills inputs
+  const validationIssues = useMemo(() => {
+    const issues: { label: string; ok: boolean }[] = [];
+
+    issues.push({ label: "Select an oven", ok: ovenSelected });
+    issues.push({ label: "Pick a start date & time", ok: !!startDate });
+    issues.push({ label: "Pick an end date & time", ok: !!endDate });
+
+    if (durationWarning) {
+      issues.push({ label: durationWarning, ok: false });
+    } else if (startDate && endDate) {
+      issues.push({ label: "Duration is valid", ok: true });
+    }
+
+    if (hasConflict) {
+      issues.push({ label: "Booking conflicts with existing reservation", ok: false });
+    }
+
+    if (tempWarning) {
+      issues.push({ label: tempWarning, ok: false });
+    } else if (usageTemp) {
+      issues.push({ label: "Temperature is valid", ok: true });
+    } else {
+      issues.push({ label: "Enter usage temperature", ok: false });
+    }
+
+    issues.push({
+      label: purpose.trim().length >= 3 ? "Purpose provided" : "Enter a purpose (min 3 characters)",
+      ok: purpose.trim().length >= 3,
+    });
+
+    return issues;
+  }, [ovenSelected, startDate, endDate, durationWarning, hasConflict, tempWarning, usageTemp, purpose]);
+
+  const canSubmit = !loading && validationIssues.every((i) => i.ok);
 
   useEffect(() => {
     fetch("/api/ovens")
@@ -161,21 +197,21 @@ export default function BookPage() {
           onConflict={setHasConflict}
         />
 
-        {/* Duration display */}
+        {/* Duration display + warning */}
         {(startDate || endDate) && (
-          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-slate-800/50 border border-slate-700">
-            <Clock className="h-4 w-4 text-slate-500 shrink-0" />
-            <span className="text-sm text-slate-300">
-              Duration: <span className="font-medium text-white">{duration}</span>
-            </span>
-          </div>
-        )}
-
-        {/* Duration warning */}
-        {durationWarning && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-sm text-amber-300 flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-            {durationWarning}
+          <div className={`rounded-lg bg-slate-800/50 border ${durationWarning ? "border-amber-500/30" : "border-slate-700"}`}>
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Clock className="h-4 w-4 text-slate-500 shrink-0" />
+              <span className="text-sm text-slate-300">
+                Duration: <span className="font-medium text-white">{duration}</span>
+              </span>
+            </div>
+            {durationWarning && (
+              <div className="flex items-center gap-2 mx-3 mb-3 text-sm text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                <span className="font-medium">{durationWarning}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -201,41 +237,40 @@ export default function BookPage() {
                 className={`w-full px-3 py-2.5 rounded-lg bg-slate-900 border text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 ${tempWarning ? "border-red-500/60" : "border-slate-600"
                   }`}
               />
-              {tempWarning ? (
-                <div className="flex items-center gap-1.5 mt-1.5 text-xs text-red-400 bg-red-500/10 rounded-md px-2.5 py-1.5 animate-toast-in">
-                  <AlertTriangle className="h-3 w-3 shrink-0" />
-                  {tempWarning}
+              {tempWarning && (
+                <div className="flex items-center gap-2 mt-2 text-sm text-red-300 bg-red-500/15 border border-red-500/30 rounded-lg px-3 py-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
+                  <span className="font-medium">{tempWarning}</span>
                 </div>
-              ) : selectedOven ? (
-                <p className="text-xs text-slate-500 mt-1">
+              )}
+              {!tempWarning && selectedOven && (
+                <p className="text-xs text-slate-500 mt-1.5">
                   Max for {selectedOven.name}: {selectedOven.maxTemp}°C
                 </p>
-              ) : null}
+              )}
             </div>
 
-            {/* Flap — button row at 10% increments */}
+            {/* Flap — dropdown select */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              <label htmlFor="flap" className="block text-sm font-medium text-slate-300 mb-1.5">
                 Flap Opening
               </label>
-              <div className="flex flex-wrap gap-1.5">
+              <select
+                id="flap"
+                name="flap"
+                value={flap}
+                onChange={(e) => setFlap(Number(e.target.value))}
+                className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 appearance-none cursor-pointer"
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+              >
                 {FLAP_VALUES.map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setFlap(v)}
-                    className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${flap === v
-                        ? "bg-orange-500 text-white shadow-sm"
-                        : "bg-slate-900 text-slate-400 border border-slate-600 hover:border-orange-500/50 hover:text-slate-200"
-                      }`}
-                  >
-                    {v}%
-                  </button>
+                  <option key={v} value={v}>
+                    {v}% {v === 0 ? "— Closed" : v === 100 ? "— Fully open" : ""}
+                  </option>
                 ))}
-              </div>
-              <input type="hidden" name="flap" value={flap} />
+              </select>
               <p className="text-xs text-slate-500 mt-1.5">
-                Damper/vent opening (0% = closed, 100% = fully open)
+                Damper/vent opening percentage
               </p>
             </div>
           </div>
@@ -257,16 +292,24 @@ export default function BookPage() {
             name="purpose"
             required
             rows={3}
+            value={purpose}
+            onChange={(e) => setPurpose(e.target.value)}
             className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 resize-none"
             placeholder="e.g., Drying Ni-BDC MOF samples at 120°C"
           />
         </div>
 
-        <div className="bg-slate-900/50 rounded-lg p-3 text-xs text-slate-400 space-y-1">
-          <p>• Maximum booking duration: 7 days</p>
-          <p>• Maximum 2 active bookings per user</p>
-          <p>• Bookings cannot overlap on the same oven</p>
-          <p>• Usage temperature cannot exceed oven max temperature</p>
+        {/* Live validation checklist */}
+        <div className="bg-slate-900/50 rounded-lg p-3 space-y-1.5">
+          <p className="text-xs font-medium text-slate-400 mb-2">Booking requirements</p>
+          {validationIssues.map((item, i) => (
+            <div key={i} className={`flex items-center gap-2 text-xs ${item.ok ? "text-green-400" : "text-slate-500"}`}>
+              <span className={`shrink-0 ${item.ok ? "text-green-400" : "text-red-400"}`}>
+                {item.ok ? "✓" : "✗"}
+              </span>
+              {item.label}
+            </div>
+          ))}
         </div>
 
         <button

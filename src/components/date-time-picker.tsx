@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ChevronLeft, ChevronRight, Clock, AlertTriangle } from "lucide-react";
 import { formatDateTimeWib } from "@/lib/utils";
+import TimePicker from "@/components/time-picker";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -60,7 +61,7 @@ const MONTHS = [
 
 // Distinct per-oven color palette
 const OVEN_COLORS = [
-    "#ea580c", "#2563eb", "#16a34a", "#a855f7",
+    "#ea580c", "#06b6d4", "#16a34a", "#a855f7",
     "#ec4899", "#14b8a6", "#eab308", "#6366f1",
 ];
 
@@ -120,6 +121,13 @@ export default function DateTimePicker({
     const todayWib = toWibDate(now);
     const nowWibTime = toWibHourMinute(now);
     const todayKey = dateKey(todayWib.year, todayWib.month, todayWib.day);
+
+    // Minimum start time for today: next full hour (or current hour if at :00)
+    const minStartTimeToday = useMemo(() => {
+        const h = nowWibTime.minute > 0 ? nowWibTime.hour + 1 : nowWibTime.hour;
+        if (h >= 24) return "23:00";
+        return `${String(h).padStart(2, "0")}:00`;
+    }, [nowWibTime.hour, nowWibTime.minute]);
 
     const [viewYear, setViewYear] = useState(todayWib.year);
     const [viewMonth, setViewMonth] = useState(todayWib.month);
@@ -250,16 +258,23 @@ export default function DateTimePicker({
         if (isPastDate(key, todayKey)) return;
 
         if (step === "start") {
+            // Auto-set start time to next full hour if today
+            const effectiveStartTime = key === todayKey ? minStartTimeToday : startTime;
+            if (key === todayKey) setStartTime(effectiveStartTime);
+
             setStartDateKey(key);
             setEndDateKey("");
-            onStartChange(`${key}T${startTime}`);
+            onStartChange(`${key}T${effectiveStartTime}`);
             onEndChange("");
             setStep("end");
         } else {
             if (key < startDateKey) {
+                const effectiveStartTime = key === todayKey ? minStartTimeToday : startTime;
+                if (key === todayKey) setStartTime(effectiveStartTime);
+
                 setStartDateKey(key);
                 setEndDateKey("");
-                onStartChange(`${key}T${startTime}`);
+                onStartChange(`${key}T${effectiveStartTime}`);
                 onEndChange("");
                 return;
             }
@@ -284,6 +299,12 @@ export default function DateTimePicker({
 
     // ─── Time change handlers ─────────────────────────────────────
     function handleStartTimeChange(time: string) {
+        // Clamp to minimum allowed time if today
+        if (startDateKey === todayKey && time < minStartTimeToday) {
+            setStartTime(minStartTimeToday);
+            onStartChange(`${startDateKey}T${minStartTimeToday}`);
+            return;
+        }
         setStartTime(time);
         if (startDateKey) onStartChange(`${startDateKey}T${time}`);
     }
@@ -511,17 +532,16 @@ export default function DateTimePicker({
                                     weekday: "short", month: "short", day: "numeric", year: "numeric",
                                 })}
                             </p>
-                            <input
-                                type="time"
+                            <TimePicker
                                 value={startTime}
-                                onChange={(e) => handleStartTimeChange(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+                                onChange={handleStartTimeChange}
+                                minTime={startDateKey === todayKey ? minStartTimeToday : undefined}
                             />
-                            {/* Past time alert */}
+                            {/* Past time warning — directly below start time */}
                             {pastTimeWarning && (
-                                <div className="flex items-center gap-1.5 text-xs text-amber-400 bg-amber-500/10 rounded-md px-2.5 py-1.5">
-                                    <AlertTriangle className="h-3 w-3 shrink-0" />
-                                    {pastTimeWarning}
+                                <div className="flex items-center gap-2 text-sm text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+                                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                                    <span className="font-medium">{pastTimeWarning}</span>
                                 </div>
                             )}
                         </div>
@@ -531,7 +551,9 @@ export default function DateTimePicker({
                 </div>
 
                 {/* End */}
-                <div className={`bg-slate-800/50 border rounded-xl p-4 transition-all ${endDateKey ? "border-orange-500/40" : "border-slate-700"
+                <div className={`bg-slate-800/50 border rounded-xl p-4 transition-all ${endDateKey
+                    ? conflictWarning ? "border-red-500/40" : "border-orange-500/40"
+                    : "border-slate-700"
                     }`}>
                     <div className="flex items-center gap-2 mb-2">
                         <Clock className="h-4 w-4 text-slate-400" />
@@ -544,12 +566,20 @@ export default function DateTimePicker({
                                     weekday: "short", month: "short", day: "numeric", year: "numeric",
                                 })}
                             </p>
-                            <input
-                                type="time"
+                            <TimePicker
                                 value={endTime}
-                                onChange={(e) => handleEndTimeChange(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+                                onChange={handleEndTimeChange}
                             />
+                            {/* Overlap / conflict warning — directly below end time */}
+                            {conflictWarning && (
+                                <div className="flex items-start gap-2 text-sm text-red-300 bg-red-500/15 border border-red-500/30 rounded-lg px-3 py-2">
+                                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
+                                    <div>
+                                        <p className="font-medium">Booking Conflict</p>
+                                        <p className="text-xs text-red-400 mt-0.5">{conflictWarning}</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <p className="text-sm text-slate-500 italic">
@@ -558,17 +588,6 @@ export default function DateTimePicker({
                     )}
                 </div>
             </div>
-
-            {/* Conflict alert — at bottom of picker */}
-            {conflictWarning && (
-                <div className="flex items-start gap-2 text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg p-3 animate-toast-in">
-                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
-                    <div>
-                        <p className="font-medium">Booking Conflict</p>
-                        <p className="text-xs text-red-400 mt-0.5">{conflictWarning}</p>
-                    </div>
-                </div>
-            )}
 
             {/* Hidden inputs for form submission */}
             <input type="hidden" name="startDate" value={startValue} />
