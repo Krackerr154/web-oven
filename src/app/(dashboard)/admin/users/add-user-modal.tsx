@@ -37,7 +37,14 @@ export function AddUserModal() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const result = await createUser(formData);
+    const data = {
+      name: formData.get("name") as string,
+      email: formData.get("email") as string,
+      phone: formData.get("phone") as string,
+      password: formData.get("password") as string,
+      role: formData.get("role") as string,
+    };
+    const result = await createUser(data);
 
     setLoading(false);
 

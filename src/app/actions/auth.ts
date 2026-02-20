@@ -16,13 +16,13 @@ export type RegisterResult = {
   message: string;
 };
 
-export async function registerUser(formData: FormData): Promise<RegisterResult> {
+export async function registerUser(data: Record<string, any>): Promise<RegisterResult> {
   try {
     const raw = {
-      name: formData.get("name") as string,
-      email: formData.get("email") as string,
-      phone: formData.get("phone") as string,
-      password: formData.get("password") as string,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      password: data.password,
     };
 
     const parsed = registerSchema.safeParse(raw);

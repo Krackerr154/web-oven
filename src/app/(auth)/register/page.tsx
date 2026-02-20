@@ -17,7 +17,13 @@ export default function RegisterPage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const result = await registerUser(formData);
+    const data = {
+      name: formData.get("name") as string,
+      email: formData.get("email") as string,
+      phone: formData.get("phone") as string,
+      password: formData.get("password") as string,
+    };
+    const result = await registerUser(data);
 
     setLoading(false);
 

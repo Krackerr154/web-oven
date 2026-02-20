@@ -45,7 +45,13 @@ export function EditOvenModal({ oven }: { oven: OvenData }) {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const result = await updateOven(oven.id, formData);
+    const data = {
+      name: formData.get("name") as string,
+      type: formData.get("type") as string,
+      description: (formData.get("description") as string) || undefined,
+      maxTemp: Number(formData.get("maxTemp")),
+    };
+    const result = await updateOven(oven.id, data);
 
     setLoading(false);
 

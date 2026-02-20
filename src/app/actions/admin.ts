@@ -61,12 +61,12 @@ async function logBookingEvent(
     actorId?: string;
     actorType: "USER" | "ADMIN" | "SYSTEM";
     eventType:
-      | "CREATED"
-      | "EDITED"
-      | "CANCELLED"
-      | "AUTO_CANCELLED"
-      | "COMPLETED"
-      | "REMOVED";
+    | "CREATED"
+    | "EDITED"
+    | "CANCELLED"
+    | "AUTO_CANCELLED"
+    | "COMPLETED"
+    | "REMOVED";
     note?: string;
     payload?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
   }
@@ -104,17 +104,17 @@ const createUserSchema = z.object({
   role: z.enum(["USER", "ADMIN"]),
 });
 
-export async function createUser(formData: FormData): Promise<ActionResult> {
+export async function createUser(data: Record<string, any>): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
 
   try {
     const raw = {
-      name: formData.get("name"),
-      email: formData.get("email"),
-      phone: formData.get("phone"),
-      password: formData.get("password"),
-      role: formData.get("role"),
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      password: data.password,
+      role: data.role,
     };
 
     const parsed = createUserSchema.parse(raw);
@@ -351,7 +351,14 @@ export async function getBookingDetailForAdmin(bookingId: string) {
   });
 }
 
-export async function updateBookingByAdmin(formData: FormData): Promise<ActionResult> {
+export async function updateBookingByAdmin(data: {
+  bookingId: string;
+  startDate: string;
+  endDate: string;
+  purpose: string;
+  usageTemp: number;
+  flap: number;
+}): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
 
@@ -360,12 +367,12 @@ export async function updateBookingByAdmin(formData: FormData): Promise<ActionRe
 
   try {
     const parsed = bookingEditSchema.parse({
-      bookingId: formData.get("bookingId"),
-      startDate: formData.get("startDate"),
-      endDate: formData.get("endDate"),
-      purpose: formData.get("purpose"),
-      usageTemp: formData.get("usageTemp"),
-      flap: formData.get("flap"),
+      bookingId: data.bookingId,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      purpose: data.purpose,
+      usageTemp: data.usageTemp,
+      flap: data.flap,
     });
 
     const startDate = parseWibDateTimeLocal(parsed.startDate);
@@ -744,16 +751,16 @@ export async function getUserBookingStats(userId: string) {
 
 // ─── Oven CRUD ───────────────────────────────────────────────────────
 
-export async function createOven(formData: FormData): Promise<ActionResult> {
+export async function createOven(data: Record<string, any>): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
 
   try {
     const parsed = ovenSchema.parse({
-      name: formData.get("name"),
-      type: formData.get("type"),
-      description: formData.get("description") || undefined,
-      maxTemp: formData.get("maxTemp") || 200,
+      name: data.name,
+      type: data.type,
+      description: data.description || undefined,
+      maxTemp: data.maxTemp || 200,
     });
 
     await prisma.oven.create({
@@ -777,16 +784,21 @@ export async function createOven(formData: FormData): Promise<ActionResult> {
   }
 }
 
-export async function updateOven(ovenId: number, formData: FormData): Promise<ActionResult> {
+export async function updateOven(ovenId: number, data: {
+  name: string;
+  type: string;
+  description?: string;
+  maxTemp: number;
+}): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
 
   try {
     const parsed = ovenSchema.parse({
-      name: formData.get("name"),
-      type: formData.get("type"),
-      description: formData.get("description") || undefined,
-      maxTemp: formData.get("maxTemp") || 200,
+      name: data.name,
+      type: data.type,
+      description: data.description || undefined,
+      maxTemp: data.maxTemp || 200,
     });
 
     await prisma.oven.update({

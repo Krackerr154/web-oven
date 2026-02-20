@@ -36,12 +36,12 @@ async function logBookingEvent(
     actorId?: string;
     actorType: "USER" | "ADMIN" | "SYSTEM";
     eventType:
-      | "CREATED"
-      | "EDITED"
-      | "CANCELLED"
-      | "AUTO_CANCELLED"
-      | "COMPLETED"
-      | "REMOVED";
+    | "CREATED"
+    | "EDITED"
+    | "CANCELLED"
+    | "AUTO_CANCELLED"
+    | "COMPLETED"
+    | "REMOVED";
     note?: string;
     payload?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
   }
@@ -58,7 +58,14 @@ async function logBookingEvent(
   });
 }
 
-export async function createBooking(formData: FormData): Promise<BookingResult> {
+export async function createBooking(data: {
+  ovenId: number;
+  startDate: string;
+  endDate: string;
+  purpose: string;
+  usageTemp: number;
+  flap: number;
+}): Promise<BookingResult> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -69,16 +76,14 @@ export async function createBooking(formData: FormData): Promise<BookingResult> 
       return { success: false, message: "Your account is not approved" };
     }
 
-    const raw = {
-      ovenId: Number(formData.get("ovenId")),
-      startDate: formData.get("startDate") as string,
-      endDate: formData.get("endDate") as string,
-      purpose: formData.get("purpose") as string,
-      usageTemp: Number(formData.get("usageTemp")),
-      flap: Number(formData.get("flap")),
-    };
-
-    const parsed = bookingSchema.safeParse(raw);
+    const parsed = bookingSchema.safeParse({
+      ovenId: data.ovenId,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      purpose: data.purpose,
+      usageTemp: data.usageTemp,
+      flap: data.flap,
+    });
     if (!parsed.success) {
       return { success: false, message: parsed.error.issues[0].message };
     }

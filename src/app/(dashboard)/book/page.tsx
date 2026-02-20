@@ -117,7 +117,15 @@ export default function BookPage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const result = await createBooking(formData);
+    const data = {
+      ovenId: Number(formData.get("ovenId")),
+      startDate: formData.get("startDate") as string,
+      endDate: formData.get("endDate") as string,
+      purpose: formData.get("purpose") as string,
+      usageTemp: Number(formData.get("usageTemp")),
+      flap: Number(formData.get("flap")),
+    };
+    const result = await createBooking(data);
 
     setLoading(false);
 
@@ -154,12 +162,15 @@ export default function BookPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {ovens.map((oven) => {
               const isAvailable = oven.status === "AVAILABLE";
+              const isAqueous = oven.type !== "NON_AQUEOUS";
               return (
                 <label
                   key={oven.id}
-                  className={`relative flex items-center gap-3 p-3 sm:p-4 rounded-lg border cursor-pointer transition-all ${isAvailable
-                    ? "border-slate-600 hover:border-orange-500/50 has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10"
-                    : "border-slate-700 bg-slate-800/30 opacity-50 cursor-not-allowed"
+                  className={`relative flex items-center gap-3 p-3 sm:p-4 rounded-lg border cursor-pointer transition-all ${!isAvailable
+                    ? "border-slate-700 bg-slate-800/30 opacity-50 cursor-not-allowed"
+                    : isAqueous
+                      ? "border-slate-600 hover:border-blue-500/50 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500/10"
+                      : "border-slate-600 hover:border-orange-500/50 has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500/10"
                     }`}
                 >
                   <input
@@ -171,11 +182,11 @@ export default function BookPage() {
                     className="sr-only"
                     onChange={() => setSelectedOvenId(oven.id)}
                   />
-                  <Flame className="h-5 w-5 text-orange-400 shrink-0" />
+                  <Flame className={`h-5 w-5 shrink-0 ${isAqueous ? "text-blue-400" : "text-orange-400"}`} />
                   <div className="min-w-0">
                     <p className="font-medium text-white">{oven.name}</p>
                     <p className="text-xs text-slate-400">
-                      {oven.type === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
+                      {isAqueous ? "Aqueous" : "Non-Aqueous"}
                       {" · Max " + oven.maxTemp + "°C"}
                       {!isAvailable && " — Maintenance"}
                     </p>

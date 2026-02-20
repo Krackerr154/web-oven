@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { Flame, Clock, User, AlertTriangle, CalendarPlus } from "lucide-react";
 import { formatDateTimeWib, formatDateWib, formatMonthDayWib } from "@/lib/utils";
 import Link from "next/link";
+import DashboardCalendar from "@/components/dashboard-calendar";
 
 export const dynamic = "force-dynamic";
 
@@ -174,6 +175,11 @@ export default async function DashboardPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Booking Calendar Timeline */}
+      <div className="pt-4 border-t border-slate-700/50">
+        <DashboardCalendar ovens={ovens.map(o => ({ id: o.id, name: o.name, type: o.type }))} />
       </div>
     </div>
   );

@@ -37,7 +37,13 @@ export function AddOvenModal() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const result = await createOven(formData);
+    const data = {
+      name: formData.get("name") as string,
+      type: formData.get("type") as string,
+      description: (formData.get("description") as string) || undefined,
+      maxTemp: Number(formData.get("maxTemp")),
+    };
+    const result = await createOven(data);
 
     setLoading(false);
 

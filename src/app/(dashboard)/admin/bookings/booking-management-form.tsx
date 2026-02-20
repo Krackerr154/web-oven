@@ -72,7 +72,15 @@ export function BookingManagementForm({ booking }: Props) {
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
-      const result = await updateBookingByAdmin(formData);
+      const data = {
+        bookingId: formData.get("bookingId") as string,
+        startDate: formData.get("startDate") as string,
+        endDate: formData.get("endDate") as string,
+        purpose: formData.get("purpose") as string,
+        usageTemp: Number(formData.get("usageTemp")),
+        flap: Number(formData.get("flap")),
+      };
+      const result = await updateBookingByAdmin(data);
       if (result.success) {
         toast.success(result.message);
       } else {
