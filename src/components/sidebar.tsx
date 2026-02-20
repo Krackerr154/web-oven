@@ -14,6 +14,7 @@ import {
   Flame,
   Menu,
   X,
+  User,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -56,8 +57,8 @@ export function Sidebar() {
               href={item.href}
               onClick={() => setMobileOpen(false)}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
-                  ? "bg-orange-500/20 text-orange-300"
-                  : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                ? "bg-orange-500/20 text-orange-300"
+                : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
                 }`}
             >
               <item.icon className="h-4 w-4" />
@@ -82,8 +83,8 @@ export function Sidebar() {
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
-                      ? "bg-orange-500/20 text-orange-300"
-                      : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                    ? "bg-orange-500/20 text-orange-300"
+                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
                     }`}
                 >
                   <item.icon className="h-4 w-4" />
@@ -96,9 +97,16 @@ export function Sidebar() {
       </nav>
 
       {/* User Info & Logout */}
-      <div className="border-t border-slate-700 p-4">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="h-8 w-8 rounded-full bg-orange-500/20 flex items-center justify-center">
+      <div className="border-t border-slate-700 p-4 space-y-1">
+        <Link
+          href="/profile"
+          onClick={() => setMobileOpen(false)}
+          className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${pathname === "/profile"
+            ? "bg-slate-700 text-white"
+            : "hover:bg-slate-700/50"
+            }`}
+        >
+          <div className="h-8 w-8 shrink-0 rounded-full bg-orange-500/20 flex items-center justify-center">
             <span className="text-sm font-bold text-orange-300">
               {session?.user?.name?.charAt(0).toUpperCase() || "U"}
             </span>
@@ -109,10 +117,10 @@ export function Sidebar() {
             </p>
             <p className="text-xs text-slate-400 truncate">{session?.user?.email}</p>
           </div>
-        </div>
+        </Link>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors"
+          className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors mt-2"
         >
           <LogOut className="h-4 w-4" />
           Sign out

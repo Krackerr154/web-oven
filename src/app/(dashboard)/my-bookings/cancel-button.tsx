@@ -32,7 +32,7 @@ export function CancelBookingButton({ bookingId }: { bookingId: string }) {
       <button
         onClick={() => setShowConfirm(true)}
         disabled={loading}
-        className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 disabled:opacity-50 transition-colors"
+        className="w-full sm:w-auto text-xs px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors mt-1 mb-1 sm:my-0"
       >
         {loading ? (
           <Loader2 className="h-3 w-3 animate-spin" />

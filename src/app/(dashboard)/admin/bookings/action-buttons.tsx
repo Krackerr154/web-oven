@@ -63,7 +63,7 @@ export function BookingActionButtons({ bookingId, status }: Props) {
 
   return (
     <>
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-stretch sm:items-center gap-2 flex-wrap w-full sm:w-auto">
         {status === "ACTIVE" && (
           <button
             onClick={() =>
@@ -76,7 +76,7 @@ export function BookingActionButtons({ bookingId, status }: Props) {
               )
             }
             disabled={isPending}
-            className="text-xs px-2 py-1 rounded border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 disabled:opacity-50 transition-colors"
+            className="flex-1 sm:flex-none text-center justify-center text-xs px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
           >
             Cancel
           </button>
@@ -94,7 +94,7 @@ export function BookingActionButtons({ bookingId, status }: Props) {
               )
             }
             disabled={isPending}
-            className="text-xs px-2 py-1 rounded border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-50 transition-colors"
+            className="flex-1 sm:flex-none text-center justify-center text-xs px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
           >
             Complete
           </button>
@@ -111,7 +111,7 @@ export function BookingActionButtons({ bookingId, status }: Props) {
             )
           }
           disabled={isPending}
-          className="text-xs px-2 py-1 rounded border border-red-500/40 text-red-300 hover:bg-red-500/10 disabled:opacity-50 transition-colors"
+          className="flex-1 sm:flex-none text-center justify-center text-xs px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
         >
           Remove
         </button>

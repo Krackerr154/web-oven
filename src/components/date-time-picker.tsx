@@ -116,11 +116,16 @@ export default function DateTimePicker({
     const nowWibTime = toWibHourMinute(now);
     const todayKey = dateKey(todayWib.year, todayWib.month, todayWib.day);
 
-    // Minimum start time for today: next full hour (or current hour if at :00)
+    // Minimum start time for today: nearest 5-minute interval
     const minStartTimeToday = useMemo(() => {
-        const h = nowWibTime.minute > 0 ? nowWibTime.hour + 1 : nowWibTime.hour;
-        if (h >= 24) return "23:00";
-        return `${String(h).padStart(2, "0")}:00`;
+        let m = Math.ceil(nowWibTime.minute / 5) * 5;
+        let h = nowWibTime.hour;
+        if (m >= 60) {
+            m = 0;
+            h += 1;
+        }
+        if (h >= 24) return "23:55";
+        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     }, [nowWibTime.hour, nowWibTime.minute]);
 
     const [viewYear, setViewYear] = useState(todayWib.year);
@@ -230,7 +235,7 @@ export default function DateTimePicker({
     const pastTimeWarning = useMemo(() => {
         if (!startDateKey || startDateKey !== todayKey) return null;
         const [h, m] = startTime.split(":").map(Number);
-        if (h < nowWibTime.hour || (h === nowWibTime.hour && m <= nowWibTime.minute)) {
+        if (h < nowWibTime.hour || (h === nowWibTime.hour && m < nowWibTime.minute)) {
             return "Start time is in the past";
         }
         return null;

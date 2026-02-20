@@ -151,13 +151,13 @@ export async function createBooking(data: {
 
     // ── Atomic transaction for all checks + creation ────────────────
     const result = await prisma.$transaction(async (tx) => {
-      // Rule: Max 2 active bookings per user
+      // Rule: Max 1 active booking per user
       const activeCount = await tx.booking.count({
         where: { userId, status: "ACTIVE" },
       });
 
-      if (activeCount >= 2) {
-        return { success: false, message: "You already have 2 active bookings (maximum)" };
+      if (activeCount >= 1) {
+        return { success: false, message: "You already have 1 active booking (maximum)" };
       }
 
       // Rule: Oven must be available (not in maintenance)

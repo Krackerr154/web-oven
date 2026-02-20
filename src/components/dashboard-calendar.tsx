@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
 import { formatDateTimeWib } from "@/lib/utils";
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -20,6 +20,7 @@ type BookingSlot = {
         usageTemp: number;
         flap: number;
         isOwn: boolean;
+        userPhone: string;
     };
 };
 
@@ -42,6 +43,7 @@ type DayBookingDetail = {
     start: string;
     end: string;
     color: string;
+    userPhone: string;
 };
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -92,6 +94,7 @@ export default function DashboardCalendar({ ovens }: DashboardCalendarProps) {
     const [hoveredDate, setHoveredDate] = useState<string | null>(null);
     const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
     const calendarRef = useRef<HTMLDivElement>(null);
+    const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // ─── Fetch bookings ────────────────────────────────────────────
     const fetchBookings = useCallback(async () => {
@@ -131,6 +134,7 @@ export default function DashboardCalendar({ ovens }: DashboardCalendarProps) {
                 if (!existing.find((e) => e.start === b.start && e.ovenName === b.extendedProps.ovenName)) {
                     existing.push({
                         userName: b.extendedProps.userName,
+                        userPhone: b.extendedProps.userPhone,
                         ovenName: b.extendedProps.ovenName,
                         purpose: b.extendedProps.purpose,
                         usageTemp: b.extendedProps.usageTemp,
@@ -163,16 +167,23 @@ export default function DashboardCalendar({ ovens }: DashboardCalendarProps) {
 
     // ─── Hover handler ─────────────────────────────────────────────
     function handleCellHover(key: string, e: React.MouseEvent | React.TouchEvent) {
+        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
         const details = bookedDatesMap.get(key);
         if (!details || details.length === 0) { setHoveredDate(null); return; }
 
-        const rect = (e.target as HTMLElement).getBoundingClientRect();
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         const calRect = calendarRef.current?.getBoundingClientRect();
         setHoverPos({
             x: rect.left - (calRect?.left || 0) + rect.width / 2,
             y: rect.top - (calRect?.top || 0) - 8,
         });
         setHoveredDate(key);
+    }
+
+    function handleCellLeave() {
+        hoverTimeoutRef.current = setTimeout(() => {
+            setHoveredDate(null);
+        }, 150);
     }
 
     // ─── Build calendar grid ──────────────────────────────────────
@@ -281,7 +292,7 @@ export default function DashboardCalendar({ ovens }: DashboardCalendarProps) {
                             <div
                                 key={cell.key}
                                 onMouseEnter={(e) => handleCellHover(cell.key, e)}
-                                onMouseLeave={() => setHoveredDate(null)}
+                                onMouseLeave={handleCellLeave}
                                 onTouchStart={(e) => { if (hasBookings) { e.preventDefault(); handleCellHover(cell.key, e); } }}
                                 className={cellClass}
                             >
@@ -306,11 +317,13 @@ export default function DashboardCalendar({ ovens }: DashboardCalendarProps) {
                 {/* Hover popover */}
                 {hoveredDate && hoveredDetails.length > 0 && (
                     <div
-                        className="absolute z-50 bg-slate-900 border border-slate-600 rounded-lg p-3 shadow-xl max-w-xs animate-toast-in pointer-events-none"
+                        className="absolute z-50 bg-slate-900 border border-slate-600 rounded-lg p-3 shadow-xl max-w-xs animate-toast-in"
                         style={{
                             left: `${Math.max(12, Math.min(hoverPos.x - 120, (calendarRef.current?.offsetWidth || 300) - 260))}px`,
                             top: `${Math.max(0, hoverPos.y - (hoveredDetails.length * 70 + 20))}px`,
                         }}
+                        onMouseEnter={() => { if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current); }}
+                        onMouseLeave={handleCellLeave}
                     >
                         <p className="text-xs font-medium text-slate-400 mb-2">
                             {new Date(hoveredDate + "T00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
@@ -319,11 +332,23 @@ export default function DashboardCalendar({ ovens }: DashboardCalendarProps) {
                         <div className="space-y-2">
                             {hoveredDetails.map((det, i) => (
                                 <div key={i} className="text-xs space-y-0.5">
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1.5 w-full">
                                         <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: det.color }} />
                                         <span className="text-white font-medium truncate">{det.ovenName}</span>
                                         <span className="text-slate-500">·</span>
                                         <span className="text-slate-400 truncate">{det.userName}</span>
+                                        {det.userPhone && (
+                                            <a
+                                                href={`https://wa.me/${det.userPhone.replace(/\D/g, "").replace(/^0/, "62")}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="ml-auto text-green-500 hover:text-green-400 transition-colors shrink-0"
+                                                title={`Chat with ${det.userName} on WhatsApp`}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <MessageCircle className="h-3.5 w-3.5" />
+                                            </a>
+                                        )}
                                     </div>
                                     <p className="text-slate-500 pl-3.5">
                                         {formatDateTimeWib(det.start)} → {formatDateTimeWib(det.end)}

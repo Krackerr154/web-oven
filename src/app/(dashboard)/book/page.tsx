@@ -3,8 +3,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { createBooking, getMyActiveBookingsCount } from "@/app/actions/booking";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Loader2, Flame, Clock, AlertCircle, AlertTriangle } from "lucide-react";
+import { CalendarPlus, Loader2, Flame, Clock, AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
 import DateTimePicker from "@/components/date-time-picker";
+import { FlapSlider } from "@/components/flap-slider";
 import { formatDuration } from "@/lib/utils";
 import { useToast } from "@/components/toast";
 
@@ -33,6 +34,7 @@ export default function BookPage() {
   const [flap, setFlap] = useState(0);
   const [purpose, setPurpose] = useState("");
   const [activeCount, setActiveCount] = useState<number | null>(null);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   const selectedOven = useMemo(
     () => ovens.find((o) => o.id === selectedOvenId) ?? null,
@@ -134,7 +136,7 @@ export default function BookPage() {
 
     if (result.success) {
       toast.success(result.message);
-      router.push("/my-bookings");
+      setShowSuccessPopup(true);
     } else {
       setError(result.message);
     }
@@ -142,7 +144,37 @@ export default function BookPage() {
 
   return (
     <div className="max-w-4xl space-y-6 animate-fade-in relative">
-      {activeCount !== null && activeCount >= 2 && (
+      {showSuccessPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm px-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl animate-toast-in">
+            <div className="h-16 w-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/20">
+              <CheckCircle2 className="h-8 w-8 text-green-500" />
+            </div>
+            <h2 className="text-xl font-bold text-white mb-2">Booking Successful!</h2>
+            <p className="text-slate-400 text-sm mb-6">
+              Your oven booking has been confirmed and scheduled.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => router.push("/my-bookings")}
+                className="w-full py-2.5 rounded-lg bg-green-600 hover:bg-green-500 text-white font-medium transition-colors"
+              >
+                View My Bookings
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/")}
+                className="w-full py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium transition-colors"
+              >
+                Back to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!showSuccessPopup && activeCount !== null && activeCount >= 1 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm px-4">
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl animate-toast-in">
             <div className="h-16 w-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-500/20">
@@ -150,7 +182,7 @@ export default function BookPage() {
             </div>
             <h2 className="text-xl font-bold text-white mb-2">Booking Limit Reached</h2>
             <p className="text-slate-400 text-sm mb-6">
-              You already have 2 active bookings. You must complete or cancel an existing booking before creating a new one.
+              You already have 1 active booking. You must complete or cancel an existing booking before creating a new one.
             </p>
             <div className="flex flex-col gap-3">
               <button
@@ -294,28 +326,20 @@ export default function BookPage() {
               )}
             </div>
 
-            {/* Flap — dropdown select */}
+            {/* Flap — slider */}
             <div>
-              <label htmlFor="flap" className="block text-sm font-medium text-slate-300 mb-1.5">
-                Flap Opening
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Damper/Flap Opening
               </label>
-              <select
-                id="flap"
-                name="flap"
-                value={flap}
-                onChange={(e) => setFlap(Number(e.target.value))}
-                className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 appearance-none cursor-pointer"
-                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
-              >
-                {FLAP_VALUES.map((v) => (
-                  <option key={v} value={v}>
-                    {v}% {v === 0 ? "— Closed" : v === 100 ? "— Fully open" : ""}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-slate-500 mt-1.5">
-                Damper/vent opening percentage
-              </p>
+
+              <div className="pt-2">
+                <FlapSlider
+                  value={flap}
+                  onChange={setFlap}
+                  disabled={!ovenSelected}
+                />
+              </div>
+              <input type="hidden" name="flap" value={flap} />
             </div>
           </div>
 
