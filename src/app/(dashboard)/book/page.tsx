@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { createBooking } from "@/app/actions/booking";
+import { createBooking, getMyActiveBookingsCount } from "@/app/actions/booking";
 import { useRouter } from "next/navigation";
 import { CalendarPlus, Loader2, Flame, Clock, AlertCircle, AlertTriangle } from "lucide-react";
 import DateTimePicker from "@/components/date-time-picker";
@@ -32,6 +32,7 @@ export default function BookPage() {
   const [usageTemp, setUsageTemp] = useState("");
   const [flap, setFlap] = useState(0);
   const [purpose, setPurpose] = useState("");
+  const [activeCount, setActiveCount] = useState<number | null>(null);
 
   const selectedOven = useMemo(
     () => ovens.find((o) => o.id === selectedOvenId) ?? null,
@@ -109,6 +110,8 @@ export default function BookPage() {
       .then((r) => r.json())
       .then(setOvens)
       .catch(() => setError("Failed to load ovens"));
+
+    getMyActiveBookingsCount().then(setActiveCount);
   }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -138,7 +141,37 @@ export default function BookPage() {
   }
 
   return (
-    <div className="max-w-4xl space-y-6 animate-fade-in">
+    <div className="max-w-4xl space-y-6 animate-fade-in relative">
+      {activeCount !== null && activeCount >= 2 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm px-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl animate-toast-in">
+            <div className="h-16 w-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-500/20">
+              <AlertTriangle className="h-8 w-8 text-amber-500" />
+            </div>
+            <h2 className="text-xl font-bold text-white mb-2">Booking Limit Reached</h2>
+            <p className="text-slate-400 text-sm mb-6">
+              You already have 2 active bookings. You must complete or cancel an existing booking before creating a new one.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => router.push("/my-bookings")}
+                className="w-full py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium transition-colors"
+              >
+                View My Bookings
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/")}
+                className="w-full py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium transition-colors"
+              >
+                Back to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
         <h1 className="text-2xl font-bold text-white">Book an Oven</h1>
         <p className="text-slate-400 mt-1">

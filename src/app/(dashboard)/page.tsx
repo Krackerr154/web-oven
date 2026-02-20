@@ -5,10 +5,12 @@ import { Flame, Clock, User, AlertTriangle, CalendarPlus } from "lucide-react";
 import { formatDateTimeWib, formatDateWib, formatMonthDayWib } from "@/lib/utils";
 import Link from "next/link";
 import DashboardCalendar from "@/components/dashboard-calendar";
+import { autoCompleteBookings } from "@/app/actions/booking";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  await autoCompleteBookings();
   const session = await getServerSession(authOptions);
 
   const ovens = await prisma.oven.findMany({
@@ -78,7 +80,7 @@ export default async function DashboardPage() {
                     {isMaintenance ? (
                       <AlertTriangle className="h-6 w-6 text-amber-400" />
                     ) : (
-                      <Flame className="h-6 w-6 text-orange-400" />
+                      <Flame className={`h-6 w-6 ${oven.type === "NON_AQUEOUS" ? "text-orange-400" : "text-blue-400"}`} />
                     )}
                   </div>
                   <div>
@@ -173,6 +175,19 @@ export default async function DashboardPage() {
                 </div>
               </Link>
             ))}
+            {userBookings.length < 2 && (
+              <Link
+                href="/book"
+                className="rounded-xl border border-dashed border-slate-600 bg-slate-800/20 p-5 hover:bg-slate-800/60 hover:border-orange-500/50 transition-all flex flex-col items-center justify-center min-h-[120px] group"
+              >
+                <div className="h-10 w-10 rounded-full bg-orange-500/10 flex items-center justify-center mb-2 group-hover:bg-orange-500/20 transition-colors">
+                  <CalendarPlus className="h-5 w-5 text-orange-400" />
+                </div>
+                <span className="text-sm font-medium text-slate-300 group-hover:text-orange-300 transition-colors">
+                  Book Another Oven
+                </span>
+              </Link>
+            )}
           </div>
         )}
       </div>

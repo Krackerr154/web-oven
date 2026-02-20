@@ -1,5 +1,6 @@
 import { getAllBookings } from "@/app/actions/admin";
 import { formatDateTimeWib, formatDuration } from "@/lib/utils";
+import { autoCompleteBookings } from "@/app/actions/booking";
 import Link from "next/link";
 import { BookingActionButtons } from "./action-buttons";
 import { ListChecks } from "lucide-react";
@@ -19,6 +20,7 @@ type BookingItem = {
 };
 
 export default async function AdminBookingsPage() {
+  await autoCompleteBookings();
   const bookings = await getAllBookings();
 
   const statusStyles: Record<string, string> = {

@@ -2,10 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
+import { autoCompleteBookings } from "@/app/actions/booking";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  await autoCompleteBookings();
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
     title: `${b.oven.name} — ${b.userId === session.user.id ? "You" : b.user.name}`,
     start: b.startDate.toISOString(),
     end: b.endDate.toISOString(),
-    color: b.oven.type === "NON_AQUEOUS" ? "#ea580c" : "#2563eb",
+    color: b.oven.type === "NON_AQUEOUS" ? "#ea580c" : "#3b82f6",
     extendedProps: {
       ovenName: b.oven.name,
       ovenType: b.oven.type,

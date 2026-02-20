@@ -58,6 +58,43 @@ async function logBookingEvent(
   });
 }
 
+export async function autoCompleteBookings() {
+  try {
+    const expiredBookings = await prisma.booking.findMany({
+      where: {
+        status: "ACTIVE",
+        endDate: { lt: new Date() },
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (expiredBookings.length === 0) return;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.booking.updateMany({
+        where: {
+          id: { in: expiredBookings.map((b) => b.id) },
+        },
+        data: {
+          status: "COMPLETED",
+        },
+      });
+
+      for (const booking of expiredBookings) {
+        await logBookingEvent(tx, {
+          bookingId: booking.id,
+          actorType: "SYSTEM",
+          eventType: "COMPLETED",
+          note: "Booking automatically marked as completed by system",
+        });
+      }
+    });
+  } catch (error) {
+    console.error("Failed to auto-complete bookings:", error);
+  }
+}
+
 export async function createBooking(data: {
   ovenId: number;
   startDate: string;
@@ -293,4 +330,17 @@ export async function getMyBookingDetail(bookingId: string) {
   });
 
   return booking;
+}
+
+export async function getMyActiveBookingsCount() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return 0;
+
+  return await prisma.booking.count({
+    where: {
+      userId: session.user.id,
+      status: "ACTIVE",
+      deletedAt: null,
+    },
+  });
 }

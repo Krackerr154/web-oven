@@ -3,12 +3,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { CancelBookingButton } from "./cancel-button";
 import { formatDateTimeWib, formatDuration, getCancellationWindowInfo } from "@/lib/utils";
+import { autoCompleteBookings } from "@/app/actions/booking";
 import Link from "next/link";
 import { CalendarPlus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function MyBookingsPage() {
+  await autoCompleteBookings();
   const session = await getServerSession(authOptions);
 
   const bookings = await prisma.booking.findMany({

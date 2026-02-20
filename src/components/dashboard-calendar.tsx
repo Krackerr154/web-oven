@@ -50,15 +50,9 @@ const MONTHS = [
     "July", "August", "September", "October", "November", "December",
 ];
 
-// Distinct per-oven color palette
-const OVEN_COLORS = [
-    "#ea580c", "#06b6d4", "#16a34a", "#a855f7",
-    "#ec4899", "#14b8a6", "#eab308", "#6366f1",
-];
-
 function getOvenColor(ovenId: number, ovens: OvenInfo[]): string {
-    const idx = ovens.findIndex((o) => o.id === ovenId);
-    return OVEN_COLORS[idx >= 0 ? idx % OVEN_COLORS.length : 0];
+    const oven = ovens.find((o) => o.id === ovenId);
+    return oven?.type === "NON_AQUEOUS" ? "#ea580c" : "#3b82f6"; // orange-600 and blue-500
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -349,7 +343,7 @@ export default function DashboardCalendar({ ovens }: DashboardCalendarProps) {
                         <div key={oven.id} className="flex items-center gap-1.5">
                             <span
                                 className="h-1.5 w-1.5 rounded-full"
-                                style={{ backgroundColor: OVEN_COLORS[i % OVEN_COLORS.length] }}
+                                style={{ backgroundColor: getOvenColor(oven.id, ovens) }}
                             />
                             <span>{oven.name}</span>
                         </div>
