@@ -4,12 +4,27 @@ import { useState } from "react";
 import { registerUser } from "@/app/actions/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Flame, Loader2 } from "lucide-react";
+import { Flame, Loader2, Plus, X } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [supervisors, setSupervisors] = useState<string[]>([""]);
+
+  const addSupervisor = () => setSupervisors([...supervisors, ""]);
+
+  const removeSupervisor = (index: number) => {
+    if (supervisors.length > 1) {
+      setSupervisors(supervisors.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateSupervisor = (index: number, value: string) => {
+    const updated = [...supervisors];
+    updated[index] = value;
+    setSupervisors(updated);
+  };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -21,6 +36,8 @@ export default function RegisterPage() {
       name: formData.get("name") as string,
       email: formData.get("email") as string,
       phone: formData.get("phone") as string,
+      nim: formData.get("nim") as string,
+      supervisors: supervisors.filter(s => s.trim() !== ""),
       password: formData.get("password") as string,
     };
     const result = await registerUser(data);
@@ -67,8 +84,62 @@ export default function RegisterPage() {
               type="text"
               required
               className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
-              placeholder="Gerald Arya"
+              placeholder="e.g. Gerald Arya"
             />
+          </div>
+
+          <div>
+            <label htmlFor="nim" className="block text-sm font-medium text-slate-300 mb-1.5">
+              NIM (Student Identity Number)
+            </label>
+            <input
+              id="nim"
+              name="nim"
+              type="number"
+              required
+              className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+              placeholder="Your student ID"
+            />
+          </div>
+
+          <div className="space-y-3 p-4 bg-slate-900/40 rounded-xl border border-slate-700/50">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-slate-300">
+                Supervisor(s)
+              </label>
+            </div>
+
+            {supervisors.map((supervisor, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  required
+                  value={supervisor}
+                  onChange={(e) => updateSupervisor(index, e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+                  placeholder={index === 0 ? "Main Supervisor Name" : "Co-Supervisor Name"}
+                />
+                {supervisors.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeSupervisor(index)}
+                    className="p-2.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+                    title="Remove Supervisor"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={addSupervisor}
+              className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1.5 font-medium px-1 py-1 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Another Supervisor
+            </button>
           </div>
 
           <div>

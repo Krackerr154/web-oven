@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { User, Phone, Mail, Shield, Activity, CalendarDays, CheckCircle, XCircle, Clock } from "lucide-react";
 import { formatDateTimeWib } from "@/lib/utils";
+import { ProfileEditor } from "@/components/profile-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -52,60 +53,7 @@ export default async function ProfilePage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Account Details */}
                 <div className="md:col-span-1 space-y-6">
-                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                        <div className="flex flex-col items-center text-center">
-                            <div className="h-20 w-20 rounded-full bg-orange-500/20 flex items-center justify-center mb-4">
-                                <span className="text-3xl font-bold text-orange-400">
-                                    {user.name.charAt(0).toUpperCase()}
-                                </span>
-                            </div>
-                            <h2 className="text-lg font-semibold text-white">{user.name}</h2>
-                            <p className="text-sm text-slate-400 mt-1 flex items-center gap-1.5 justify-center">
-                                <Shield className="h-3.5 w-3.5 text-slate-500" />
-                                <span className="uppercase tracking-wider">{user.role}</span>
-                            </p>
-                        </div>
-
-                        <div className="mt-8 space-y-4">
-                            <div className="flex items-start gap-3">
-                                <Mail className="h-5 w-5 text-slate-500 shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="text-xs text-slate-500 font-medium">Email Address</p>
-                                    <p className="text-sm text-slate-300 break-all">{user.email}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <Phone className="h-5 w-5 text-slate-500 shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="text-xs text-slate-500 font-medium">Phone Number</p>
-                                    <p className="text-sm text-slate-300">{user.phone}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <Clock className="h-5 w-5 text-slate-500 shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="text-xs text-slate-500 font-medium">Account Created</p>
-                                    <p className="text-sm text-slate-300">{formatDateTimeWib(user.createdAt)}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-8 pt-6 border-t border-slate-700/50">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-slate-400">Status</span>
-                                <span
-                                    className={`text-xs px-2.5 py-1 rounded-md font-medium ${user.status === "APPROVED"
-                                        ? "bg-emerald-500/20 text-emerald-400"
-                                        : user.status === "PENDING"
-                                            ? "bg-amber-500/20 text-amber-400"
-                                            : "bg-red-500/20 text-red-400"
-                                        }`}
-                                >
-                                    {user.status}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+                    <ProfileEditor user={user as any} />
                 </div>
 
                 {/* Statistics & Activity Summary */}

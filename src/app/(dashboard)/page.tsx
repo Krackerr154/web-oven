@@ -139,7 +139,7 @@ export default async function DashboardPage() {
       {/* My Active Bookings */}
       <div>
         <h2 className="text-lg font-semibold text-white mb-4">
-          Your Active Bookings ({userBookings.length}/2)
+          Your Active Bookings ({userBookings.length}/1)
         </h2>
         {userBookings.length === 0 ? (
           <div className="rounded-xl border border-slate-700 p-8 text-center">
@@ -175,7 +175,7 @@ export default async function DashboardPage() {
                 </div>
               </Link>
             ))}
-            {userBookings.length < 2 && (
+            {userBookings.length < 1 && (
               <Link
                 href="/book"
                 className="rounded-xl border border-dashed border-slate-600 bg-slate-800/20 p-5 hover:bg-slate-800/60 hover:border-orange-500/50 transition-all flex flex-col items-center justify-center min-h-[120px] group"

@@ -8,6 +8,8 @@ const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   phone: z.string().min(8, "Phone must be at least 8 characters"),
+  nim: z.string().min(3, "NIM or Student ID is required"),
+  supervisors: z.array(z.string().min(2, "Supervisor name must be at least 2 characters")).min(1, "At least one supervisor is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
@@ -22,6 +24,8 @@ export async function registerUser(data: Record<string, any>): Promise<RegisterR
       name: data.name,
       email: data.email,
       phone: data.phone,
+      nim: data.nim,
+      supervisors: data.supervisors,
       password: data.password,
     };
 
@@ -33,7 +37,7 @@ export async function registerUser(data: Record<string, any>): Promise<RegisterR
       };
     }
 
-    const { name, email, phone, password } = parsed.data;
+    const { name, email, phone, nim, supervisors, password } = parsed.data;
 
     // Check uniqueness
     const existingUser = await prisma.user.findFirst({
@@ -59,6 +63,8 @@ export async function registerUser(data: Record<string, any>): Promise<RegisterR
         name,
         email,
         phone,
+        nim,
+        supervisors,
         passwordHash,
         role: "USER",
         status: "PENDING",
