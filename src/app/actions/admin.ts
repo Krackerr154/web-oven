@@ -191,6 +191,58 @@ export async function rejectUser(userId: string): Promise<ActionResult> {
   }
 }
 
+export async function setUserRole(userId: string, role: "ADMIN" | "USER"): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
+  try {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id === userId) {
+      return { success: false, message: "You cannot change your own role" };
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role, isContactPerson: role === "USER" ? false : undefined }, // Remove contact tag if demoted
+    });
+
+    revalidatePath("/admin/users");
+    return { success: true, message: `User role changed to ${role}` };
+  } catch (error) {
+    console.error("Set role err:", error);
+    return { success: false, message: "Failed to change user role" };
+  }
+}
+
+export async function setContactPerson(userId: string): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
+  try {
+    const target = await prisma.user.findUnique({ where: { id: userId } });
+    if (!target || target.role !== "ADMIN") {
+      return { success: false, message: "Only Admins can be the Contact Person" };
+    }
+
+    await prisma.$transaction([
+      prisma.user.updateMany({
+        where: { isContactPerson: true },
+        data: { isContactPerson: false },
+      }),
+      prisma.user.update({
+        where: { id: userId },
+        data: { isContactPerson: true },
+      }),
+    ]);
+
+    revalidatePath("/admin/users");
+    return { success: true, message: "Contact Person updated successfully" };
+  } catch (error) {
+    console.error("Set contact err:", error);
+    return { success: false, message: "Failed to update contact person" };
+  }
+}
+
 export async function getPendingUsers() {
   const guard = await requireAdmin();
   if (guard) return [];
@@ -214,6 +266,7 @@ export async function getAllUsers() {
       phone: true,
       role: true,
       status: true,
+      isContactPerson: true,
       createdAt: true,
       _count: { select: { bookings: true } },
     },

@@ -16,6 +16,7 @@ type BookingSlot = {
         ovenName: string;
         ovenType: string;
         userName: string;
+        userNickname: string | null;
         purpose: string;
         usageTemp: number;
         flap: number;
@@ -36,6 +37,7 @@ type DashboardCalendarProps = {
 
 type DayBookingDetail = {
     userName: string;
+    userNickname: string | null;
     ovenName: string;
     purpose: string;
     usageTemp: number;
@@ -134,6 +136,7 @@ export default function DashboardCalendar({ ovens }: DashboardCalendarProps) {
                 if (!existing.find((e) => e.start === b.start && e.ovenName === b.extendedProps.ovenName)) {
                     existing.push({
                         userName: b.extendedProps.userName,
+                        userNickname: b.extendedProps.userNickname,
                         userPhone: b.extendedProps.userPhone,
                         ovenName: b.extendedProps.ovenName,
                         purpose: b.extendedProps.purpose,
@@ -336,7 +339,7 @@ export default function DashboardCalendar({ ovens }: DashboardCalendarProps) {
                                         <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: det.color }} />
                                         <span className="text-white font-medium truncate">{det.ovenName}</span>
                                         <span className="text-slate-500">·</span>
-                                        <span className="text-slate-400 truncate">{det.userName}</span>
+                                        <span className="text-slate-400 truncate">{det.userNickname || det.userName}</span>
                                         {det.userPhone && (
                                             <a
                                                 href={`https://wa.me/${det.userPhone.replace(/\D/g, "").replace(/^0/, "62")}`}

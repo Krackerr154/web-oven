@@ -73,12 +73,14 @@ model User {
   name         String
   email        String     @unique
   phone        String     @unique
+  nickname     String?
   nim          String?    @unique
   supervisors  String[]
   image        String?    @db.Text
   passwordHash String     @map("password_hash")
   role         Role       @default(USER)
   status       UserStatus @default(PENDING)
+  isContactPerson Boolean @default(false) @map("is_contact_person")
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 

@@ -17,8 +17,14 @@ export default async function MyBookingsPage() {
     where: { userId: session?.user?.id, deletedAt: null },
     include: {
       oven: { select: { name: true, type: true } },
+      user: { select: { name: true } },
     },
     orderBy: { createdAt: "desc" },
+  });
+
+  const contactAdmin = await prisma.user.findFirst({
+    where: { role: "ADMIN", isContactPerson: true },
+    select: { phone: true },
   });
 
   const statusStyles: Record<string, string> = {
@@ -108,7 +114,10 @@ export default async function MyBookingsPage() {
                       const cancelInfo = getCancellationWindowInfo(booking.createdAt, 15);
                       return (
                         <div className="space-y-1">
-                          <CancelBookingButton bookingId={booking.id} />
+                          <CancelBookingButton
+                            booking={booking}
+                            contactPhone={contactAdmin?.phone || null}
+                          />
                           <p className="text-[11px] text-slate-500">
                             {cancelInfo.canCancel
                               ? `Can be cancelled for ${cancelInfo.minutesRemaining} more minute(s)`
@@ -180,7 +189,10 @@ export default async function MyBookingsPage() {
                       <td className="px-4 py-3">
                         {booking.status === "ACTIVE" && (
                           <div className="space-y-1">
-                            <CancelBookingButton bookingId={booking.id} />
+                            <CancelBookingButton
+                              booking={booking}
+                              contactPhone={contactAdmin?.phone || null}
+                            />
                             {(() => {
                               const cancelInfo = getCancellationWindowInfo(booking.createdAt, 15);
                               return (

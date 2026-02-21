@@ -10,6 +10,7 @@ import Image from "next/image";
 type ProfileUser = {
     id: string;
     name: string;
+    nickname: string | null;
     email: string;
     phone: string;
     nim: string | null;
@@ -28,6 +29,7 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
 
     // Form states
     const [name, setName] = useState(user.name);
+    const [nickname, setNickname] = useState(user.nickname || "");
     const [email, setEmail] = useState(user.email);
     const [phone, setPhone] = useState(user.phone);
 
@@ -36,7 +38,7 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
     async function handleSave(e: React.FormEvent) {
         e.preventDefault();
         setLoading(true);
-        const result = await updateProfile({ name, email, phone });
+        const result = await updateProfile({ name, nickname, email, phone });
         setLoading(false);
 
         if (result.success) {
@@ -49,6 +51,7 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
 
     function handleCancel() {
         setName(user.name);
+        setNickname(user.nickname || "");
         setEmail(user.email);
         setPhone(user.phone);
         setIsEditing(false);
@@ -133,7 +136,9 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                     onChange={handleImagePick}
                 />
 
-                <h2 className="text-lg font-semibold text-white">{user.name}</h2>
+                <h2 className="text-lg font-semibold text-white">
+                    {user.name} {user.nickname && <span className="text-slate-400 font-normal">({user.nickname})</span>}
+                </h2>
                 <p className="text-sm text-slate-400 mt-1 flex items-center gap-1.5 justify-center">
                     <Shield className="h-3.5 w-3.5 text-slate-500" />
                     <span className="uppercase tracking-wider font-medium">{user.role}</span>
@@ -156,6 +161,22 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                             />
                         ) : (
                             <p className="text-sm text-slate-200 pl-6">{user.name}</p>
+                        )}
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs text-slate-400 font-medium flex items-center gap-2">
+                            <FileText className="h-3.5 w-3.5 text-slate-500" /> Nickname <span className="text-slate-500 font-normal ml-auto text-[10px]">(Optional)</span>
+                        </label>
+                        {isEditing ? (
+                            <input
+                                value={nickname}
+                                onChange={e => setNickname(e.target.value)}
+                                placeholder="Display name for bookings"
+                                className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900 border border-slate-600 text-white focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+                            />
+                        ) : (
+                            <p className="text-sm text-slate-200 pl-6">{user.nickname || "—"}</p>
                         )}
                     </div>
 
@@ -254,10 +275,10 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                     <span className="text-sm text-slate-400">Account Status</span>
                     <span
                         className={`text-[11px] px-2.5 py-1 uppercase tracking-wider rounded-md font-bold ${user.status === "APPROVED"
-                                ? "bg-emerald-500/20 text-emerald-400"
-                                : user.status === "PENDING"
-                                    ? "bg-amber-500/20 text-amber-400"
-                                    : "bg-red-500/20 text-red-400"
+                            ? "bg-emerald-500/20 text-emerald-400"
+                            : user.status === "PENDING"
+                                ? "bg-amber-500/20 text-amber-400"
+                                : "bg-red-500/20 text-red-400"
                             }`}
                     >
                         {user.status}

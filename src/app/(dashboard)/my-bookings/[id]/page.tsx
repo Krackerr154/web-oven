@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { getMyBookingDetail } from "@/app/actions/booking";
 import {
@@ -19,6 +20,11 @@ export default async function MyBookingDetailPage({ params }: Props) {
   const booking = await getMyBookingDetail(id);
 
   if (!booking) notFound();
+
+  const contactAdmin = await prisma.user.findFirst({
+    where: { role: "ADMIN", isContactPerson: true },
+    select: { phone: true },
+  });
 
   const cancelInfo = getCancellationWindowInfo(booking.createdAt, 15);
 
@@ -85,7 +91,10 @@ export default async function MyBookingDetailPage({ params }: Props) {
 
           {booking.status === "ACTIVE" && (
             <div className="pt-3 border-t border-slate-700/60 space-y-1">
-              <CancelBookingButton bookingId={booking.id} />
+              <CancelBookingButton
+                booking={booking}
+                contactPhone={contactAdmin?.phone || null}
+              />
               <p className="text-[11px] text-slate-500">
                 {cancelInfo.canCancel
                   ? `Can be cancelled for ${cancelInfo.minutesRemaining} more minute(s)`

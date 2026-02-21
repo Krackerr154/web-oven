@@ -9,10 +9,11 @@ import { revalidatePath } from "next/cache";
 const profileSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
     email: z.string().email("Invalid email address"),
-    phone: z.string().min(8, "Phone must be at least 8 characters"),
+    phone: z.string().regex(/^62\d+$/, "Phone must start with 62 and contain only numbers"),
+    nickname: z.string().optional(),
 });
 
-export async function updateProfile(data: { name: string; email: string; phone: string }) {
+export async function updateProfile(data: { name: string; email: string; phone: string; nickname?: string }) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { success: false, message: "Unauthorized" };
 
@@ -20,7 +21,7 @@ export async function updateProfile(data: { name: string; email: string; phone: 
         const parsed = profileSchema.safeParse(data);
         if (!parsed.success) return { success: false, message: parsed.error.issues[0].message };
 
-        const { name, email, phone } = parsed.data;
+        const { name, email, phone, nickname } = parsed.data;
 
         // Check uniqueness excluding current user
         const existingUser = await prisma.user.findFirst({
@@ -39,7 +40,7 @@ export async function updateProfile(data: { name: string; email: string; phone: 
 
         await prisma.user.update({
             where: { id: session.user.id },
-            data: { name, email, phone },
+            data: { name, email, phone, nickname: nickname || null },
         });
 
         revalidatePath("/profile");

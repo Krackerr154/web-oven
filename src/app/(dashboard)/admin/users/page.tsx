@@ -3,7 +3,8 @@ import { format } from "date-fns";
 import { UserActionButtons } from "./action-buttons";
 import Link from "next/link";
 import { AddUserModal } from "./add-user-modal";
-import { Users } from "lucide-react";
+import { RoleManagementButtons } from "./role-buttons";
+import { Users, Star } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -60,11 +61,17 @@ export default async function AdminUsersPage() {
                   <div>
                     <p className="text-xs text-slate-500">Role</p>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${user.role === "ADMIN"
-                        ? "bg-purple-500/20 text-purple-300"
-                        : "bg-slate-500/20 text-slate-300"
+                      ? "bg-purple-500/20 text-purple-300"
+                      : "bg-slate-500/20 text-slate-300"
                       }`}>
                       {user.role}
                     </span>
+                    {user.isContactPerson && (
+                      <div className="flex items-center gap-1 mt-1 text-amber-400">
+                        <Star className="h-3 w-3 fill-current" />
+                        <span className="text-[10px] font-medium uppercase tracking-wider">Contact</span>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Registered</p>
@@ -81,6 +88,13 @@ export default async function AdminUsersPage() {
                   <div className="pt-2 border-t border-slate-700/50">
                     <UserActionButtons userId={user.id} />
                   </div>
+                )}
+                {user.status === "APPROVED" && (
+                  <RoleManagementButtons
+                    userId={user.id}
+                    currentRole={user.role}
+                    isContactPerson={user.isContactPerson}
+                  />
                 )}
                 <div className="pt-1">
                   <Link
@@ -118,11 +132,17 @@ export default async function AdminUsersPage() {
                       <td className="px-4 py-3 text-sm text-slate-300">{user.phone}</td>
                       <td className="px-4 py-3">
                         <span className={`text-xs px-2 py-1 rounded-full font-medium ${user.role === "ADMIN"
-                            ? "bg-purple-500/20 text-purple-300"
-                            : "bg-slate-500/20 text-slate-300"
+                          ? "bg-purple-500/20 text-purple-300"
+                          : "bg-slate-500/20 text-slate-300"
                           }`}>
                           {user.role}
                         </span>
+                        {user.isContactPerson && (
+                          <div className="flex items-center gap-1 mt-1 text-amber-400">
+                            <Star className="h-3 w-3 fill-current" />
+                            <span className="text-[10px] font-medium uppercase tracking-wider">Contact</span>
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusStyles[user.status] || ""
@@ -148,6 +168,15 @@ export default async function AdminUsersPage() {
                             Stats
                           </Link>
                         </div>
+                        {user.status === "APPROVED" && (
+                          <div className="mt-2 min-w-[140px]">
+                            <RoleManagementButtons
+                              userId={user.id}
+                              currentRole={user.role}
+                              isContactPerson={user.isContactPerson}
+                            />
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -157,8 +157,9 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-slate-300 mb-1.5">
+            <label htmlFor="phone" className="block text-sm font-medium text-slate-300 mb-1.5 flex items-center justify-between">
               Phone Number
+              <span className="text-xs text-slate-500 font-normal">Must start with 62</span>
             </label>
             <input
               id="phone"
@@ -166,7 +167,7 @@ export default function RegisterPage() {
               type="tel"
               required
               className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
-              placeholder="+62 812 345 6789"
+              placeholder="e.g. 628123456789"
             />
           </div>
 
