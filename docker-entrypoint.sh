@@ -6,7 +6,7 @@ echo "🔄 Pushing Prisma schema to database (non-destructive)..."
 MAX_RETRIES=5
 RETRY_COUNT=0
 
-until npx prisma db push || [ $RETRY_COUNT -eq $MAX_RETRIES ]; do
+until npx prisma db push --accept-data-loss || [ $RETRY_COUNT -eq $MAX_RETRIES ]; do
   RETRY_COUNT=$((RETRY_COUNT + 1))
   echo "⏳ Database not ready yet. Retrying in 5 seconds... (Attempt $RETRY_COUNT/$MAX_RETRIES)"
   sleep 5
