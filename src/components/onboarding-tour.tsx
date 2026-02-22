@@ -68,49 +68,44 @@ export function SpotlightTour({ hasSeenTour }: SpotlightTourProps) {
   useEffect(() => {
     if (!isVisible) return;
 
-    const updatePosition = () => {
+    const calculatePosition = () => {
       const step = steps[activeStep];
       if (step.targetId) {
         const el = document.getElementById(step.targetId);
         if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          const rect = el.getBoundingClientRect();
+          setTargetRect(rect);
 
-          // Wait for smooth scroll to finish before clamping rect
-          setTimeout(() => {
-            const rect = el.getBoundingClientRect();
-            setTargetRect(rect);
+          const isMobilePopover = window.innerWidth < 640;
+          if (isMobilePopover) {
+            // On mobile, dock to bottom to save screen real estate
+            setPopoverStyle({
+              position: "fixed",
+              bottom: "20px",
+              left: "20px",
+              right: "20px",
+              width: "auto",
+            });
+          } else {
+            // On desktop, try to place it intelligently below the target
+            let top = rect.bottom + 20;
+            let left = rect.left;
 
-            const isMobile = window.innerWidth < 640;
-            if (isMobile) {
-              // On mobile, dock to bottom to save screen real estate
-              setPopoverStyle({
-                position: "fixed",
-                bottom: "20px",
-                left: "20px",
-                right: "20px",
-                width: "auto",
-              });
-            } else {
-              // On desktop, try to place it intelligently below the target
-              let top = rect.bottom + 20;
-              let left = rect.left;
-
-              if (left + 320 > window.innerWidth) {
-                left = window.innerWidth - 340; // constrain horizontally
-              }
-              if (top + 200 > window.innerHeight) {
-                top = rect.top - 200 - 20; // push above if bottom bounds exceeded
-              }
-              if (top < 20) top = 20;
-
-              setPopoverStyle({
-                position: "fixed",
-                top: `${top}px`,
-                left: `${left}px`,
-                width: "320px",
-              });
+            if (left + 320 > window.innerWidth) {
+              left = window.innerWidth - 340; // constrain horizontally
             }
-          }, 350);
+            if (top + 200 > window.innerHeight) {
+              top = rect.top - 200 - 20; // push above if bottom bounds exceeded
+            }
+            if (top < 20) top = 20;
+
+            setPopoverStyle({
+              position: "fixed",
+              top: `${top}px`,
+              left: `${left}px`,
+              width: "320px",
+            });
+          }
         } else {
           setTargetRect(null);
           centerPopover();
@@ -131,10 +126,42 @@ export function SpotlightTour({ hasSeenTour }: SpotlightTourProps) {
       });
     };
 
-    updatePosition();
+    const setupStep = () => {
+      const step = steps[activeStep];
 
-    window.addEventListener("resize", updatePosition);
-    return () => window.removeEventListener("resize", updatePosition);
+      // Handle mobile sidebar logic (Tailwind 'lg' is 1024px)
+      if (window.innerWidth < 1024) {
+        if (step.targetId === "tour-book" || step.targetId === "tour-profile") {
+          window.dispatchEvent(new Event("open-mobile-sidebar"));
+        } else {
+          window.dispatchEvent(new Event("close-mobile-sidebar"));
+        }
+      }
+
+      if (step.targetId) {
+        // We wait a tiny bit for the sidebar transition to start/finish before parsing the element
+        setTimeout(() => {
+          const el = document.getElementById(step.targetId);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            setTimeout(calculatePosition, 400); // 400ms to allow smooth scroll and sidebar slide to finish
+          } else {
+            calculatePosition();
+          }
+        }, 50);
+      } else {
+        calculatePosition();
+      }
+    };
+
+    setupStep();
+
+    window.addEventListener("resize", calculatePosition);
+    window.addEventListener("scroll", calculatePosition, { passive: true });
+    return () => {
+      window.removeEventListener("resize", calculatePosition);
+      window.removeEventListener("scroll", calculatePosition);
+    };
   }, [activeStep, isVisible]);
 
   if (!isVisible) return null;

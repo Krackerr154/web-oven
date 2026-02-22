@@ -16,7 +16,7 @@ import {
   X,
   User,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const userNav = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -35,6 +35,17 @@ export function Sidebar() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpen = () => setMobileOpen(true);
+    const handleClose = () => setMobileOpen(false);
+    window.addEventListener("open-mobile-sidebar", handleOpen);
+    window.addEventListener("close-mobile-sidebar", handleClose);
+    return () => {
+      window.removeEventListener("open-mobile-sidebar", handleOpen);
+      window.removeEventListener("close-mobile-sidebar", handleClose);
+    };
+  }, []);
 
   const navContent = (
     <>
