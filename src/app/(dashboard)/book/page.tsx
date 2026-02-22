@@ -8,6 +8,7 @@ import DateTimePicker from "@/components/date-time-picker";
 import { FlapSlider } from "@/components/flap-slider";
 import { formatDuration } from "@/lib/utils";
 import { useToast } from "@/components/toast";
+import { BookingRulesModal } from "@/components/booking-rules-modal";
 
 type Oven = {
   id: number;
@@ -143,7 +144,7 @@ export default function BookPage() {
   }
 
   return (
-    <div className="max-w-4xl space-y-6 animate-fade-in relative">
+    <div className="space-y-6 animate-fade-in relative">
       {showSuccessPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm px-4">
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl animate-toast-in">
@@ -204,11 +205,16 @@ export default function BookPage() {
         </div>
       )}
 
-      <div>
-        <h1 className="text-2xl font-bold text-white">Book an Oven</h1>
-        <p className="text-slate-400 mt-1">
-          Select an oven and choose your time slot in WIB (max 7 days)
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Book an Oven</h1>
+          <p className="text-slate-400 mt-1">
+            Select an oven and choose your time slot in WIB (max 7 days)
+          </p>
+        </div>
+        <div className="shrink-0 flex items-center">
+          <BookingRulesModal id="tour-guidelines" />
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -220,7 +226,7 @@ export default function BookPage() {
         )}
 
         {/* Oven Selection */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
+        <div className="bg-slate-900/40 backdrop-blur-md shadow-lg border border-slate-700/50 rounded-2xl p-4 sm:p-6">
           <label className="block text-sm font-medium text-slate-300 mb-3">
             Select Oven
           </label>
@@ -275,8 +281,8 @@ export default function BookPage() {
 
         {/* Duration display + warning */}
         {(startDate || endDate) && (
-          <div className={`rounded-lg bg-slate-800/50 border ${durationWarning ? "border-amber-500/30" : "border-slate-700"}`}>
-            <div className="flex items-center gap-3 px-4 py-3">
+          <div className={`rounded-xl bg-slate-900/40 backdrop-blur-md shadow-lg border ${durationWarning ? "border-amber-500/30" : "border-slate-700/50"}`}>
+            <div className="flex items-center gap-3 px-5 py-4">
               <Clock className="h-4 w-4 text-slate-500 shrink-0" />
               <span className="text-sm text-slate-300">
                 Duration: <span className="font-medium text-white">{duration}</span>
@@ -292,8 +298,8 @@ export default function BookPage() {
         )}
 
         {/* Temperature & Flap */}
-        <div className={`bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6 transition-opacity ${ovenSelected ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className={`bg-slate-900/40 backdrop-blur-md shadow-lg border border-slate-700/50 rounded-2xl p-4 sm:p-6 transition-opacity ${ovenSelected ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
             {/* Temperature */}
             <div>
               <label htmlFor="usageTemp" className="block text-sm font-medium text-slate-300 mb-1.5">
@@ -351,7 +357,7 @@ export default function BookPage() {
         </div>
 
         {/* Purpose */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
+        <div className="bg-slate-900/40 backdrop-blur-md shadow-lg border border-slate-700/50 rounded-2xl p-4 sm:p-6">
           <label htmlFor="purpose" className="block text-sm font-medium text-slate-300 mb-1.5">
             Purpose
           </label>
@@ -368,8 +374,8 @@ export default function BookPage() {
         </div>
 
         {/* Live validation checklist */}
-        <div className="bg-slate-900/50 rounded-lg p-3 space-y-1.5">
-          <p className="text-xs font-medium text-slate-400 mb-2">Booking requirements</p>
+        <div className="bg-slate-900/60 backdrop-blur-md shadow-inner border border-slate-800 rounded-xl p-4 space-y-1.5">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Booking requirements</p>
           {validationIssues.map((item, i) => (
             <div key={i} className={`flex items-center gap-2 text-xs ${item.ok ? "text-green-400" : "text-slate-500"}`}>
               <span className={`shrink-0 ${item.ok ? "text-green-400" : "text-red-400"}`}>

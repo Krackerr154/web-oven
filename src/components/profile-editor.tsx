@@ -6,6 +6,7 @@ import { formatDateTimeWib } from "@/lib/utils";
 import { updateProfile, updateAvatar } from "@/app/actions/profile";
 import { useToast } from "@/components/toast";
 import Image from "next/image";
+import { IdCardGenerator } from "./id-card-generator";
 
 type ProfileUser = {
     id: string;
@@ -143,6 +144,11 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                     <Shield className="h-3.5 w-3.5 text-slate-500" />
                     <span className="uppercase tracking-wider font-medium">{user.role}</span>
                 </p>
+
+                {/* PDF ID Card Export - Only visible if Avatar exists */}
+                {!isEditing && user.image && (
+                    <IdCardGenerator user={user} />
+                )}
             </div>
 
             <form onSubmit={handleSave} className="mt-8 space-y-4">
@@ -205,6 +211,8 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                             <input
                                 required
                                 type="tel"
+                                minLength={10}
+                                maxLength={15}
                                 value={phone}
                                 onChange={e => setPhone(e.target.value)}
                                 className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900 border border-slate-600 text-white focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"

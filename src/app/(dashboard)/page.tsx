@@ -5,7 +5,9 @@ import { Flame, Clock, User, AlertTriangle, CalendarPlus } from "lucide-react";
 import { formatDateTimeWib, formatDateWib, formatMonthDayWib } from "@/lib/utils";
 import Link from "next/link";
 import DashboardCalendar from "@/components/dashboard-calendar";
+import { OvenStatusCard } from "./oven-status-card";
 import { autoCompleteBookings } from "@/app/actions/booking";
+import { ProfileReminderBanner } from "@/components/profile-reminder-banner";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +40,13 @@ export default async function DashboardPage() {
     })
     : [];
 
+  const currentUser = session?.user?.id
+    ? await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { image: true, nickname: true, hasSeenTour: true }
+    })
+    : null;
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
@@ -48,92 +57,19 @@ export default async function DashboardPage() {
         </p>
       </div>
 
+      {/* Profile Banner */}
+      {currentUser && (
+        <ProfileReminderBanner
+          hasImage={!!currentUser.image}
+          hasNickname={!!currentUser.nickname}
+        />
+      )}
+
       {/* Oven Status Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-        {ovens.map((oven) => {
-          const currentBooking = oven.bookings[0];
-          const isMaintenance = oven.status === "MAINTENANCE";
-          const isInUse = !!currentBooking;
-
-          let statusColor = "bg-emerald-500/20 border-emerald-500/30";
-          let statusText = "Available";
-          let statusDot = "bg-emerald-400";
-
-          if (isMaintenance) {
-            statusColor = "bg-amber-500/20 border-amber-500/30";
-            statusText = "Maintenance";
-            statusDot = "bg-amber-400";
-          } else if (isInUse) {
-            statusColor = "bg-red-500/20 border-red-500/30";
-            statusText = "In Use";
-            statusDot = "bg-red-400";
-          }
-
-          return (
-            <div
-              key={oven.id}
-              className={`rounded-xl border p-6 hover-lift ${statusColor}`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-slate-800">
-                    {isMaintenance ? (
-                      <AlertTriangle className="h-6 w-6 text-amber-400" />
-                    ) : (
-                      <Flame className={`h-6 w-6 ${oven.type === "NON_AQUEOUS" ? "text-orange-400" : "text-blue-400"}`} />
-                    )}
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-white">
-                      {oven.name}
-                    </h2>
-                    <p className="text-sm text-slate-400">
-                      {oven.type === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
-                      {" \u00b7 Max "}{oven.maxTemp}{"\u00b0C"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className={`h-2.5 w-2.5 rounded-full ${statusDot} animate-pulse`} role="status" aria-label={`Status: ${statusText}`} />
-                  <span className="text-sm font-medium text-slate-200">
-                    {statusText}
-                  </span>
-                </div>
-              </div>
-
-              {currentBooking && (
-                <div className="mt-4 pt-4 border-t border-slate-700/50 space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-slate-300">
-                    <User className="h-4 w-4" />
-                    <span>{currentBooking.user.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-300">
-                    <Clock className="h-4 w-4" />
-                    <span>
-                      Until {formatDateTimeWib(currentBooking.endDate)}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {!currentBooking && !isMaintenance && (
-                <div className="mt-4 pt-4 border-t border-slate-700/50">
-                  <p className="text-sm text-emerald-300">
-                    Ready for booking
-                  </p>
-                </div>
-              )}
-
-              {isMaintenance && (
-                <div className="mt-4 pt-4 border-t border-slate-700/50">
-                  <p className="text-sm text-amber-300">
-                    Temporarily unavailable
-                  </p>
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <div id="tour-ovens" className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+        {ovens.map((oven) => (
+          <OvenStatusCard key={oven.id} oven={oven as any} />
+        ))}
       </div>
 
       {/* My Active Bookings */}
@@ -142,9 +78,12 @@ export default async function DashboardPage() {
           Your Active Bookings ({userBookings.length}/1)
         </h2>
         {userBookings.length === 0 ? (
-          <div className="rounded-xl border border-slate-700 p-8 text-center">
-            <CalendarPlus className="h-10 w-10 text-slate-600 mx-auto mb-3" />
-            <p className="text-slate-400 mb-3">No active bookings</p>
+          <div className="rounded-xl border border-slate-700 bg-slate-800/30 p-8 text-center max-w-2xl mx-auto">
+            <CalendarPlus className="h-10 w-10 text-slate-500 mx-auto mb-4" />
+            <p className="text-slate-300 font-medium mb-2">No active bookings</p>
+            <p className="text-sm text-slate-400 mb-6">
+              To start using the Lab Ovens, click the "Book an Oven" button below. Make sure you check the calendar for available slots first!
+            </p>
             <Link
               href="/book"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-colors"
@@ -193,7 +132,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Booking Calendar Timeline */}
-      <div className="pt-4 border-t border-slate-700/50">
+      <div id="tour-calendar" className="pt-4 border-t border-slate-700/50">
         <DashboardCalendar ovens={ovens.map(o => ({ id: o.id, name: o.name, type: o.type }))} />
       </div>
     </div>

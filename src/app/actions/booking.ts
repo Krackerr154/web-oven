@@ -226,6 +226,166 @@ export async function createBooking(data: {
   }
 }
 
+export async function updateBooking(data: {
+  bookingId: string;
+  startDate: string;
+  endDate: string;
+  purpose: string;
+  usageTemp: number;
+  flap: number;
+}): Promise<BookingResult> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return { success: false, message: "You must be logged in" };
+    }
+
+    const booking = await prisma.booking.findFirst({
+      where: {
+        id: data.bookingId,
+        userId: session.user.id,
+        deletedAt: null,
+      },
+      include: {
+        oven: true,
+      },
+    });
+
+    if (!booking) {
+      return { success: false, message: "Booking not found" };
+    }
+
+    if (booking.status !== "ACTIVE") {
+      return { success: false, message: "Only active bookings can be edited" };
+    }
+
+    // Rule: modifications only allowed within 15 minutes of creation
+    const editDeadline = new Date(booking.createdAt.getTime() + CANCEL_WINDOW_MINUTES * 60 * 1000);
+    if (new Date() > editDeadline) {
+      return {
+        success: false,
+        message: "Editing window has passed (15 minutes from creation). Please cancel and book again, or contact an admin.",
+      };
+    }
+
+    const parsed = bookingSchema.safeParse({
+      ovenId: booking.ovenId, // Re-validate with the existing oven
+      startDate: data.startDate,
+      endDate: data.endDate,
+      purpose: data.purpose,
+      usageTemp: data.usageTemp,
+      flap: data.flap,
+    });
+
+    if (!parsed.success) {
+      return { success: false, message: parsed.error.issues[0].message };
+    }
+
+    const { purpose, usageTemp, flap } = parsed.data;
+    const startDate = parseWibDateTimeLocal(parsed.data.startDate);
+    const endDate = parseWibDateTimeLocal(parsed.data.endDate);
+
+    if (!startDate || !endDate) {
+      return { success: false, message: "Invalid booking date format" };
+    }
+
+    // ── Rule: Max 7 days duration ───────────────────────────────────
+    if (differenceInDays(endDate, startDate) > 7) {
+      return { success: false, message: "Booking cannot exceed 7 days" };
+    }
+
+    if (endDate <= startDate) {
+      return { success: false, message: "End date must be after start date" };
+    }
+
+    if (startDate < new Date() && booking.startDate.getTime() !== startDate.getTime()) {
+      return { success: false, message: "Start date cannot be moved into the past" };
+    }
+
+    // ── Atomic transaction for checks + update ────────────────
+    const result = await prisma.$transaction(async (tx) => {
+      // Rule: Oven must be available (not in maintenance)
+      if (booking.oven.status === "MAINTENANCE") {
+        return { success: false, message: `${booking.oven.name} is currently under maintenance` };
+      }
+
+      // Rule: Usage temperature must not exceed oven max
+      if (usageTemp > booking.oven.maxTemp) {
+        return {
+          success: false,
+          message: `Usage temperature (${usageTemp}°C) exceeds oven maximum (${booking.oven.maxTemp}°C)`,
+        };
+      }
+
+      // Rule: No overlapping active bookings on the same oven
+      const overlap = await tx.booking.findFirst({
+        where: {
+          id: { not: data.bookingId }, // Exclude self
+          ovenId: booking.ovenId,
+          status: "ACTIVE",
+          deletedAt: null,
+          startDate: { lt: endDate },
+          endDate: { gt: startDate },
+        },
+      });
+
+      if (overlap) {
+        return {
+          success: false,
+          message: "This new time slot overlaps with another existing booking",
+        };
+      }
+
+      // All checks passed — update booking
+      await tx.booking.update({
+        where: { id: data.bookingId },
+        data: {
+          startDate,
+          endDate,
+          purpose,
+          usageTemp,
+          flap,
+        },
+      });
+
+      await logBookingEvent(tx, {
+        bookingId: data.bookingId,
+        actorId: session.user.id,
+        actorType: "USER",
+        eventType: "EDITED",
+        note: "User edited their booking within 15m window",
+        payload: {
+          before: {
+            startDate: booking.startDate.toISOString(),
+            endDate: booking.endDate.toISOString(),
+            purpose: booking.purpose,
+            usageTemp: booking.usageTemp,
+            flap: booking.flap,
+          },
+          after: {
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            purpose,
+            usageTemp,
+            flap,
+          }
+        }
+      });
+
+      return { success: true, message: "Booking updated successfully!" };
+    });
+
+    revalidatePath("/my-bookings");
+    revalidatePath("/admin/bookings");
+    revalidatePath("/");
+
+    return result;
+  } catch (error) {
+    console.error("Update booking error:", error);
+    return { success: false, message: "An unexpected error occurred" };
+  }
+}
+
 export async function cancelBooking(bookingId: string): Promise<BookingResult> {
   try {
     const session = await getServerSession(authOptions);

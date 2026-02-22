@@ -8,6 +8,7 @@ import {
 } from "@/app/actions/admin";
 import { useToast } from "@/components/toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Ban, CheckCircle, Trash2 } from "lucide-react";
 
 type Props = {
   bookingId: string;
@@ -66,6 +67,7 @@ export function BookingActionButtons({ bookingId, status }: Props) {
       <div className="flex items-stretch sm:items-center gap-2 flex-wrap w-full sm:w-auto">
         {status === "ACTIVE" && (
           <button
+            title="Cancel Booking"
             onClick={() =>
               openConfirm(
                 "Cancel Booking",
@@ -76,14 +78,15 @@ export function BookingActionButtons({ bookingId, status }: Props) {
               )
             }
             disabled={isPending}
-            className="flex-1 sm:flex-none text-center justify-center text-xs px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+            className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
           >
-            Cancel
+            <Ban className="h-4 w-4" />
           </button>
         )}
 
         {(status === "ACTIVE" || status === "AUTO_CANCELLED") && (
           <button
+            title="Complete Booking"
             onClick={() =>
               openConfirm(
                 "Complete Booking",
@@ -94,13 +97,14 @@ export function BookingActionButtons({ bookingId, status }: Props) {
               )
             }
             disabled={isPending}
-            className="flex-1 sm:flex-none text-center justify-center text-xs px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
+            className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
           >
-            Complete
+            <CheckCircle className="h-4 w-4" />
           </button>
         )}
 
         <button
+          title="Remove Booking"
           onClick={() =>
             openConfirm(
               "Remove Booking",
@@ -111,9 +115,9 @@ export function BookingActionButtons({ bookingId, status }: Props) {
             )
           }
           disabled={isPending}
-          className="flex-1 sm:flex-none text-center justify-center text-xs px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+          className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
         >
-          Remove
+          <Trash2 className="h-4 w-4" />
         </button>
       </div>
 

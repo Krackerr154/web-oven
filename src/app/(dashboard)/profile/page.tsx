@@ -44,7 +44,7 @@ export default async function ProfilePage() {
     ];
 
     return (
-        <div className="max-w-4xl space-y-6">
+        <div className="space-y-6">
             <div>
                 <h1 className="text-2xl font-bold text-white">My Profile</h1>
                 <p className="text-slate-400 mt-1">Manage your account information and view your booking activity.</p>
@@ -59,7 +59,7 @@ export default async function ProfilePage() {
                 {/* Statistics & Activity Summary */}
                 <div className="md:col-span-2 space-y-6">
                     <h2 className="text-lg font-semibold text-white">Booking Activity</h2>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {stats.map((stat, i) => (
                             <div key={i} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 flex items-start gap-4 hover:bg-slate-800 transition-colors">
                                 <div className={`p-3 rounded-lg shrink-0 ${stat.bg}`}>

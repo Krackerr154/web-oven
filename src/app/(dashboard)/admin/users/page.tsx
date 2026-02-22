@@ -12,9 +12,9 @@ export default async function AdminUsersPage() {
   const users = await getAllUsers();
 
   const statusStyles: Record<string, string> = {
-    PENDING: "bg-amber-500/20 text-amber-300",
-    APPROVED: "bg-emerald-500/20 text-emerald-300",
-    REJECTED: "bg-red-500/20 text-red-300",
+    PENDING: "bg-amber-500/10 border border-amber-500/20 text-amber-300",
+    APPROVED: "bg-emerald-500/10 border border-emerald-500/20 text-emerald-300",
+    REJECTED: "bg-red-500/10 border border-red-500/20 text-red-300",
   };
 
   return (
@@ -39,7 +39,7 @@ export default async function AdminUsersPage() {
             {users.map((user) => (
               <div
                 key={user.id}
-                className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3"
+                className="bg-slate-900/50 backdrop-blur-md shadow border border-slate-700/50 rounded-2xl p-5 space-y-4"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -60,9 +60,9 @@ export default async function AdminUsersPage() {
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Role</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${user.role === "ADMIN"
-                      ? "bg-purple-500/20 text-purple-300"
-                      : "bg-slate-500/20 text-slate-300"
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium border ${user.role === "ADMIN"
+                      ? "bg-purple-500/10 border-purple-500/20 text-purple-300"
+                      : "bg-slate-500/10 border-slate-500/20 text-slate-300"
                       }`}>
                       {user.role}
                     </span>
@@ -109,11 +109,11 @@ export default async function AdminUsersPage() {
           </div>
 
           {/* Desktop: Table layout */}
-          <div className="hidden lg:block bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+          <div className="hidden lg:block bg-slate-900/40 backdrop-blur-md shadow-lg border border-slate-700/50 rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-slate-700">
+                <thead className="bg-slate-800/40">
+                  <tr className="border-b border-slate-700/50">
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Name</th>
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Email</th>
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Phone</th>
@@ -131,9 +131,9 @@ export default async function AdminUsersPage() {
                       <td className="px-4 py-3 text-sm text-slate-300">{user.email}</td>
                       <td className="px-4 py-3 text-sm text-slate-300">{user.phone}</td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${user.role === "ADMIN"
-                          ? "bg-purple-500/20 text-purple-300"
-                          : "bg-slate-500/20 text-slate-300"
+                        <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium border ${user.role === "ADMIN"
+                          ? "bg-purple-500/10 border-purple-500/20 text-purple-300"
+                          : "bg-slate-500/10 border-slate-500/20 text-slate-300"
                           }`}>
                           {user.role}
                         </span>

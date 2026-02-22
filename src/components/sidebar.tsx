@@ -55,13 +55,14 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              id={item.href === "/book" ? "tour-book" : undefined}
               onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
-                ? "bg-orange-500/20 text-orange-300"
-                : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+              className={`group flex items-center gap-3 px-3 py-2.5 rounded-r-lg text-sm font-medium transition-all duration-200 ${isActive
+                ? "bg-gradient-to-r from-orange-500/20 to-orange-500/0 text-orange-300 shadow-[0_0_15px_rgba(249,115,22,0.1)] border-l-2 border-orange-500"
+                : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:pl-4 border-l-2 border-transparent"
                 }`}
             >
-              <item.icon className="h-4 w-4" />
+              <item.icon className="h-4 w-4 transition-transform group-hover:scale-110" />
               {item.label}
             </Link>
           );
@@ -82,12 +83,12 @@ export function Sidebar() {
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
-                    ? "bg-orange-500/20 text-orange-300"
-                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                  className={`group flex items-center gap-3 px-3 py-2.5 rounded-r-lg text-sm font-medium transition-all duration-200 ${isActive
+                    ? "bg-gradient-to-r from-orange-500/20 to-orange-500/0 text-orange-300 shadow-[0_0_15px_rgba(249,115,22,0.1)] border-l-2 border-orange-500"
+                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:pl-4 border-l-2 border-transparent"
                     }`}
                 >
-                  <item.icon className="h-4 w-4" />
+                  <item.icon className="h-4 w-4 transition-transform group-hover:scale-110" />
                   {item.label}
                 </Link>
               );
@@ -100,10 +101,11 @@ export function Sidebar() {
       <div className="border-t border-slate-700 p-4 space-y-1">
         <Link
           href="/profile"
+          id="tour-profile"
           onClick={() => setMobileOpen(false)}
-          className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${pathname === "/profile"
-            ? "bg-slate-700 text-white"
-            : "hover:bg-slate-700/50"
+          className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${pathname === "/profile"
+            ? "bg-slate-700 text-white shadow-[0_0_15px_rgba(51,65,85,0.4)]"
+            : "hover:bg-slate-700/50 hover:ring-1 hover:ring-slate-600"
             }`}
         >
           <div className="h-8 w-8 shrink-0 rounded-full bg-orange-500/20 flex items-center justify-center">
@@ -151,8 +153,8 @@ export function Sidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-40 h-screen w-64 bg-slate-900 flex flex-col transition-transform lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+        className={`fixed top-0 left-0 z-40 h-screen w-64 flex flex-col transition-transform lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"
+          } bg-slate-900/40 backdrop-blur-xl border-r border-slate-700/50`}
       >
         {navContent}
       </aside>

@@ -8,6 +8,7 @@ import TimePicker from "@/components/time-picker";
 // ─── Types ───────────────────────────────────────────────────────────
 
 type BookingSlot = {
+    id: string;
     start: string;
     end: string;
     title: string;
@@ -38,6 +39,7 @@ type DateTimePickerProps = {
     onStartChange: (v: string) => void;
     onEndChange: (v: string) => void;
     onConflict?: (hasConflict: boolean) => void;
+    ignoreBookingId?: string;
 };
 
 type SelectionStep = "start" | "end";
@@ -110,6 +112,7 @@ export default function DateTimePicker({
     onStartChange,
     onEndChange,
     onConflict,
+    ignoreBookingId,
 }: DateTimePickerProps) {
     const now = new Date();
     const todayWib = toWibDate(now);
@@ -217,6 +220,8 @@ export default function DateTimePicker({
         if (isNaN(selStart.getTime()) || isNaN(selEnd.getTime())) return null;
 
         for (const b of bookings) {
+            if (ignoreBookingId && b.id === ignoreBookingId) continue;
+
             const bStart = new Date(b.start);
             const bEnd = new Date(b.end);
             if (rangesOverlap(selStart, selEnd, bStart, bEnd)) {
@@ -224,7 +229,7 @@ export default function DateTimePicker({
             }
         }
         return null;
-    }, [startValue, endValue, ovenId, bookings]);
+    }, [startValue, endValue, ovenId, bookings, ignoreBookingId]);
 
     // Notify parent about conflict state
     useEffect(() => {

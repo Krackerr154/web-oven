@@ -76,6 +76,7 @@ model User {
   nickname     String?
   nim          String?    @unique
   supervisors  String[]
+  hasSeenTour  Boolean    @default(false)
   image        String?    @db.Text
   passwordHash String     @map("password_hash")
   role         Role       @default(USER)

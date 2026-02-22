@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { CancelBookingButton } from "./cancel-button";
+import { EditBookingModal } from "./edit-booking-modal";
 import { formatDateTimeWib, formatDuration, getCancellationWindowInfo } from "@/lib/utils";
 import { autoCompleteBookings } from "@/app/actions/booking";
 import Link from "next/link";
@@ -16,7 +17,7 @@ export default async function MyBookingsPage() {
   const bookings = await prisma.booking.findMany({
     where: { userId: session?.user?.id, deletedAt: null },
     include: {
-      oven: { select: { name: true, type: true } },
+      oven: { select: { name: true, type: true, maxTemp: true } },
       user: { select: { name: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -114,10 +115,13 @@ export default async function MyBookingsPage() {
                       const cancelInfo = getCancellationWindowInfo(booking.createdAt, 15);
                       return (
                         <div className="space-y-1">
-                          <CancelBookingButton
-                            booking={booking}
-                            contactPhone={contactAdmin?.phone || null}
-                          />
+                          <div className="flex items-center gap-2">
+                            <EditBookingModal booking={booking} />
+                            <CancelBookingButton
+                              booking={booking}
+                              contactPhone={contactAdmin?.phone || null}
+                            />
+                          </div>
                           <p className="text-[11px] text-slate-500">
                             {cancelInfo.canCancel
                               ? `Can be cancelled for ${cancelInfo.minutesRemaining} more minute(s)`
@@ -189,10 +193,13 @@ export default async function MyBookingsPage() {
                       <td className="px-4 py-3">
                         {booking.status === "ACTIVE" && (
                           <div className="space-y-1">
-                            <CancelBookingButton
-                              booking={booking}
-                              contactPhone={contactAdmin?.phone || null}
-                            />
+                            <div className="flex items-center gap-2">
+                              <EditBookingModal booking={booking} />
+                              <CancelBookingButton
+                                booking={booking}
+                                contactPhone={contactAdmin?.phone || null}
+                              />
+                            </div>
                             {(() => {
                               const cancelInfo = getCancellationWindowInfo(booking.createdAt, 15);
                               return (

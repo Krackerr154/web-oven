@@ -12,7 +12,22 @@ export function AddUserModal() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [supervisors, setSupervisors] = useState<string[]>([""]);
   const firstInputRef = useRef<HTMLInputElement>(null);
+
+  const addSupervisor = () => setSupervisors([...supervisors, ""]);
+
+  const removeSupervisor = (index: number) => {
+    if (supervisors.length > 1) {
+      setSupervisors(supervisors.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateSupervisor = (index: number, value: string) => {
+    const updated = [...supervisors];
+    updated[index] = value;
+    setSupervisors(updated);
+  };
 
   // Escape key handler
   useEffect(() => {
@@ -41,6 +56,8 @@ export function AddUserModal() {
       name: formData.get("name") as string,
       email: formData.get("email") as string,
       phone: formData.get("phone") as string,
+      nim: formData.get("nim") as string,
+      supervisors: supervisors.filter(s => s.trim() !== ""),
       password: formData.get("password") as string,
       role: formData.get("role") as string,
     };
@@ -134,9 +151,65 @@ export function AddUserModal() {
                   name="phone"
                   type="tel"
                   required
+                  minLength={10}
+                  maxLength={15}
                   placeholder="08123456789"
                   className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                  NIM (Student Identity Number)
+                </label>
+                <input
+                  name="nim"
+                  type="number"
+                  required
+                  minLength={5}
+                  placeholder="Student ID"
+                  className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+                />
+              </div>
+
+              <div className="space-y-3 p-4 bg-slate-900/40 rounded-xl border border-slate-700/50">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-slate-300">
+                    Supervisor(s)
+                  </label>
+                </div>
+
+                {supervisors.map((supervisor, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      required
+                      value={supervisor}
+                      onChange={(e) => updateSupervisor(index, e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+                      placeholder={index === 0 ? "Main Supervisor Name" : "Co-Supervisor Name"}
+                    />
+                    {supervisors.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeSupervisor(index)}
+                        className="p-2.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+                        title="Remove Supervisor"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={addSupervisor}
+                  className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1.5 font-medium px-1 py-1 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Another Supervisor
+                </button>
               </div>
 
               <div>

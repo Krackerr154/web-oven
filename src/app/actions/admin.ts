@@ -100,6 +100,8 @@ const createUserSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   phone: z.string().min(8, "Phone must be at least 8 characters"),
+  nim: z.string().min(3, "NIM or Student ID is required"),
+  supervisors: z.array(z.string().min(2, "Supervisor name must be at least 2 characters")).min(1, "At least one supervisor is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   role: z.enum(["USER", "ADMIN"]),
 });
@@ -113,6 +115,8 @@ export async function createUser(data: Record<string, any>): Promise<ActionResul
       name: data.name,
       email: data.email,
       phone: data.phone,
+      nim: data.nim,
+      supervisors: data.supervisors,
       password: data.password,
       role: data.role,
     };
@@ -143,6 +147,8 @@ export async function createUser(data: Record<string, any>): Promise<ActionResul
         name: parsed.name,
         email: parsed.email,
         phone: parsed.phone,
+        nim: parsed.nim,
+        supervisors: parsed.supervisors,
         passwordHash,
         role: parsed.role,
         status: "APPROVED", // Auto-approve admin created users

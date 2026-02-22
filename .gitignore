@@ -49,3 +49,9 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Local Database & Testing Scripts
+docker-compose.local-db.yml
+reset-tour.ts
+test-admin.ts
+reset-admin.js

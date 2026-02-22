@@ -73,7 +73,8 @@ export function CancelBookingButton({
   }
 
   function handleTriggerClick() {
-    if (isLate) {
+    const isCurrentlyLate = new Date().getTime() > new Date(booking.createdAt).getTime() + 15 * 60 * 1000;
+    if (isCurrentlyLate) {
       setShowWaModal(true);
     } else {
       setShowConfirm(true);
