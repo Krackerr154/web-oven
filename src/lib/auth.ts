@@ -41,7 +41,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
-          image: user.image,
+          // Intentionally omitting 'image' to prevent massive Base64 strings from entering the JWT cookie payload!
           role: user.role,
           status: user.status,
         };
