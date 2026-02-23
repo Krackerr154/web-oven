@@ -48,9 +48,8 @@ export default async function AdminBookingDetailPage({ params }: Props) {
               </p>
             </div>
             <span
-              className={`text-xs px-2 py-1 rounded-full font-medium ${
-                statusStyles[booking.status] || ""
-              }`}
+              className={`text-xs px-2 py-1 rounded-full font-medium ${statusStyles[booking.status] || ""
+                }`}
             >
               {booking.status.replace("_", " ")}
             </span>
@@ -118,7 +117,7 @@ export default async function AdminBookingDetailPage({ params }: Props) {
             <p className="text-xs text-slate-500">No lifecycle events recorded.</p>
           ) : (
             <div className="space-y-3 max-h-[540px] overflow-auto pr-1">
-              {booking.events.map((event) => (
+              {booking.events.map((event: any) => (
                 <div key={event.id} className="rounded-lg border border-slate-700/70 p-3">
                   <p className="text-xs font-medium text-slate-200">{event.eventType.replace("_", " ")}</p>
                   <p className="text-[11px] text-slate-500">{formatDateTimeWib(event.createdAt)}</p>

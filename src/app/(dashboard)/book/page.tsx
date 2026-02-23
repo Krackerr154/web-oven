@@ -358,8 +358,9 @@ export default function BookPage() {
 
         {/* Purpose */}
         <div className="bg-slate-900/40 backdrop-blur-md shadow-lg border border-slate-700/50 rounded-2xl p-4 sm:p-6">
-          <label htmlFor="purpose" className="block text-sm font-medium text-slate-300 mb-1.5">
-            Purpose
+          <label htmlFor="purpose" className="block text-sm font-medium text-slate-300 mb-1.5 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
+            <span>Purpose</span>
+            <span className="text-xs text-slate-500 font-normal">Format: Sample, Solvent, Treatment</span>
           </label>
           <textarea
             id="purpose"
@@ -369,7 +370,7 @@ export default function BookPage() {
             value={purpose}
             onChange={(e) => setPurpose(e.target.value)}
             className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 resize-none"
-            placeholder="e.g., Drying Ni-BDC MOF samples at 120°C"
+            placeholder="e.g., UiO-66, DMF + Acetic acid, Solvothermal"
           />
         </div>
 

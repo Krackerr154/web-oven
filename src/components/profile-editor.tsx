@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Shield, Mail, Phone, Clock, Edit2, X, Check, Camera, Loader2, FileText, Users } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { Shield, Mail, Phone, Clock, Edit2, X, Check, Camera, Loader2, FileText, Users, Crop } from "lucide-react";
 import { formatDateTimeWib } from "@/lib/utils";
 import { updateProfile, updateAvatar } from "@/app/actions/profile";
 import { useToast } from "@/components/toast";
 import Image from "next/image";
 import { IdCardGenerator } from "./id-card-generator";
+import Cropper from "react-easy-crop";
+import getCroppedImg from "@/lib/cropUtils";
 
 type ProfileUser = {
     id: string;
@@ -33,6 +35,13 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
     const [nickname, setNickname] = useState(user.nickname || "");
     const [email, setEmail] = useState(user.email);
     const [phone, setPhone] = useState(user.phone);
+
+    // Cropper states
+    const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+    const [crop, setCrop] = useState({ x: 0, y: 0 });
+    const [zoom, setZoom] = useState(1);
+    const [rotation, setRotation] = useState(0);
+    const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -67,27 +76,49 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
             return;
         }
 
-        // Limit to 2MB to keep base64 string reasonable for the database text field
-        if (file.size > 2 * 1024 * 1024) {
-            toast.error("Image size must be less than 2MB");
-            return;
-        }
-
-        setAvatarLoading(true);
-
         const reader = new FileReader();
-        reader.onloadend = async () => {
-            const base64String = reader.result as string;
-            const result = await updateAvatar(base64String);
-
-            setAvatarLoading(false);
-            if (result.success) {
-                toast.success(result.message);
-            } else {
-                toast.error(result.message);
-            }
+        reader.onloadend = () => {
+            setCropImageSrc(reader.result as string);
         };
         reader.readAsDataURL(file);
+    }
+
+    const onCropComplete = useCallback((_croppedArea: any, croppedAreaPixels: any) => {
+        setCroppedAreaPixels(croppedAreaPixels);
+    }, []);
+
+    async function handleCropSave() {
+        if (!cropImageSrc || !croppedAreaPixels) return;
+
+        setAvatarLoading(true);
+        try {
+            const croppedImage = await getCroppedImg(
+                cropImageSrc,
+                croppedAreaPixels,
+                rotation
+            );
+
+            if (croppedImage) {
+                const result = await updateAvatar(croppedImage);
+                if (result.success) {
+                    toast.success(result.message);
+                } else {
+                    toast.error(result.message);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to crop image", e);
+            toast.error("Failed to crop image");
+        }
+
+        setCropImageSrc(null);
+        setAvatarLoading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+
+    function closeCropper() {
+        setCropImageSrc(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
     }
 
     return (
@@ -148,6 +179,101 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                 {/* PDF ID Card Export - Only visible if Avatar exists */}
                 {!isEditing && user.image && (
                     <IdCardGenerator user={user} />
+                )}
+
+                {/* Cropper Modal */}
+                {cropImageSrc && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 sm:p-6 backdrop-blur-sm animate-fade-in text-left">
+                        <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+                            <div className="p-4 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/50 shrink-0">
+                                <h3 className="text-white font-semibold flex items-center gap-2">
+                                    <Crop className="h-4 w-4 text-orange-400" /> Position & Crop
+                                </h3>
+                                <button
+                                    onClick={closeCropper}
+                                    className="text-slate-400 hover:text-white transition-colors p-1 rounded-full hover:bg-slate-700"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+
+                            <div className="relative w-full h-[50vh] sm:h-[60vh] bg-slate-950 shrink-0">
+                                <Cropper
+                                    image={cropImageSrc}
+                                    crop={crop}
+                                    zoom={zoom}
+                                    rotation={rotation}
+                                    aspect={3 / 4}
+                                    onCropChange={setCrop}
+                                    onRotationChange={setRotation}
+                                    onCropComplete={onCropComplete}
+                                    onZoomChange={setZoom}
+                                    cropShape="rect"
+                                    showGrid={false}
+                                    style={{
+                                        containerStyle: { background: "rgb(2 6 23)" }
+                                    }}
+                                />
+                                {/* Circular overlay hint */}
+                                <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-4">
+                                    <div className="border-2 border-dashed border-white/50 w-[70%] max-w-[300px] aspect-square rounded-full flex items-center justify-center drop-shadow-xl relative z-10">
+                                        <div className="bg-black/20 absolute inset-0 rounded-full w-full h-full backdrop-blur-[1px] opacity-10" />
+                                        <span className="text-white/60 text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-black/40 rounded shadow-lg backdrop-blur-md relative z-20">Avatar Safe Zone</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-5 bg-slate-800 space-y-5 overflow-y-auto">
+                                <div>
+                                    <label className="text-xs text-slate-400 font-medium mb-2 flex justify-between">
+                                        <span>Zoom</span>
+                                        <span className="text-slate-500">{zoom.toFixed(1)}x</span>
+                                    </label>
+                                    <input
+                                        type="range"
+                                        value={zoom}
+                                        min={1}
+                                        max={3}
+                                        step={0.1}
+                                        onChange={(e) => setZoom(Number(e.target.value))}
+                                        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-slate-400 font-medium mb-2 flex justify-between">
+                                        <span>Rotation</span>
+                                        <span className="text-slate-500">{rotation}°</span>
+                                    </label>
+                                    <input
+                                        type="range"
+                                        value={rotation}
+                                        min={0}
+                                        max={360}
+                                        step={1}
+                                        onChange={(e) => setRotation(Number(e.target.value))}
+                                        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                                    />
+                                </div>
+
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        onClick={closeCropper}
+                                        className="flex-1 px-4 py-3 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleCropSave}
+                                        disabled={avatarLoading}
+                                        className="flex-1 px-4 py-3 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        {avatarLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                        Save Photo
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
 

@@ -36,7 +36,7 @@ export default async function AdminUsersPage() {
         <>
           {/* Mobile: Card layout */}
           <div className="lg:hidden space-y-4">
-            {users.map((user) => (
+            {users.map((user: any) => (
               <div
                 key={user.id}
                 className="bg-slate-900/50 backdrop-blur-md shadow border border-slate-700/50 rounded-2xl p-5 space-y-4"
@@ -44,6 +44,9 @@ export default async function AdminUsersPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-medium text-white truncate">{user.name}</p>
+                    {user.nickname && (
+                      <p className="text-xs text-orange-300/80 italic mb-0.5 truncate">"{user.nickname}"</p>
+                    )}
                     <p className="text-xs text-slate-400 truncate">{user.email}</p>
                   </div>
                   <span
@@ -125,9 +128,16 @@ export default async function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/50">
-                  {users.map((user) => (
+                  {users.map((user: any) => (
                     <tr key={user.id} className="hover:bg-slate-700/20">
-                      <td className="px-4 py-3 text-sm font-medium text-white">{user.name}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-white">
+                        <div className="flex flex-col">
+                          <span>{user.name}</span>
+                          {user.nickname && (
+                            <span className="text-xs text-orange-300/80 italic mt-0.5">"{user.nickname}"</span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-sm text-slate-300">{user.email}</td>
                       <td className="px-4 py-3 text-sm text-slate-300">{user.phone}</td>
                       <td className="px-4 py-3">
