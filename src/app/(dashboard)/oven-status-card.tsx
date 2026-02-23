@@ -56,7 +56,7 @@ export function OvenStatusCard({ oven }: { oven: OvenData }) {
             onClick={toggleDetails}
             onMouseEnter={() => isInUse && setShowDetails(true)}
             onMouseLeave={() => isInUse && setShowDetails(false)}
-            className={`relative rounded-2xl border p-5 sm:p-6 hover-lift bg-slate-900/40 backdrop-blur-md overflow-hidden flex flex-col min-h-[250px] ${statusColor} ${isInUse ? "cursor-pointer" : ""}`}
+            className={`relative rounded-2xl border p-5 sm:p-6 hover-lift bg-slate-900/40 backdrop-blur-md overflow-hidden flex flex-col ${isInUse ? "min-h-[240px]" : "h-full"} ${statusColor} ${isInUse ? "cursor-pointer" : ""}`}
         >
             {/* Front Face */}
             <div className={`flex flex-col h-full flex-1 transition-opacity duration-300 ${showDetails ? "opacity-0 pointer-events-none" : "opacity-100"}`}>

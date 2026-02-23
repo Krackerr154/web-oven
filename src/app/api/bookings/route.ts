@@ -15,11 +15,15 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const ovenId = searchParams.get("ovenId");
+  const allStatuses = searchParams.get("allStatuses") === "true";
 
   const where: Record<string, unknown> = {
-    status: "ACTIVE",
     deletedAt: null,
   };
+
+  if (!allStatuses) {
+    where.status = "ACTIVE";
+  }
 
   if (ovenId) {
     where.ovenId = parseInt(ovenId, 10);
@@ -35,7 +39,7 @@ export async function GET(request: NextRequest) {
   });
 
   // Map to FullCalendar event format
-  const events = bookings.map((b) => ({
+  const events = bookings.map((b: any) => ({
     id: b.id,
     ovenId: b.ovenId,
     title: `${b.oven.name} — ${b.userId === session.user.id ? "You" : b.user.name}`,
@@ -52,6 +56,7 @@ export async function GET(request: NextRequest) {
       usageTemp: b.usageTemp,
       flap: b.flap,
       isOwn: b.userId === session.user.id,
+      status: b.status,
     },
   }));
 

@@ -20,7 +20,7 @@ export default async function AdminBookingsPage() {
       </div>
 
       <div className="pb-4">
-        <DashboardCalendar ovens={ovens} />
+        <DashboardCalendar ovens={ovens} showAllStatuses={true} />
       </div>
 
       <div className="pt-6 border-t border-slate-700/50">

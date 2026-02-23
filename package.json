@@ -28,6 +28,7 @@
     "pg": "^8.18.0",
     "prisma": "^7.4.0",
     "react": "19.2.3",
+    "react-advanced-cropper": "^0.20.1",
     "react-dom": "19.2.3",
     "tailwind-merge": "^3.4.0",
     "zod": "^4.3.6"

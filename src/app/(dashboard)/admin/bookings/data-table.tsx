@@ -148,12 +148,12 @@ export function AdminBookingTable({ bookings }: { bookings: BookingItem[] }) {
                         onClick={() => router.push(`/admin/bookings/${booking.id}`)}
                         className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3 cursor-pointer hover:bg-slate-800/80 transition-colors"
                     >
-                        <div className="flex items-start justify-between gap-2">
-                            <div className="block hover:opacity-90">
-                                <p className="font-medium text-white underline decoration-slate-600 underline-offset-2">{booking.user.name}</p>
-                                <p className="text-xs text-slate-400">{booking.user.email}</p>
+                        <div className="flex items-start justify-between gap-2 overflow-hidden">
+                            <div className="block hover:opacity-90 min-w-0">
+                                <p className="font-medium text-white underline decoration-slate-600 underline-offset-2 truncate">{booking.user.name}</p>
+                                <p className="text-xs text-slate-400 truncate">{booking.user.email}</p>
                             </div>
-                            <span className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${statusStyles[booking.status] || ""}`}>
+                            <span className={`shrink-0 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full font-medium whitespace-nowrap ${statusStyles[booking.status] || ""}`}>
                                 {booking.status.replace("_", " ")}
                             </span>
                         </div>
@@ -186,7 +186,7 @@ export function AdminBookingTable({ bookings }: { bookings: BookingItem[] }) {
                         </div>
                         <div>
                             <p className="text-xs text-slate-500">Purpose</p>
-                            <p className="text-sm text-slate-300">{booking.purpose}</p>
+                            <p className="text-sm text-slate-300 break-words line-clamp-2">{booking.purpose}</p>
                         </div>
                         <div onClick={(e) => e.stopPropagation()}>
                             <BookingActionButtons bookingId={booking.id} status={booking.status} />

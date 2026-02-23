@@ -119,10 +119,18 @@ export function Sidebar() {
             : "hover:bg-slate-700/50 hover:ring-1 hover:ring-slate-600"
             }`}
         >
-          <div className="h-8 w-8 shrink-0 rounded-full bg-orange-500/20 flex items-center justify-center">
-            <span className="text-sm font-bold text-orange-300">
-              {session?.user?.name?.charAt(0).toUpperCase() || "U"}
-            </span>
+          <div className="h-8 w-8 shrink-0 rounded-full bg-orange-500/20 flex items-center justify-center overflow-hidden border border-slate-600/50">
+            {session?.user?.image ? (
+              <img
+                src={session.user.image}
+                alt={session?.user?.name || "User"}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="text-sm font-bold text-orange-300">
+                {session?.user?.name?.charAt(0).toUpperCase() || "U"}
+              </span>
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">

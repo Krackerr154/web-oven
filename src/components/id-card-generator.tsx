@@ -43,15 +43,15 @@ export function IdCardGenerator({ user }: IDCardProps) {
                 backgroundColor: '#ffffff' // Ensure base background
             });
 
-            // Standard CR80 ID dimensions in millimeters (Landscape)
+            // ID dimensions in millimeters (Landscape)
             const pdf = new jsPDF({
                 orientation: "landscape",
                 unit: "mm",
-                format: [54, 86]
+                format: [60, 105]
             });
 
-            // The card element is designed at 344px x 216px (1:1 aspect ratio to 86x54)
-            pdf.addImage(imgData, "JPEG", 0, 0, 86, 54);
+            // The card element is designed at 420px x 240px (1:1 aspect ratio to 105x60 at 4x)
+            pdf.addImage(imgData, "JPEG", 0, 0, 105, 60);
 
             // Generate proper filename with User Name and Date
             const now = new Date();
@@ -94,53 +94,20 @@ export function IdCardGenerator({ user }: IDCardProps) {
             <div className="absolute left-[-9999px] top-[-9999px]">
                 <div
                     ref={cardRef}
-                    className="relative bg-white overflow-hidden flex flex-row items-center rounded-[8px]"
+                    className="relative bg-white overflow-hidden flex flex-row items-center"
                     style={{
-                        width: '344px',  // 86mm * 4 ratio
-                        height: '216px', // 54mm * 4 ratio
+                        width: '420px',  // 105mm * 4 ratio
+                        height: '240px', // 60mm * 4 ratio
                         boxSizing: 'border-box',
-                        boxShadow: '0 0 0 1px #e2e8f0 inset', // Inner border for printing cut-lines
+                        boxShadow: '0 0 0 2px #000 inset', // Black border for printing
                         fontFamily: 'system-ui, -apple-system, sans-serif'
                     }}
                 >
-                    {/* Header Banner - Landscape */}
-                    <div className="absolute top-0 left-0 w-full h-[36px] bg-[#f97316] flex items-center px-5">
-                        <FlameIconSVG />
-                        <h1 className="text-white font-bold text-[13px] tracking-widest uppercase ml-2.5">Lab Member <span className="font-medium opacity-80">Access Card</span></h1>
-                    </div>
-
-                    <div className="flex w-full h-full pt-[36px] px-5 pb-4">
-                        {/* Information Column (Left) */}
-                        <div className="flex-1 flex flex-col justify-center pr-3">
-                            <h2 className="text-[#0f172a] font-black text-[17px] uppercase tracking-tight leading-tight mb-3 line-clamp-2">
-                                {user.name}
-                            </h2>
-
-                            <div className="flex flex-col gap-2">
-                                <div className="flex flex-col">
-                                    <span className="text-[#64748b] text-[8px] uppercase font-bold tracking-widest">Student Identity Number</span>
-                                    <span className="text-[12px] font-mono font-bold text-[#1e293b]">{user.nim || 'N/A'}</span>
-                                </div>
-
-                                <div className="flex flex-col">
-                                    <span className="text-[#64748b] text-[8px] uppercase font-bold tracking-widest">Main Supervisor</span>
-                                    <span className="text-[10px] font-bold text-[#334155] leading-tight line-clamp-2">
-                                        {user.supervisors && user.supervisors.length > 0 ? user.supervisors.join(', ') : 'N/A'}
-                                    </span>
-                                </div>
-
-                                <div className="mt-1">
-                                    <span className={`text-[9px] font-bold px-2.5 py-1 rounded-sm uppercase tracking-wider ${user.role === 'ADMIN' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
-                                        {user.role}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Photo Column (Right) - Exactly 3x4 Proportions */}
-                        <div className="flex flex-col items-center justify-center shrink-0 w-[105px]">
-                            {/* 3x4 aspect ratio box (105px width x 140px height) */}
-                            <div className="w-[105px] h-[140px] border-[3px] border-[#e2e8f0] rounded-md overflow-hidden bg-slate-100 relative shadow-sm">
+                    <div className="flex w-full h-full px-5 py-5 items-center gap-6">
+                        {/* Photo Column (Left) - Exactly 3x4 Proportions */}
+                        <div className="flex flex-col items-center justify-center shrink-0 w-[120px]">
+                            {/* 3x4 aspect ratio box (120px width x 160px height) */}
+                            <div className="w-[120px] h-[160px] border-2 border-slate-900 rounded-sm overflow-hidden bg-slate-100 relative shadow-sm">
                                 <Image
                                     src={user.image}
                                     alt="User Photo"
@@ -150,10 +117,36 @@ export function IdCardGenerator({ user }: IDCardProps) {
                                 />
                             </div>
                         </div>
-                    </div>
 
-                    {/* Stylistic bottom tracking line */}
-                    <div className="absolute bottom-0 left-0 w-full h-1.5 bg-[#0f172a]"></div>
+                        {/* Information Column (Right) */}
+                        <div className="flex-1 flex flex-col justify-center max-w-full">
+                            <h2 className="text-[#0f172a] font-black text-[20px] uppercase tracking-tight leading-tight mb-4">
+                                {user.name}
+                            </h2>
+
+                            <div className="flex flex-col gap-3">
+                                <div className="flex flex-col">
+                                    <span className="text-[#64748b] text-[10px] uppercase font-bold tracking-widest">Student Identity Number</span>
+                                    <span className="text-[14px] font-mono font-bold text-[#1e293b]">{user.nim || 'N/A'}</span>
+                                </div>
+
+                                <div className="flex flex-col">
+                                    <span className="text-[#64748b] text-[10px] uppercase font-bold tracking-widest">Supervisor{user.supervisors && user.supervisors.length > 1 ? 's' : ''}</span>
+                                    {user.supervisors && user.supervisors.length > 0 ? (
+                                        <div className="flex flex-col gap-0.5 mt-0.5">
+                                            {user.supervisors.map((supervisor, idx) => (
+                                                <span key={idx} className="text-[13px] font-bold text-[#334155] leading-tight break-words">
+                                                    {supervisor}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <span className="text-[13px] font-bold text-[#334155] leading-tight">N/A</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 

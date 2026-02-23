@@ -22,6 +22,7 @@ type BookingSlot = {
         flap: number;
         isOwn: boolean;
         userPhone: string;
+        status?: string;
     };
 };
 
@@ -33,6 +34,7 @@ type OvenInfo = {
 
 type DashboardCalendarProps = {
     ovens: OvenInfo[];
+    showAllStatuses?: boolean;
 };
 
 type DayBookingDetail = {
@@ -46,6 +48,7 @@ type DayBookingDetail = {
     end: string;
     color: string;
     userPhone: string;
+    status?: string;
 };
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -82,7 +85,7 @@ function getFirstDayOfWeek(year: number, month: number) {
 
 // ─── Component ───────────────────────────────────────────────────────
 
-export default function DashboardCalendar({ ovens }: DashboardCalendarProps) {
+export default function DashboardCalendar({ ovens, showAllStatuses = false }: DashboardCalendarProps) {
     const now = new Date();
     const todayWib = toWibDate(now);
     const todayKey = dateKey(todayWib.year, todayWib.month, todayWib.day);
@@ -102,8 +105,9 @@ export default function DashboardCalendar({ ovens }: DashboardCalendarProps) {
     const fetchBookings = useCallback(async () => {
         setLoading(true);
         try {
-            // Fetch all bookings (no ovenId specified)
-            const res = await fetch(`/api/bookings`);
+            // Fetch all bookings (support for historically checking all statuses via query string)
+            const url = showAllStatuses ? `/api/bookings?allStatuses=true` : `/api/bookings`;
+            const res = await fetch(url);
             const data = await res.json();
             setBookings(data);
         } catch {
@@ -145,6 +149,7 @@ export default function DashboardCalendar({ ovens }: DashboardCalendarProps) {
                         start: b.start,
                         end: b.end,
                         color,
+                        status: b.extendedProps.status,
                     });
                 }
                 map.set(key, existing);
@@ -339,7 +344,14 @@ export default function DashboardCalendar({ ovens }: DashboardCalendarProps) {
                                         <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: det.color }} />
                                         <span className="text-white font-medium truncate">{det.ovenName}</span>
                                         <span className="text-slate-500">·</span>
-                                        <span className="text-slate-400 truncate">{det.userNickname || det.userName}</span>
+                                        <span className="text-slate-400 truncate flex-1">{det.userNickname || det.userName}</span>
+                                        {det.status && det.status !== "ACTIVE" && (
+                                            <span className={`text-[9px] px-1 py-0.5 rounded-sm shrink-0 uppercase tracking-widest ${det.status === "COMPLETED" ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20" :
+                                                "text-rose-400 bg-rose-500/10 border border-rose-500/20"
+                                                }`}>
+                                                {det.status === "AUTO_CANCELLED" ? "AUTO-CANCEL" : det.status}
+                                            </span>
+                                        )}
                                         {det.userPhone && (
                                             <a
                                                 href={`https://wa.me/${det.userPhone.replace(/\D/g, "").replace(/^0/, "62")}`}
