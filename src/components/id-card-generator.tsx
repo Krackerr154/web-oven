@@ -108,12 +108,11 @@ export function IdCardGenerator({ user }: IDCardProps) {
                         <div className="flex flex-col items-center justify-center shrink-0 w-[120px]">
                             {/* 3x4 aspect ratio box (120px width x 160px height) */}
                             <div className="w-[120px] h-[160px] border-2 border-slate-900 rounded-sm overflow-hidden bg-slate-100 relative shadow-sm">
-                                <Image
+                                <img
                                     src={user.image}
                                     alt="User Photo"
-                                    fill
-                                    className="object-cover"
-                                    unoptimized={true}
+                                    crossOrigin="anonymous"
+                                    className="w-full h-full object-cover"
                                 />
                             </div>
                         </div>
