@@ -111,7 +111,6 @@ export function IdCardGenerator({ user }: IDCardProps) {
                                 <img
                                     src={user.image}
                                     alt="User Photo"
-                                    crossOrigin="anonymous"
                                     className="w-full h-full object-cover"
                                 />
                             </div>
