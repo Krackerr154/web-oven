@@ -19,7 +19,7 @@ export default function LoginPage() {
     const formData = new FormData(e.currentTarget);
 
     const result = await signIn("credentials", {
-      email: formData.get("email") as string,
+      identifier: formData.get("identifier") as string,
       password: formData.get("password") as string,
       redirect: false,
     });
@@ -61,16 +61,16 @@ export default function LoginPage() {
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-1.5">
-              Email
+            <label htmlFor="identifier" className="block text-sm font-medium text-slate-300 mb-1.5">
+              Email or NIM
             </label>
             <input
-              id="email"
-              name="email"
-              type="email"
+              id="identifier"
+              name="identifier"
+              type="text"
               required
               className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
-              placeholder="you@example.com"
+              placeholder="you@example.com or 12345678"
             />
           </div>
 

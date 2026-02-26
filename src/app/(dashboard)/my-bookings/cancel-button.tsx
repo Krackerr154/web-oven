@@ -57,7 +57,7 @@ export function CancelBookingButton({
       return;
     }
 
-    const text = `*[PEMBATALAN BOOKING]*\n\n${booking.user.name} membatalkan penggunaan ${booking.oven.name} pada ${formatDateTimeWib(booking.startDate)} hingga ${formatDateTimeWib(booking.endDate)}\n\n*Alasan:* ${reason}`;
+    const text = `*[PEMBATALAN BOOKING]*\n\n${booking.user.name} membatalkan penggunaan ${booking.oven.name} pada ${formatDateTimeWib(booking.startDate)} hingga ${formatDateTimeWib(booking.endDate)}\n\n*Alasan:* ${reason}\n\n#oven #cancelbooking`;
 
     // Attempt clipboard copy
     try {
@@ -67,8 +67,7 @@ export function CancelBookingButton({
       console.error("Clipboard write failed", e);
     }
 
-    const cleanPhone = contactPhone.replace(/\D/g, "").replace(/^0/, "62");
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, "_blank");
+    window.open(`https://api.whatsapp.com/send/?text=${encodeURIComponent(text)}`, "_blank");
     setShowWaModal(false);
   }
 
