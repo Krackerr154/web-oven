@@ -27,6 +27,8 @@ services:
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@g-labs.local}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - ADMIN_NAME=${ADMIN_NAME:-Gerald}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - RESEND_EMAIL_FROM=${RESEND_EMAIL_FROM}
       - TZ=Asia/Jakarta
       - PGTZ=Asia/Jakarta
     networks:
