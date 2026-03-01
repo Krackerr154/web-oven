@@ -82,6 +82,7 @@ model User {
   role         Role       @default(USER)
   status       UserStatus @default(PENDING)
   isContactPerson Boolean @default(false) @map("is_contact_person")
+  emailVerified DateTime? @map("email_verified")
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
@@ -162,4 +163,15 @@ model PasswordResetToken {
 
   @@unique([email, token])
   @@map("oven_password_reset_tokens")
+}
+
+model EmailOtp {
+  id        String   @id @default(uuid())
+  email     String
+  otp       String
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email])
+  @@map("oven_email_otps")
 }

@@ -1,46 +1,82 @@
 import { Resend } from 'resend';
 
-export async function sendPasswordResetEmail(email: string, token: string) {
+// Helper function to lazily initialize Resend only when actually needed
+const getResendClient = () => {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    console.error('RESEND_API_KEY is not set');
-    throw new Error('Email service is not configured');
+    console.warn("RESEND_API_KEY is not set. Emails will not be sent.");
+    return null;
+  }
+  return new Resend(apiKey);
+};
+
+export async function sendPasswordResetEmail(email: string, token: string) {
+  const resend = getResendClient();
+  if (!resend) {
+    throw new Error("Email service is not configured");
   }
 
-  const resend = new Resend(apiKey);
-  const fromEmail = process.env.RESEND_EMAIL_FROM || 'noreply@g-labs.my.id';
   const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
+  const fromEmail = process.env.RESEND_EMAIL_FROM || 'noreply@g-labs.my.id';
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: `Web Oven <${fromEmail}>`,
-      to: [email],
-      subject: 'Reset your password - Web Oven',
+    const data = await resend.emails.send({
+      from: `Lab Oven <${fromEmail}>`,
+      to: email,
+      subject: 'Reset your password - Lab Oven Booking',
       html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #333;">Password Reset Request</h2>
-          <p>We received a request to reset your password for your Web Oven account.</p>
-          <p>Click the button below to reset it. This link is valid for 1 hour.</p>
-          <div style="margin: 30px 0;">
-            <a href="${resetLink}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
-              Reset Password
-            </a>
-          </div>
-          <p style="color: #666; font-size: 14px;">If you didn't request this, you can safely ignore this email.</p>
-          <hr style="border: none; border-top: 1px solid #eaeaea; margin: 30px 0;" />
-          <p style="color: #888; font-size: 12px; text-align: center;">Web Oven App</p>
-        </div>
-      `,
+                <div style="font-family: Arial, sans-serif; p-4 max-w-md mx-auto">
+                    <h2 style="color: #ea580c; font-weight: bold;">Password Reset Request</h2>
+                    <p>You recently requested to reset your password for your Lab Oven Booking account.</p>
+                    <p>Click the link below to reset it. This link is valid for 1 hour.</p>
+                    <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; background-color: #ea580c; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">
+                        Reset Password
+                    </a>
+                    <p style="font-size: 12px; color: #666;">
+                        If you did not request a password reset, please ignore this email or contact support if you have concerns.
+                    </p>
+                </div>
+            `,
     });
 
-    if (error) {
-      console.error('Error sending reset email:', error);
-      throw new Error('Failed to send reset email');
-    }
-
-    return data;
+    return { success: true, data };
   } catch (error) {
-    console.error('Error sending reset email:', error);
-    throw new Error('Failed to send reset email');
+    console.error("Failed to send email:", error);
+    throw new Error("Failed to send reset email");
+  }
+}
+
+export async function sendVerificationOtpEmail(email: string, otp: string) {
+  const resend = getResendClient();
+  if (!resend) {
+    throw new Error("Email service is not configured");
+  }
+
+  const fromEmail = process.env.RESEND_EMAIL_FROM || 'noreply@g-labs.my.id';
+
+  try {
+    const data = await resend.emails.send({
+      from: `Lab Oven <${fromEmail}>`,
+      to: email,
+      subject: 'Verify your email - Lab Oven Booking',
+      html: `
+                <div style="font-family: Arial, sans-serif; p-4 max-w-md mx-auto text-center">
+                    <h2 style="color: #ea580c; font-weight: bold;">Verify Your Email</h2>
+                    <p>Thank you for registering at Lab Oven Booking.</p>
+                    <p>Please use the following 6-digit code to verify your email address. This code is valid for 10 minutes.</p>
+                    <div style="margin: 24px 0; padding: 16px; background-color: #f1f5f9; border-radius: 8px; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #0f172a;">
+                        ${otp}
+                    </div>
+                    <p style="font-size: 12px; color: #666;">
+                        If you did not request this code, please ignore this email.
+                    </p>
+                </div>
+            `,
+    });
+
+    return { success: true, data };
+  } catch (error) {
+    console.error("Failed to send OTP email:", error);
+    throw new Error("Failed to send verification email");
   }
 }

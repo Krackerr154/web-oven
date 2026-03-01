@@ -38,6 +38,10 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Your account has been rejected");
         }
 
+        if (!user.emailVerified) {
+          throw new Error("Please verify your email address first. Check your inbox.");
+        }
+
         return {
           id: user.id,
           email: user.email,

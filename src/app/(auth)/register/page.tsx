@@ -45,7 +45,11 @@ export default function RegisterPage() {
     setLoading(false);
 
     if (result.success) {
-      router.push("/pending");
+      if (result.redirectUrl) {
+        router.push(result.redirectUrl);
+      } else {
+        router.push("/pending");
+      }
     } else {
       setError(result.message);
     }
