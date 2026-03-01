@@ -23,6 +23,6 @@ export default withAuth(
 export const config = {
   matcher: [
     // Protect everything except public routes
-    "/((?!login|register|pending|api/auth|_next/static|_next/image|favicon.ico).*)",
+    "/((?!login|register|pending|forgot-password|reset-password|api/auth|_next/static|_next/image|favicon.ico).*)",
   ],
 };
