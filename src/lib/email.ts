@@ -1,9 +1,14 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const fromEmail = process.env.RESEND_EMAIL_FROM || 'noreply@g-labs.my.id';
-
 export async function sendPasswordResetEmail(email: string, token: string) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.error('RESEND_API_KEY is not set');
+    throw new Error('Email service is not configured');
+  }
+
+  const resend = new Resend(apiKey);
+  const fromEmail = process.env.RESEND_EMAIL_FROM || 'noreply@g-labs.my.id';
   const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
 
   try {
