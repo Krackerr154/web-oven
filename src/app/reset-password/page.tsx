@@ -83,69 +83,58 @@ function ResetPasswordForm() {
     }
 
     return (
-        <div className="flex min-h-screen items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
-            <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-xl shadow-md">
-                <div>
-                    <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+        <div className="min-h-screen flex items-center justify-center p-4 bg-slate-950 relative overflow-hidden">
+            {/* Decorative background element for desktop */}
+            <div className="hidden sm:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-orange-500/10 rounded-full blur-[120px] pointer-events-none" />
+
+            <div className="w-full max-w-md relative z-10">
+                <div className="text-center mb-8">
+                    <h2 className="text-2xl font-bold text-white">
                         Reset Password
                     </h2>
-                    <p className="mt-2 text-center text-sm text-gray-600">
+                    <p className="mt-2 text-sm text-slate-400">
                         Please enter your new password below.
                     </p>
                 </div>
 
                 {isSuccess ? (
-                    <div className="rounded-md bg-green-50 p-4">
-                        <div className="flex">
-                            <div className="flex-shrink-0">
-                                <CheckCircle2 className="h-5 w-5 text-green-400" aria-hidden="true" />
+                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="inline-flex items-center justify-center p-3 rounded-full bg-green-500/20 mb-4">
+                                <CheckCircle2 className="h-6 w-6 text-green-400" aria-hidden="true" />
                             </div>
-                            <div className="ml-3">
-                                <h3 className="text-sm font-medium text-green-800">Password reset successful</h3>
-                                <div className="mt-2 text-sm text-green-700">
-                                    <p>Your password has been changed successfully.</p>
-                                </div>
-                                <div className="mt-4">
-                                    <div className="-mx-2 -my-1.5 flex flex-col gap-2">
-                                        <Link
-                                            href="/login"
-                                            className="rounded-md bg-green-50 px-2 py-1.5 text-sm font-medium text-green-800 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50"
-                                        >
-                                            Click here to login
-                                        </Link>
-                                        <p className="text-xs text-gray-500">Redirecting in 3 seconds...</p>
-                                    </div>
-                                </div>
-                            </div>
+                            <h3 className="text-lg font-medium text-white mb-2">Password reset successful</h3>
+                            <p className="text-sm text-slate-400 mb-6">
+                                Your password has been changed successfully.
+                            </p>
+                            <Link
+                                href="/login"
+                                className="w-full py-2.5 mb-3 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-slate-900 inline-flex items-center justify-center"
+                            >
+                                Click here to login
+                            </Link>
+                            <p className="text-xs text-slate-500">Redirecting in 3 seconds...</p>
                         </div>
                     </div>
                 ) : (
-                    <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+                    <form className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 space-y-4" onSubmit={handleSubmit}>
                         {error && (
-                            <div className="rounded-md bg-red-50 p-4">
-                                <div className="flex">
-                                    <div className="flex-shrink-0">
-                                        <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
-                                    </div>
-                                    <div className="ml-3">
-                                        <h3 className="text-sm font-medium text-red-800">Error</h3>
-                                        <div className="mt-2 text-sm text-red-700">
-                                            <p>{error}</p>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300">
+                                {error}
                             </div>
                         )}
 
                         <div className="space-y-4">
                             <div>
-                                <label htmlFor="new-password" className="block text-sm font-medium text-gray-700">New Password</label>
+                                <label htmlFor="new-password" className="block text-sm font-medium text-slate-300 mb-1.5">
+                                    New Password
+                                </label>
                                 <input
                                     id="new-password"
                                     name="password"
                                     type="password"
                                     required
-                                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                    className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
                                     placeholder="At least 8 characters"
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
@@ -153,13 +142,15 @@ function ResetPasswordForm() {
                             </div>
 
                             <div>
-                                <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                                <label htmlFor="confirm-password" className="block text-sm font-medium text-slate-300 mb-1.5">
+                                    Confirm New Password
+                                </label>
                                 <input
                                     id="confirm-password"
                                     name="confirmPassword"
                                     type="password"
                                     required
-                                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                    className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
                                     placeholder="Retype password"
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -167,25 +158,23 @@ function ResetPasswordForm() {
                             </div>
                         </div>
 
-                        <div>
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isLoading ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Resetting...
-                                    </>
-                                ) : (
-                                    'Reset Password'
-                                )}
-                            </button>
-                        </div>
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className="w-full py-2.5 mt-4 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {isLoading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Resetting...
+                                </>
+                            ) : (
+                                'Reset Password'
+                            )}
+                        </button>
 
-                        <div className="flex items-center justify-center mt-4">
-                            <Link href="/login" className="text-sm font-medium text-indigo-600 hover:text-indigo-500 flex items-center gap-1 group">
+                        <div className="flex items-center justify-center mt-6 pt-4 border-t border-slate-700">
+                            <Link href="/login" className="text-sm font-medium text-orange-400 hover:text-orange-300 flex items-center gap-1 group">
                                 <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to login
                             </Link>
                         </div>
