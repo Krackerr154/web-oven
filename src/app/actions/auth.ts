@@ -51,10 +51,24 @@ export async function registerUser(data: Record<string, any>): Promise<RegisterR
     if (existingUser) {
       if (existingUser.email === email && !existingUser.emailVerified) {
         // User exists but isn't verified. We will send a new OTP instead of blocking registration.
-        // Or we could just say "Email already registered. Check your email for OTP."
+        await prisma.emailOtp.deleteMany({ where: { email } });
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        await prisma.emailOtp.create({
+          data: { email, otp, expiresAt },
+        });
+
+        try {
+          await sendVerificationOtpEmail(email, otp);
+        } catch (e) {
+          console.error("Failed to send OTP:", e);
+        }
+
         return {
           success: true,
-          message: "Account already exists but email is not verified. Redirecting to verification.",
+          message: "Account already exists but email is not verified. A new verification code has been sent.",
           redirectUrl: `/verify-email?email=${encodeURIComponent(email)}`
         };
       }
