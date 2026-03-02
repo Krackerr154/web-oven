@@ -30,16 +30,24 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid credentials");
         }
 
+        if (!user.emailVerified) {
+          if (user.status === "APPROVED") {
+            // Legacy user from before OTP feature. Auto-verify their email.
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { emailVerified: new Date() },
+            });
+          } else {
+            throw new Error("Please verify your email address first. Check your inbox.");
+          }
+        }
+
         if (user.status === "PENDING") {
           throw new Error("Your account is pending admin approval");
         }
 
         if (user.status === "REJECTED") {
           throw new Error("Your account has been rejected");
-        }
-
-        if (!user.emailVerified) {
-          throw new Error("Please verify your email address first. Check your inbox.");
         }
 
         return {
