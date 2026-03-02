@@ -10,6 +10,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lastAttemptedIdentifier, setLastAttemptedIdentifier] = useState("");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -17,9 +18,11 @@ export default function LoginPage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
+    const identifier = formData.get("identifier") as string;
+    setLastAttemptedIdentifier(identifier);
 
     const result = await signIn("credentials", {
-      identifier: formData.get("identifier") as string,
+      identifier,
       password: formData.get("password") as string,
       redirect: false,
     });
@@ -55,8 +58,16 @@ export default function LoginPage() {
           className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 space-y-4"
         >
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300">
-              {error}
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm flex flex-col items-center text-center">
+              <span className="text-red-300">{error}</span>
+              {error.includes("verify your email") && lastAttemptedIdentifier.includes("@") && (
+                <Link
+                  href={`/verify-email?email=${encodeURIComponent(lastAttemptedIdentifier)}`}
+                  className="mt-2 text-orange-400 hover:text-orange-300 font-medium underline decoration-orange-400/30 underline-offset-4"
+                >
+                  Enter verification code here
+                </Link>
+              )}
             </div>
           )}
 

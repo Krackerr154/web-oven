@@ -106,6 +106,11 @@ const createUserSchema = z.object({
   role: z.enum(["USER", "ADMIN"]),
 });
 
+const updateUserSchema = z.object({
+  nim: z.string().min(3, "NIM or Student ID is required"),
+  supervisors: z.array(z.string().min(2, "Supervisor name must be at least 2 characters")).min(1, "At least one supervisor is required"),
+});
+
 export async function createUser(data: Record<string, any>): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
@@ -249,6 +254,98 @@ export async function setContactPerson(userId: string): Promise<ActionResult> {
   }
 }
 
+export async function updateUserDetails(userId: string, data: { nim: string; supervisors: string[] }): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
+  try {
+    const parsed = updateUserSchema.parse(data);
+
+    // Check if NIM is already taken by ANOTHER user
+    const existingNimUser = await prisma.user.findFirst({
+      where: {
+        nim: parsed.nim,
+        id: { not: userId }, // Exclude the current user being edited
+      },
+    });
+
+    if (existingNimUser) {
+      return { success: false, message: "NIM is already in use by another user" };
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        nim: parsed.nim,
+        supervisors: parsed.supervisors,
+      },
+    });
+
+    revalidatePath("/admin/users");
+    return { success: true, message: "User details updated successfully" };
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return { success: false, message: err.issues[0]?.message || "Validation failed" };
+    }
+    console.error("Update user error:", err);
+    return { success: false, message: "Failed to update user details" };
+  }
+}
+
+export async function deleteUser(userId: string): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
+  const adminId = await getAdminId();
+  if (adminId === userId) {
+    return { success: false, message: "You cannot delete your own admin account" };
+  }
+
+  try {
+    const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!targetUser) {
+      return { success: false, message: "User not found" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Remove references where they acted upon events (actorId)
+      await tx.bookingEvent.updateMany({
+        where: { actorId: userId },
+        data: { actorId: null },
+      });
+
+      // 2. Remove references where they cancelled or deleted bookings for others
+      await tx.booking.updateMany({
+        where: { cancelledById: userId },
+        data: { cancelledById: null },
+      });
+      await tx.booking.updateMany({
+        where: { deletedById: userId },
+        data: { deletedById: null },
+      });
+
+      // 3. Delete their own bookings (Cascades to their BookingEvents)
+      await tx.booking.deleteMany({
+        where: { userId: userId },
+      });
+
+      // 4. Finally, delete the user
+      await tx.user.delete({
+        where: { id: userId },
+      });
+    });
+
+    revalidatePath("/admin/users");
+    revalidatePath("/admin/bookings"); // Might affect booking listings
+    revalidatePath("/");
+
+    return { success: true, message: "User deleted successfully" };
+  } catch (err) {
+    console.error("Delete user err:", err);
+    return { success: false, message: "Failed to delete user. Make sure all relations are cleared." };
+  }
+}
+
 export async function getPendingUsers() {
   const guard = await requireAdmin();
   if (guard) return [];
@@ -270,6 +367,8 @@ export async function getAllUsers() {
       name: true,
       email: true,
       phone: true,
+      nim: true,
+      supervisors: true,
       role: true,
       status: true,
       isContactPerson: true,

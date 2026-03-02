@@ -5,6 +5,8 @@ import Link from "next/link";
 import { AddUserModal } from "./add-user-modal";
 import { RoleManagementButtons } from "./role-buttons";
 import { Users, Star } from "lucide-react";
+import { EditUserModal } from "./edit-user-modal";
+import { DeleteUserButton } from "./delete-user-button";
 
 export const dynamic = "force-dynamic";
 
@@ -99,13 +101,18 @@ export default async function AdminUsersPage() {
                     isContactPerson={user.isContactPerson}
                   />
                 )}
-                <div className="pt-1">
+                <div className="pt-2 mt-2 border-t border-slate-700/50 flex items-center justify-between">
                   <Link
                     href={`/admin/users/${user.id}`}
                     className="text-xs text-orange-300 hover:text-orange-200"
                   >
                     View 6-month booking stats
                   </Link>
+
+                  <div className="flex items-center gap-1">
+                    <EditUserModal user={user} />
+                    <DeleteUserButton userId={user.id} />
+                  </div>
                 </div>
               </div>
             ))}
@@ -177,6 +184,11 @@ export default async function AdminUsersPage() {
                           >
                             Stats
                           </Link>
+
+                          <div className="flex items-center">
+                            <EditUserModal user={user} />
+                            <DeleteUserButton userId={user.id} />
+                          </div>
                         </div>
                         {user.status === "APPROVED" && (
                           <div className="mt-2 min-w-[140px]">
