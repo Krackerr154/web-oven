@@ -2,12 +2,152 @@
 
 import { useState, useEffect } from "react";
 import { markTourCompleted } from "@/app/actions/onboarding";
-import { X, ChevronRight, Check } from "lucide-react";
+import { X, ChevronRight, Check, LayoutDashboard, Flame, Waves, Box } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 interface SpotlightTourProps {
   hasSeenTour: boolean;
 }
+
+type TourSection = {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+  borderColor: string;
+  bgColor: string;
+};
+
+type TourStep = {
+  title: string;
+  description: string;
+  targetId?: string;
+  route?: string;
+  section: string; // matches TourSection.id
+};
+
+const SECTIONS: TourSection[] = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    color: "text-blue-400",
+    borderColor: "border-blue-500",
+    bgColor: "bg-blue-500/20",
+  },
+  {
+    id: "oven",
+    label: "Oven",
+    icon: Flame,
+    color: "text-orange-400",
+    borderColor: "border-orange-500",
+    bgColor: "bg-orange-500/20",
+  },
+  {
+    id: "ultrasonic",
+    label: "Ultrasonic Bath",
+    icon: Waves,
+    color: "text-cyan-400",
+    borderColor: "border-cyan-500",
+    bgColor: "bg-cyan-500/20",
+  },
+  {
+    id: "glovebox",
+    label: "Glovebox",
+    icon: Box,
+    color: "text-purple-400",
+    borderColor: "border-purple-500",
+    bgColor: "bg-purple-500/20",
+  },
+];
+
+const STEPS: TourStep[] = [
+  // ── Part 1: Dashboard ──────────────────────────────────────────────────
+  {
+    section: "dashboard",
+    title: "Welcome to AP Lab Dashboard!",
+    description:
+      "This is your central hub for managing lab instruments, tracking bookings, and searching the reagent inventory. Let's take a quick tour!",
+    route: "/",
+  },
+  {
+    section: "dashboard",
+    title: "Instruments Quick-Access",
+    description:
+      "Click here to view and book any of the three lab instruments: the Oven, Ultrasonic Bath, or Glovebox.",
+    targetId: "tour-instruments-card",
+    route: "/",
+  },
+  {
+    section: "dashboard",
+    title: "Reagents Inventory",
+    description:
+      "Search the lab chemical inventory here to check stock availability before you start your experiments.",
+    targetId: "tour-reagents-card",
+    route: "/",
+  },
+  {
+    section: "dashboard",
+    title: "Your Active Bookings",
+    description:
+      "Your ongoing and upcoming instrument bookings are listed here so you always have a quick overview of your scheduled sessions.",
+    targetId: "tour-active-bookings",
+    route: "/",
+  },
+
+  // ── Part 2: Oven ───────────────────────────────────────────────────────
+  {
+    section: "oven",
+    title: "Lab Ovens",
+    description:
+      "The high-temperature ovens support sample drying, curing, and thermal treatment. Units are available in Aqueous and Non-Aqueous modes.",
+    targetId: "tour-oven-card",
+    route: "/instruments",
+  },
+  {
+    section: "oven",
+    title: "Booking the Oven",
+    description:
+      "Click 'Book Instrument' on the Oven card to schedule a time slot. You'll be asked for your usage temperature, flap setting, and purpose.",
+    targetId: "tour-book",
+  },
+  {
+    section: "oven",
+    title: "Oven Usage Guidelines",
+    description:
+      "Always check the Usage Guidelines before booking. Fill out both this digital form and the physical logbook next to the oven.",
+    targetId: "tour-guidelines",
+    route: "/book",
+  },
+
+  // ── Part 3: Ultrasonic Bath ────────────────────────────────────────────
+  {
+    section: "ultrasonic",
+    title: "Ultrasonic Bath",
+    description:
+      "The ultrasonic bath uses high-frequency sonication to clean glassware, dissolve samples, and degas liquids. Integration coming soon!",
+    targetId: "tour-ultrasonic-card",
+    route: "/instruments",
+  },
+
+  // ── Part 4: Glovebox ──────────────────────────────────────────────────
+  {
+    section: "glovebox",
+    title: "Glovebox",
+    description:
+      "The glovebox provides an inert (Argon-purged) atmosphere for handling air and moisture-sensitive materials. Integration coming soon!",
+    targetId: "tour-glovebox-card",
+    route: "/instruments",
+  },
+  {
+    section: "glovebox",
+    title: "Complete Your Profile",
+    description:
+      "Finally, set up your profile with an avatar and nickname so others can recognize your bookings in the calendar.",
+    targetId: "tour-profile",
+    route: "/profile",
+  },
+];
 
 export function SpotlightTour({ hasSeenTour }: SpotlightTourProps) {
   const [activeStep, setActiveStep] = useState(0);
@@ -25,60 +165,21 @@ export function SpotlightTour({ hasSeenTour }: SpotlightTourProps) {
     }
   }, [hasSeenTour]);
 
-  const steps = [
-    {
-      title: "Welcome to Lab Oven Booking!",
-      description:
-        "Let's take a quick 4-step tour to help you get started with reserving the laboratory ovens.",
-    },
-    {
-      title: "Real-time Oven Status",
-      description:
-        "Here you can see exactly which ovens are Available, In Use, or under Maintenance so you know what's open.",
-      targetId: "tour-ovens",
-    },
-    {
-      title: "Booking Calendar",
-      description:
-        "Scroll down to the calendar to see all active and upcoming reservations at a glance to plan your slots.",
-      targetId: "tour-calendar",
-    },
-    {
-      title: "Make a Booking",
-      description:
-        "Click here anytime to request a block of time. Make sure you know your usage temperatures and flap configurations.",
-      targetId: "tour-book",
-    },
-    {
-      title: "Review the Rules",
-      description:
-        "Whenever you book, please ensure you review the Usage Guidelines. This button is always available at the top of the Booking page.",
-      targetId: "tour-guidelines",
-      route: "/book",
-    },
-    {
-      title: "Complete Your Profile",
-      description:
-        "Finally, click on the Profile tab to set up an avatar and nickname so others can easily identify your bookings.",
-      targetId: "tour-profile",
-      route: "/profile",
-    },
-  ];
+  const currentStep = STEPS[activeStep];
+  const currentSection = SECTIONS.find((s) => s.id === currentStep.section)!;
 
   useEffect(() => {
     if (!isVisible) return;
 
     const calculatePosition = () => {
-      const step = steps[activeStep];
-      if (step.targetId) {
-        const el = document.getElementById(step.targetId);
+      if (currentStep.targetId) {
+        const el = document.getElementById(currentStep.targetId);
         if (el) {
           const rect = el.getBoundingClientRect();
           setTargetRect(rect);
 
-          const isMobilePopover = window.innerWidth < 640;
-          if (isMobilePopover) {
-            // On mobile, dock to bottom to save screen real estate
+          const isMobile = window.innerWidth < 640;
+          if (isMobile) {
             setPopoverStyle({
               position: "fixed",
               bottom: "20px",
@@ -87,23 +188,18 @@ export function SpotlightTour({ hasSeenTour }: SpotlightTourProps) {
               width: "auto",
             });
           } else {
-            // On desktop, try to place it intelligently below the target
             let top = rect.bottom + 20;
             let left = rect.left;
 
-            if (left + 320 > window.innerWidth) {
-              left = window.innerWidth - 340; // constrain horizontally
-            }
-            if (top + 200 > window.innerHeight) {
-              top = rect.top - 200 - 20; // push above if bottom bounds exceeded
-            }
+            if (left + 340 > window.innerWidth) left = window.innerWidth - 360;
+            if (top + 220 > window.innerHeight) top = rect.top - 220 - 20;
             if (top < 20) top = 20;
 
             setPopoverStyle({
               position: "fixed",
               top: `${top}px`,
               left: `${left}px`,
-              width: "320px",
+              width: "340px",
             });
           }
         } else {
@@ -122,29 +218,26 @@ export function SpotlightTour({ hasSeenTour }: SpotlightTourProps) {
         top: "50%",
         left: "50%",
         transform: "translate(-50%, -50%)",
-        width: "320px",
+        width: "340px",
       });
     };
 
     const setupStep = () => {
-      const step = steps[activeStep];
-
-      // Handle mobile sidebar logic (Tailwind 'lg' is 1024px)
+      // Handle mobile sidebar
       if (window.innerWidth < 1024) {
-        if (step.targetId === "tour-book" || step.targetId === "tour-profile") {
+        if (currentStep.targetId === "tour-book" || currentStep.targetId === "tour-profile") {
           window.dispatchEvent(new Event("open-mobile-sidebar"));
         } else {
           window.dispatchEvent(new Event("close-mobile-sidebar"));
         }
       }
 
-      if (step.targetId) {
-        // We wait a tiny bit for the sidebar transition to start/finish before parsing the element
+      if (currentStep.targetId) {
         setTimeout(() => {
-          const el = document.getElementById(step.targetId);
+          const el = document.getElementById(currentStep.targetId!);
           if (el) {
             el.scrollIntoView({ behavior: "smooth", block: "center" });
-            setTimeout(calculatePosition, 400); // 400ms to allow smooth scroll and sidebar slide to finish
+            setTimeout(calculatePosition, 400);
           } else {
             calculatePosition();
           }
@@ -167,11 +260,10 @@ export function SpotlightTour({ hasSeenTour }: SpotlightTourProps) {
   if (!isVisible) return null;
 
   const handleNext = () => {
-    if (activeStep < steps.length - 1) {
-      const nextStepObj = steps[activeStep + 1];
-      if (nextStepObj.route && pathname !== nextStepObj.route) {
-        // Pre-navigate the user before updating step, adding a slight delay so DOM mounts
-        router.push(nextStepObj.route);
+    if (activeStep < STEPS.length - 1) {
+      const next = STEPS[activeStep + 1];
+      if (next.route && pathname !== next.route) {
+        router.push(next.route);
         setTimeout(() => setActiveStep((prev) => prev + 1), 600);
       } else {
         setActiveStep((prev) => prev + 1);
@@ -188,11 +280,18 @@ export function SpotlightTour({ hasSeenTour }: SpotlightTourProps) {
     router.refresh();
   };
 
-  const currentStep = steps[activeStep];
+  // Group steps by section for the section progress dots
+  const sectionSteps = SECTIONS.map((sec) => ({
+    ...sec,
+    steps: STEPS.filter((s) => s.section === sec.id),
+    firstIndex: STEPS.findIndex((s) => s.section === sec.id),
+  }));
+
+  const isLastStep = activeStep === STEPS.length - 1;
 
   return (
     <>
-      {/* Background Mask Layer */}
+      {/* Overlay mask */}
       <div
         className="fixed inset-0 z-[90] pointer-events-auto transition-all duration-300"
         style={{
@@ -200,75 +299,115 @@ export function SpotlightTour({ hasSeenTour }: SpotlightTourProps) {
           backdropFilter: targetRect ? "none" : "blur(4px)",
         }}
       >
-        {/* 
-                    We use a massive box-shadow to achieve the "cutout" Spotlight effect natively
-                    without complex SVG masking clipping paths. 
-                */}
         {targetRect && currentStep.targetId && (
           <div
-            className="fixed transition-all duration-500 ease-in-out border-2 border-orange-500 rounded-xl pointer-events-none"
+            className={`fixed transition-all duration-500 ease-in-out border-2 ${currentSection.borderColor} rounded-xl pointer-events-none`}
             style={{
               top: targetRect.top - 8,
               left: targetRect.left - 8,
               width: targetRect.width + 16,
               height: targetRect.height + 16,
-              boxShadow: "0 0 0 9999px rgba(2, 6, 23, 0.75)", // Dimming surround
+              boxShadow: "0 0 0 9999px rgba(2, 6, 23, 0.75)",
             }}
           />
         )}
       </div>
 
-      {/* Spotlight Popover Box */}
+      {/* Popover */}
       <div
-        className="z-[100] bg-slate-800 border-2 border-orange-500/50 shadow-[0_0_30px_rgba(249,115,22,0.3)] rounded-2xl p-5 animate-toast-in transition-all duration-500"
+        className={`z-[100] bg-slate-900 border-2 ${currentSection.borderColor}/50 shadow-2xl rounded-2xl overflow-hidden animate-toast-in transition-all duration-500`}
         style={popoverStyle}
       >
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold shrink-0">
-              {activeStep + 1}
-            </span>
-            <h3 className="font-semibold text-white leading-tight">
-              {currentStep.title}
-            </h3>
-          </div>
-          <button
-            onClick={finishTour}
-            className="text-slate-400 hover:text-white transition-colors shrink-0 ml-2"
-            title="Skip Tour"
-          >
-            <X className="h-4 w-4" />
-          </button>
+        {/* Section tabs header */}
+        <div className="flex border-b border-slate-700/60">
+          {SECTIONS.map((sec) => {
+            const Icon = sec.icon;
+            const isActive = sec.id === currentStep.section;
+            return (
+              <div
+                key={sec.id}
+                className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold transition-colors ${isActive
+                    ? `${sec.bgColor} ${sec.color} border-b-2 ${sec.borderColor}`
+                    : "text-slate-500"
+                  }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span className="hidden sm:block">{sec.label}</span>
+              </div>
+            );
+          })}
         </div>
 
-        <p className="text-sm text-slate-300 mb-5 leading-relaxed">
-          {currentStep.description}
-        </p>
-
-        <div className="flex items-center justify-between mt-auto">
-          <div className="flex gap-1.5">
-            {steps.map((_, i) => (
-              <div
-                key={i}
-                className={`h-1.5 rounded-full transition-all duration-300 ${i === activeStep ? "w-4 bg-orange-500" : "w-1.5 bg-slate-600"}`}
-              />
-            ))}
+        {/* Content */}
+        <div className="p-5">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className={`flex items-center justify-center w-6 h-6 rounded-full ${currentSection.bgColor} ${currentSection.color} text-xs font-bold shrink-0`}>
+                {activeStep + 1}
+              </span>
+              <h3 className="font-semibold text-white leading-tight text-sm">
+                {currentStep.title}
+              </h3>
+            </div>
+            <button
+              onClick={finishTour}
+              className="text-slate-400 hover:text-white transition-colors shrink-0 ml-2"
+              title="Skip Tour"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
-          <button
-            onClick={handleNext}
-            className="flex items-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium rounded-lg transition-colors shadow-[0_0_15px_rgba(234,88,12,0.4)]"
-          >
-            {activeStep === steps.length - 1 ? (
-              <>
-                Finish <Check className="h-4 w-4" />
-              </>
-            ) : (
-              <>
-                Next <ChevronRight className="h-4 w-4" />
-              </>
-            )}
-          </button>
+          <p className="text-sm text-slate-300 mb-5 leading-relaxed">
+            {currentStep.description}
+          </p>
+
+          {/* Progress: section-based dots */}
+          <div className="flex items-center gap-3 mb-4">
+            {sectionSteps.map((sec) => {
+              const isActiveSec = sec.id === currentStep.section;
+              const isPastSec = sec.firstIndex < STEPS.findIndex((s) => s.section === currentStep.section);
+              const stepsInSec = sec.steps.length;
+              const activeInSec = isActiveSec
+                ? STEPS.slice(sec.firstIndex).findIndex((_, i) => sec.firstIndex + i === activeStep) + 1
+                : isPastSec ? stepsInSec : 0;
+
+              return (
+                <div key={sec.id} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full flex gap-0.5">
+                    {sec.steps.map((_, i) => {
+                      const isFilled = isPastSec || (isActiveSec && i < activeInSec);
+                      return (
+                        <div
+                          key={i}
+                          className={`h-1 flex-1 rounded-full transition-all duration-300 ${isFilled ? sec.bgColor.replace("/20", "") : "bg-slate-700"}`}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-500">
+              Step {activeStep + 1} of {STEPS.length}
+            </span>
+            <button
+              onClick={handleNext}
+              className={`flex items-center gap-1.5 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${isLastStep
+                  ? "bg-emerald-600 hover:bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                  : `bg-slate-700 hover:bg-slate-600`
+                }`}
+            >
+              {isLastStep ? (
+                <>Finish <Check className="h-4 w-4" /></>
+              ) : (
+                <>Next <ChevronRight className="h-4 w-4" /></>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </>

@@ -10,7 +10,7 @@ import { formatDuration, toWibDateTimeLocalValue } from "@/lib/utils";
 import { useToast } from "@/components/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/dialog";
 
-type Oven = {
+type Instrument = {
     id: number;
     name: string;
     type: string;
@@ -28,17 +28,17 @@ export function EditBookingModal({
         startDate: Date;
         endDate: Date;
         purpose: string;
-        usageTemp: number;
-        flap: number;
-        ovenId: number;
-        oven: { name: string; maxTemp: number };
+        usageTemp: number | null;
+        flap: number | null;
+        instrumentId: number;
+        instrument: { name: string; maxTemp: number };
     };
 }) {
     const router = useRouter();
     const toast = useToast();
 
     const [open, setOpen] = useState(false);
-    const [ovens, setOvens] = useState<Oven[]>([]);
+    const [instruments, setInstruments] = useState<Instrument[]>([]);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -46,25 +46,25 @@ export function EditBookingModal({
     const [startDate, setStartDate] = useState(toWibDateTimeLocalValue(booking.startDate));
     const [endDate, setEndDate] = useState(toWibDateTimeLocalValue(booking.endDate));
     const [hasConflict, setHasConflict] = useState(false);
-    const [usageTemp, setUsageTemp] = useState(String(booking.usageTemp));
-    const [flap, setFlap] = useState(booking.flap);
+    const [usageTemp, setUsageTemp] = useState(String(booking.usageTemp ?? 0));
+    const [flap, setFlap] = useState(booking.flap ?? 0);
     const [purpose, setPurpose] = useState(booking.purpose);
 
-    const isLate = new Date().getTime() > new Date(booking.createdAt).getTime() + 15 * 60 * 1000;
+    const isLate = new Date().getTime() > new Date(booking.createdAt).getTime() + 60 * 60 * 1000;
 
     useEffect(() => {
-        if (open && ovens.length === 0) {
-            fetch("/api/ovens")
+        if (open && instruments.length === 0) {
+            fetch("/api/instruments")
                 .then((r) => r.json())
-                .then(setOvens)
-                .catch(() => setError("Failed to load ovens"));
+                .then(setInstruments)
+                .catch(() => setError("Failed to load instruments"));
         }
-    }, [open, ovens.length]);
+    }, [open, instruments.length]);
 
-    // We only permit editing the existing oven for this user flow, we don't swap ovens.
-    const selectedOven = useMemo(
-        () => ovens.find((o) => o.id === booking.ovenId) ?? { ...booking.oven, id: booking.ovenId },
-        [ovens, booking.oven]
+    // We only permit editing the existing instrument for this user flow, we don't swap instruments.
+    const selectedInstrument = useMemo(
+        () => instruments.find((o) => o.id === booking.instrumentId) ?? { ...booking.instrument, id: booking.instrumentId },
+        [instruments, booking.instrument]
     );
 
     const duration = useMemo(() => {
@@ -83,15 +83,15 @@ export function EditBookingModal({
     }, [startDate, endDate]);
 
     const tempWarning = useMemo(() => {
-        if (!usageTemp || !selectedOven) return null;
+        if (!usageTemp || !selectedInstrument) return null;
         const t = Number(usageTemp);
         if (isNaN(t)) return null;
-        if (t > selectedOven.maxTemp) {
-            return `Temperature exceeds ${selectedOven.name} max of ${selectedOven.maxTemp}°C`;
+        if (t > selectedInstrument.maxTemp) {
+            return `Temperature exceeds ${selectedInstrument.name} max of ${selectedInstrument.maxTemp}°C`;
         }
         if (t <= 0) return "Temperature must be greater than 0°C";
         return null;
-    }, [usageTemp, selectedOven]);
+    }, [usageTemp, selectedInstrument]);
 
     const validationIssues = useMemo(() => {
         const issues: { label: string; ok: boolean }[] = [];
@@ -129,7 +129,7 @@ export function EditBookingModal({
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         if (isLate) {
-            setError("The 15-minute edit window has expired.");
+            setError("The 1-hour edit window has expired.");
             return;
         }
 
@@ -161,7 +161,7 @@ export function EditBookingModal({
             <button
                 onClick={() => setOpen(true)}
                 disabled={isLate}
-                title={isLate ? "Edit window expired (15m)" : "Edit Booking"}
+                title={isLate ? "Edit window expired (1h)" : "Edit Booking"}
                 className="w-full sm:w-auto text-xs px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors mt-1 mb-1 sm:my-0"
             >
                 <Edit2 className="h-3 w-3" />
@@ -171,7 +171,7 @@ export function EditBookingModal({
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader className="mb-4">
-                        <DialogTitle>Edit Booking — {booking.oven.name}</DialogTitle>
+                        <DialogTitle>Edit Booking — {booking.instrument.name}</DialogTitle>
                     </DialogHeader>
 
                     <form onSubmit={handleSubmit} className="space-y-5">
@@ -185,14 +185,14 @@ export function EditBookingModal({
                         {isLate && (
                             <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-sm text-amber-300 flex items-start gap-2">
                                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                                Editing window has passed (15 minutes from creation). Please contact an admin if you need to make changes.
+                                Editing window has passed (1 hour from creation). Please contact an admin if you need to make changes.
                             </div>
                         )}
 
                         {/* Date/Time Picker */}
                         <DateTimePicker
-                            ovenId={booking.ovenId}
-                            ovens={ovens.length > 0 ? ovens : ([selectedOven] as Oven[])} // Fallback to provided basic info if loading
+                            instrumentId={booking.instrumentId}
+                            instruments={instruments.length > 0 ? instruments : ([selectedInstrument] as Instrument[])} // Fallback to provided basic info if loading
                             startValue={startDate}
                             endValue={endDate}
                             onStartChange={setStartDate}
@@ -229,7 +229,7 @@ export function EditBookingModal({
                                     type="number"
                                     required
                                     min={1}
-                                    max={selectedOven?.maxTemp ?? 1000}
+                                    max={selectedInstrument?.maxTemp ?? 1000}
                                     step={1}
                                     value={usageTemp}
                                     onChange={(e) => setUsageTemp(e.target.value)}
@@ -241,9 +241,9 @@ export function EditBookingModal({
                                         <span className="font-medium">{tempWarning}</span>
                                     </div>
                                 )}
-                                {!tempWarning && selectedOven && (
+                                {!tempWarning && selectedInstrument && (
                                     <p className="text-xs text-slate-500 mt-1.5">
-                                        Max: {selectedOven.maxTemp}°C
+                                        Max: {selectedInstrument.maxTemp}°C
                                     </p>
                                 )}
                             </div>

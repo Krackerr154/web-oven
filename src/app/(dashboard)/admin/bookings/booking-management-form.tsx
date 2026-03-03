@@ -17,10 +17,11 @@ type Props = {
     startDate: Date;
     endDate: Date;
     purpose: string;
-    usageTemp: number;
-    flap: number;
+    usageTemp: number | null;
+    flap: number | null;
     status: "ACTIVE" | "COMPLETED" | "CANCELLED" | "AUTO_CANCELLED";
   };
+  instrumentType: string;
 };
 
 type ConfirmState = {
@@ -41,7 +42,7 @@ const initialConfirm: ConfirmState = {
   action: null,
 };
 
-export function BookingManagementForm({ booking }: Props) {
+export function BookingManagementForm({ booking, instrumentType }: Props) {
   const [isPending, startTransition] = useTransition();
   const toast = useToast();
   const [confirm, setConfirm] = useState<ConfirmState>(initialConfirm);
@@ -77,8 +78,8 @@ export function BookingManagementForm({ booking }: Props) {
         startDate: formData.get("startDate") as string,
         endDate: formData.get("endDate") as string,
         purpose: formData.get("purpose") as string,
-        usageTemp: Number(formData.get("usageTemp")),
-        flap: Number(formData.get("flap")),
+        usageTemp: formData.get("usageTemp") ? Number(formData.get("usageTemp")) : null,
+        flap: formData.get("flap") ? Number(formData.get("flap")) : null,
       };
       const result = await updateBookingByAdmin(data);
       if (result.success) {
@@ -118,30 +119,33 @@ export function BookingManagementForm({ booking }: Props) {
                 className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white"
               />
             </div>
-            <div>
-              <label className="text-xs text-slate-400">Usage Temp (°C)</label>
-              <input
-                name="usageTemp"
-                type="number"
-                defaultValue={booking.usageTemp}
-                min={1}
-                required
-                className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-slate-400">Flap (%)</label>
-              <input
-                name="flap"
-                type="number"
-                defaultValue={booking.flap}
-                min={0}
-                max={100}
-                required
-                className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white"
-              />
-            </div>
           </div>
+
+          {instrumentType === "OVEN" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-slate-400">Usage Temp (°C)</label>
+                <input
+                  name="usageTemp"
+                  type="number"
+                  defaultValue={booking.usageTemp ?? ""}
+                  min={1}
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400">Flap (%)</label>
+                <input
+                  name="flap"
+                  type="number"
+                  defaultValue={booking.flap ?? ""}
+                  min={0}
+                  max={100}
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white"
+                />
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="text-xs text-slate-400">Purpose</label>
@@ -216,7 +220,7 @@ export function BookingManagementForm({ booking }: Props) {
             Soft Remove
           </button>
         </div>
-      </div>
+      </div >
 
       <ConfirmDialog
         open={confirm.open}

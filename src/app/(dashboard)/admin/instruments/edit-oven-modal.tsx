@@ -1,20 +1,21 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { updateOven } from "@/app/actions/admin";
+import { updateInstrument } from "@/app/actions/admin";
 import { useRouter } from "next/navigation";
 import { Pencil, X, Loader2 } from "lucide-react";
 import { useToast } from "@/components/toast";
 
-type OvenData = {
+type InstrumentData = {
   id: number;
   name: string;
   type: string;
+  category: string | null;
   description: string | null;
   maxTemp: number;
 };
 
-export function EditOvenModal({ oven }: { oven: OvenData }) {
+export function EditInstrumentModal({ oven: instrument }: { oven: InstrumentData }) {
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -47,11 +48,12 @@ export function EditOvenModal({ oven }: { oven: OvenData }) {
     const formData = new FormData(e.currentTarget);
     const data = {
       name: formData.get("name") as string,
-      type: formData.get("type") as string,
+      type: formData.get("type") as string as "OVEN" | "ULTRASONIC_BATH" | "GLOVEBOX",
+      category: (formData.get("category") as string as "AQUEOUS" | "NON_AQUEOUS") || undefined,
       description: (formData.get("description") as string) || undefined,
       maxTemp: Number(formData.get("maxTemp")),
     };
-    const result = await updateOven(oven.id, data);
+    const result = await updateInstrument(instrument.id, data);
 
     setLoading(false);
 
@@ -69,7 +71,7 @@ export function EditOvenModal({ oven }: { oven: OvenData }) {
       <button
         onClick={() => setOpen(true)}
         className="p-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
-        title="Edit oven"
+        title="Edit instrument"
       >
         <Pencil className="h-4 w-4" />
       </button>
@@ -86,11 +88,11 @@ export function EditOvenModal({ oven }: { oven: OvenData }) {
           <div
             role="dialog"
             aria-modal="true"
-            aria-labelledby="edit-oven-title"
+            aria-labelledby="edit-instrument-title"
             className="relative bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md shadow-2xl animate-toast-in"
           >
             <div className="flex items-center justify-between mb-5">
-              <h2 id="edit-oven-title" className="text-lg font-semibold text-white">Edit {oven.name}</h2>
+              <h2 id="edit-instrument-title" className="text-lg font-semibold text-white">Edit {instrument.name}</h2>
               <button
                 onClick={() => setOpen(false)}
                 className="text-slate-400 hover:text-white transition-colors"
@@ -115,7 +117,7 @@ export function EditOvenModal({ oven }: { oven: OvenData }) {
                   name="name"
                   type="text"
                   required
-                  defaultValue={oven.name}
+                  defaultValue={instrument.name}
                   className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
                 />
               </div>
@@ -127,9 +129,25 @@ export function EditOvenModal({ oven }: { oven: OvenData }) {
                 <select
                   name="type"
                   required
-                  defaultValue={oven.type}
+                  defaultValue={instrument.type}
                   className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
                 >
+                  <option value="OVEN">Oven</option>
+                  <option value="ULTRASONIC_BATH">Ultrasonic Bath</option>
+                  <option value="GLOVEBOX">Glovebox</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                  Category
+                </label>
+                <select
+                  name="category"
+                  defaultValue={instrument.category || ""}
+                  className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+                >
+                  <option value="">None</option>
                   <option value="NON_AQUEOUS">Non-Aqueous</option>
                   <option value="AQUEOUS">Aqueous</option>
                 </select>
@@ -142,7 +160,7 @@ export function EditOvenModal({ oven }: { oven: OvenData }) {
                 <textarea
                   name="description"
                   rows={2}
-                  defaultValue={oven.description || ""}
+                  defaultValue={instrument.description || ""}
                   placeholder="e.g., Used for drying MOF samples"
                   className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 resize-none"
                 />
@@ -156,7 +174,7 @@ export function EditOvenModal({ oven }: { oven: OvenData }) {
                   name="maxTemp"
                   type="number"
                   required
-                  defaultValue={oven.maxTemp}
+                  defaultValue={instrument.maxTemp}
                   min={1}
                   max={1000}
                   step={1}

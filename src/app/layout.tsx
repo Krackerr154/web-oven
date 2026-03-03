@@ -6,8 +6,8 @@ import { Providers } from "@/components/providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Lab Oven Booking System",
-  description: "Book and manage lab oven usage — G-Labs",
+  title: "AP Lab Dashboard",
+  description: "Manage Instruments, Reagents, and Lab Users — G-Labs",
 };
 
 export default function RootLayout({

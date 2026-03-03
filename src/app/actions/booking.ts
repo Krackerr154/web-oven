@@ -10,7 +10,7 @@ import { revalidatePath } from "next/cache";
 import type { Prisma } from "@/generated/prisma/client";
 
 const bookingSchema = z.object({
-  ovenId: z.number().int().positive(),
+  instrumentId: z.number().int().positive(),
   startDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Start date must use valid WIB date-time format"),
@@ -18,8 +18,8 @@ const bookingSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "End date must use valid WIB date-time format"),
   purpose: z.string().min(3, "Purpose must be at least 3 characters"),
-  usageTemp: z.number().int().min(1, "Usage temperature is required"),
-  flap: z.number().int().min(0, "Flap must be 0-100%").max(100, "Flap must be 0-100%"),
+  usageTemp: z.number().int().min(1, "Usage temperature is required").optional(),
+  flap: z.number().int().min(0).max(100).optional(),
 });
 
 export type BookingResult = {
@@ -96,12 +96,12 @@ export async function autoCompleteBookings() {
 }
 
 export async function createBooking(data: {
-  ovenId: number;
+  instrumentId: number;
   startDate: string;
   endDate: string;
   purpose: string;
-  usageTemp: number;
-  flap: number;
+  usageTemp?: number;
+  flap?: number;
 }): Promise<BookingResult> {
   try {
     const session = await getServerSession(authOptions);
@@ -114,7 +114,7 @@ export async function createBooking(data: {
     }
 
     const parsed = bookingSchema.safeParse({
-      ovenId: data.ovenId,
+      instrumentId: data.instrumentId,
       startDate: data.startDate,
       endDate: data.endDate,
       purpose: data.purpose,
@@ -125,7 +125,7 @@ export async function createBooking(data: {
       return { success: false, message: parsed.error.issues[0].message };
     }
 
-    const { ovenId, purpose, usageTemp, flap } = parsed.data;
+    const { instrumentId, purpose, usageTemp, flap } = parsed.data;
 
     const startDate = parseWibDateTimeLocal(parsed.data.startDate);
     const endDate = parseWibDateTimeLocal(parsed.data.endDate);
@@ -160,27 +160,27 @@ export async function createBooking(data: {
         return { success: false, message: "You already have 1 active booking (maximum)" };
       }
 
-      // Rule: Oven must be available (not in maintenance)
-      const oven = await tx.oven.findUnique({ where: { id: ovenId } });
-      if (!oven) {
-        return { success: false, message: "Oven not found" };
+      // Rule: Instrument must be available (not in maintenance)
+      const instrument = await tx.instrument.findUnique({ where: { id: instrumentId } });
+      if (!instrument) {
+        return { success: false, message: "Instrument not found" };
       }
-      if (oven.status === "MAINTENANCE") {
-        return { success: false, message: `${oven.name} is currently under maintenance` };
+      if (instrument.status === "MAINTENANCE") {
+        return { success: false, message: `${instrument.name} is currently under maintenance` };
       }
 
-      // Rule: Usage temperature must not exceed oven max
-      if (usageTemp > oven.maxTemp) {
+      // Rule: Usage temperature must not exceed instrument max
+      if (usageTemp !== undefined && usageTemp !== null && usageTemp > instrument.maxTemp) {
         return {
           success: false,
-          message: `Usage temperature (${usageTemp}°C) exceeds oven maximum (${oven.maxTemp}°C)`,
+          message: `Usage temperature (${usageTemp}°C) exceeds instrument maximum (${instrument.maxTemp}°C)`,
         };
       }
 
-      // Rule: No overlapping active bookings on the same oven
+      // Rule: No overlapping active bookings on the same instrument
       const overlap = await tx.booking.findFirst({
         where: {
-          ovenId,
+          instrumentId,
           status: "ACTIVE",
           deletedAt: null,
           startDate: { lt: endDate },
@@ -199,12 +199,12 @@ export async function createBooking(data: {
       const createdBooking = await tx.booking.create({
         data: {
           userId,
-          ovenId,
+          instrumentId,
           startDate,
           endDate,
           purpose,
-          usageTemp,
-          flap,
+          usageTemp: usageTemp ?? undefined,
+          flap: flap ?? undefined,
           status: "ACTIVE",
         },
       });
@@ -247,7 +247,7 @@ export async function updateBooking(data: {
         deletedAt: null,
       },
       include: {
-        oven: true,
+        instrument: true,
       },
     });
 
@@ -269,7 +269,7 @@ export async function updateBooking(data: {
     }
 
     const parsed = bookingSchema.safeParse({
-      ovenId: booking.ovenId, // Re-validate with the existing oven
+      instrumentId: booking.instrumentId, // Re-validate with the existing instrument
       startDate: data.startDate,
       endDate: data.endDate,
       purpose: data.purpose,
@@ -304,24 +304,24 @@ export async function updateBooking(data: {
 
     // ── Atomic transaction for checks + update ────────────────
     const result = await prisma.$transaction(async (tx) => {
-      // Rule: Oven must be available (not in maintenance)
-      if (booking.oven.status === "MAINTENANCE") {
-        return { success: false, message: `${booking.oven.name} is currently under maintenance` };
+      // Rule: Instrument must be available (not in maintenance)
+      if (booking.instrument.status === "MAINTENANCE") {
+        return { success: false, message: `${booking.instrument.name} is currently under maintenance` };
       }
 
-      // Rule: Usage temperature must not exceed oven max
-      if (usageTemp > booking.oven.maxTemp) {
+      // Rule: Usage temperature must not exceed instrument max
+      if (usageTemp !== undefined && usageTemp > booking.instrument.maxTemp) {
         return {
           success: false,
-          message: `Usage temperature (${usageTemp}°C) exceeds oven maximum (${booking.oven.maxTemp}°C)`,
+          message: `Usage temperature (${usageTemp}°C) exceeds instrument maximum (${booking.instrument.maxTemp}°C)`,
         };
       }
 
-      // Rule: No overlapping active bookings on the same oven
+      // Rule: No overlapping active bookings on the same instrument
       const overlap = await tx.booking.findFirst({
         where: {
           id: { not: data.bookingId }, // Exclude self
-          ovenId: booking.ovenId,
+          instrumentId: booking.instrumentId,
           status: "ACTIVE",
           deletedAt: null,
           startDate: { lt: endDate },
@@ -467,7 +467,7 @@ export async function getMyBookingDetail(bookingId: string) {
       deletedAt: null,
     },
     include: {
-      oven: true,
+      instrument: true,
       user: {
         select: {
           name: true,
@@ -503,4 +503,201 @@ export async function getMyActiveBookingsCount() {
       deletedAt: null,
     },
   });
+}
+
+// ── Ultrasonic Bath (Sonicator) ─────────────────────────────────────────────
+
+const ultrasonicSchema = z.object({
+  instrumentId: z.number().int().positive(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Invalid start date format"),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Invalid end date format"),
+  purpose: z.string().min(3, "Purpose must be at least 3 characters"),
+  sonicatorModes: z.array(z.enum(["SONIC", "HEAT", "DEGAS"])).min(1, "Select at least one mode"),
+  bathTemp: z.number().int().min(1).max(60).optional(), // only relevant when HEAT is selected
+});
+
+export async function createUltrasonicBooking(data: {
+  instrumentId: number;
+  startDate: string;
+  endDate: string;
+  purpose: string;
+  sonicatorModes: ("SONIC" | "HEAT" | "DEGAS")[];
+  bathTemp?: number;
+}): Promise<BookingResult> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { success: false, message: "You must be logged in" };
+    if (session.user.status !== "APPROVED") return { success: false, message: "Your account is not approved" };
+
+    const parsed = ultrasonicSchema.safeParse(data);
+    if (!parsed.success) return { success: false, message: parsed.error.issues[0].message };
+
+    const { instrumentId, purpose, sonicatorModes, bathTemp } = parsed.data;
+
+    const startDate = parseWibDateTimeLocal(parsed.data.startDate);
+    const endDate = parseWibDateTimeLocal(parsed.data.endDate);
+
+    if (!startDate || !endDate) return { success: false, message: "Invalid date format" };
+
+    // Ultrasonic bath max = 1 day
+    if (differenceInDays(endDate, startDate) > 1) {
+      return { success: false, message: "Ultrasonic bath booking cannot exceed 1 day" };
+    }
+
+    if (endDate <= startDate) return { success: false, message: "End date must be after start date" };
+    if (startDate < new Date()) return { success: false, message: "Start date cannot be in the past" };
+
+    const userId = session.user.id;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const activeCount = await tx.booking.count({ where: { userId, status: "ACTIVE" } });
+      if (activeCount >= 1) return { success: false, message: "You already have 1 active booking (maximum)" };
+
+      const instrument = await tx.instrument.findUnique({ where: { id: instrumentId } });
+      if (!instrument) return { success: false, message: "Instrument not found" };
+      if (instrument.status === "MAINTENANCE") return { success: false, message: `${instrument.name} is currently under maintenance` };
+
+      const overlap = await tx.booking.findFirst({
+        where: {
+          instrumentId,
+          status: "ACTIVE",
+          deletedAt: null,
+          startDate: { lt: endDate },
+          endDate: { gt: startDate },
+        },
+      });
+      if (overlap) return { success: false, message: "This time slot overlaps with an existing booking" };
+
+      const createdBooking = await tx.booking.create({
+        data: {
+          userId, instrumentId, startDate, endDate, purpose,
+          sonicatorModes,
+          usageTemp: bathTemp ?? undefined,
+          status: "ACTIVE",
+        },
+      });
+
+      await logBookingEvent(tx, {
+        bookingId: createdBooking.id,
+        actorId: userId,
+        actorType: session.user.role === "ADMIN" ? "ADMIN" : "USER",
+        eventType: "CREATED",
+      });
+
+      return { success: true, message: "Ultrasonic bath booking created successfully!" };
+    });
+
+    revalidatePath("/my-bookings");
+    return result;
+  } catch (error) {
+    console.error("Ultrasonic booking error:", error);
+    return { success: false, message: "An unexpected error occurred" };
+  }
+}
+
+// ── Glovebox ─────────────────────────────────────────────────────────────────
+
+const gloveboxSchema = z.object({
+  instrumentId: z.number().int().positive(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Invalid start date format"),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Invalid end date format"),
+  purpose: z.string().min(3, "Deskripsi pekerjaan must be at least 3 characters"),
+  equipmentBrought: z.string().min(1, "Please specify equipment brought inside (or write '-')."),
+  chemicalsBrought: z.string().min(1, "Please specify chemicals brought inside (or write '-')."),
+  n2FlowRate: z.number().min(0).optional(),
+  n2Duration: z.number().int().min(0).optional(),
+  specialNotes: z.string().optional(),
+});
+
+export async function createGloveboxBooking(data: {
+  instrumentId: number;
+  startDate: string;
+  endDate: string;
+  purpose: string;
+  equipmentBrought: string;
+  chemicalsBrought: string;
+  n2FlowRate?: number;
+  n2Duration?: number;
+  specialNotes?: string;
+}): Promise<BookingResult> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { success: false, message: "You must be logged in" };
+    if (session.user.status !== "APPROVED") return { success: false, message: "Your account is not approved" };
+
+    const parsed = gloveboxSchema.safeParse(data);
+    if (!parsed.success) return { success: false, message: parsed.error.issues[0].message };
+
+    const {
+      instrumentId, purpose, equipmentBrought, chemicalsBrought, n2FlowRate, n2Duration, specialNotes
+    } = parsed.data;
+
+    const startDate = parseWibDateTimeLocal(data.startDate);
+    const endDate = parseWibDateTimeLocal(data.endDate);
+
+    if (!startDate || !endDate) return { success: false, message: "Invalid date format" };
+
+    // Glovebox max duration = 1 day (same as sonicator to prevent hoarding)
+    if (differenceInDays(endDate, startDate) > 1) {
+      return { success: false, message: "Glovebox booking cannot exceed 1 day" };
+    }
+
+    if (endDate <= startDate) return { success: false, message: "End date must be after start date" };
+    if (startDate < new Date()) return { success: false, message: "Start date cannot be in the past" };
+
+    const userId = session.user.id;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const activeCount = await tx.booking.count({ where: { userId, status: "ACTIVE" } });
+      if (activeCount >= 1) return { success: false, message: "You already have 1 active booking (maximum)" };
+
+      const instrument = await tx.instrument.findUnique({ where: { id: instrumentId } });
+      if (!instrument) return { success: false, message: "Instrument not found" };
+      if (instrument.status === "MAINTENANCE") return { success: false, message: `${instrument.name} is currently under maintenance` };
+
+      // Validate maxN2FlowRate if the instrument has one configured by admin
+      if (instrument.maxN2FlowRate !== null && n2FlowRate !== undefined && n2FlowRate > instrument.maxN2FlowRate) {
+        return { success: false, message: `Nitrogen flow rate exceeds the maximum allowed (${instrument.maxN2FlowRate} LPM)` };
+      }
+
+      const overlap = await tx.booking.findFirst({
+        where: {
+          instrumentId,
+          status: "ACTIVE",
+          deletedAt: null,
+          startDate: { lt: endDate },
+          endDate: { gt: startDate },
+        },
+      });
+      if (overlap) return { success: false, message: "This time slot overlaps with an existing booking" };
+
+      const createdBooking = await tx.booking.create({
+        data: {
+          userId, instrumentId, startDate, endDate, purpose,
+          equipmentBrought,
+          chemicalsBrought,
+          n2FlowRate: n2FlowRate ?? undefined,
+          n2Duration: n2Duration ?? undefined,
+          specialNotes: specialNotes || undefined, // undefined prevents turning empty string into text
+          status: "ACTIVE",
+        },
+      });
+
+      await logBookingEvent(tx, {
+        bookingId: createdBooking.id,
+        actorId: userId,
+        actorType: session.user.role === "ADMIN" ? "ADMIN" : "USER",
+        eventType: "CREATED",
+      });
+
+      return { success: true, message: "Glovebox booking created successfully!" };
+    });
+
+    revalidatePath("/my-bookings");
+    revalidatePath("/");
+    return result;
+  } catch (error) {
+    console.error("Glovebox booking error:", error);
+    return { success: false, message: "An unexpected error occurred" };
+  }
 }

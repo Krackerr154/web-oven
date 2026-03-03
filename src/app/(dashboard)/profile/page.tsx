@@ -77,7 +77,7 @@ export default async function ProfilePage() {
                         <div className="bg-orange-500/10 p-4 rounded-full">
                             <CalendarDays className="h-8 w-8 text-orange-400" />
                         </div>
-                        <h3 className="text-white font-medium">Need to book an oven?</h3>
+                        <h3 className="text-white font-medium">Need to book an instrument?</h3>
                         <p className="text-slate-400 text-sm max-w-sm mb-2">Check availability and schedule your next session online.</p>
                         <a href="/book" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-colors">
                             Book Now

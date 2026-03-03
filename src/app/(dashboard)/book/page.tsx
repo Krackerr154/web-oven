@@ -10,10 +10,11 @@ import { formatDuration } from "@/lib/utils";
 import { useToast } from "@/components/toast";
 import { BookingRulesModal } from "@/components/booking-rules-modal";
 
-type Oven = {
+type Instrument = {
   id: number;
   name: string;
   type: string;
+  category: string | null;
   status: string;
   description: string | null;
   maxTemp: number;
@@ -24,8 +25,8 @@ const FLAP_VALUES = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 export default function BookPage() {
   const router = useRouter();
   const toast = useToast();
-  const [ovens, setOvens] = useState<Oven[]>([]);
-  const [selectedOvenId, setSelectedOvenId] = useState<number | null>(null);
+  const [instruments, setInstruments] = useState<Instrument[]>([]);
+  const [selectedInstrumentId, setSelectedInstrumentId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState("");
@@ -37,9 +38,9 @@ export default function BookPage() {
   const [activeCount, setActiveCount] = useState<number | null>(null);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
-  const selectedOven = useMemo(
-    () => ovens.find((o) => o.id === selectedOvenId) ?? null,
-    [ovens, selectedOvenId]
+  const selectedInstrument = useMemo(
+    () => instruments.find((o) => o.id === selectedInstrumentId) ?? null,
+    [instruments, selectedInstrumentId]
   );
 
   const duration = useMemo(() => {
@@ -60,23 +61,23 @@ export default function BookPage() {
 
   // Temp validation — inline alert
   const tempWarning = useMemo(() => {
-    if (!usageTemp || !selectedOven) return null;
+    if (!usageTemp || !selectedInstrument) return null;
     const t = Number(usageTemp);
     if (isNaN(t)) return null;
-    if (t > selectedOven.maxTemp) {
-      return `Temperature exceeds ${selectedOven.name} max of ${selectedOven.maxTemp}°C`;
+    if (t > selectedInstrument.maxTemp) {
+      return `Temperature exceeds ${selectedInstrument.name} max of ${selectedInstrument.maxTemp}°C`;
     }
     if (t <= 0) return "Temperature must be greater than 0°C";
     return null;
-  }, [usageTemp, selectedOven]);
+  }, [usageTemp, selectedInstrument]);
 
-  const ovenSelected = selectedOvenId !== null;
+  const instrumentSelected = selectedInstrumentId !== null;
 
   // Live validation — updates automatically as user fills inputs
   const validationIssues = useMemo(() => {
     const issues: { label: string; ok: boolean }[] = [];
 
-    issues.push({ label: "Select an oven", ok: ovenSelected });
+    issues.push({ label: "Select an instrument", ok: instrumentSelected });
     issues.push({ label: "Pick a start date & time", ok: !!startDate });
     issues.push({ label: "Pick an end date & time", ok: !!endDate });
 
@@ -104,15 +105,15 @@ export default function BookPage() {
     });
 
     return issues;
-  }, [ovenSelected, startDate, endDate, durationWarning, hasConflict, tempWarning, usageTemp, purpose]);
+  }, [instrumentSelected, startDate, endDate, durationWarning, hasConflict, tempWarning, usageTemp, purpose]);
 
   const canSubmit = !loading && validationIssues.every((i) => i.ok);
 
   useEffect(() => {
-    fetch("/api/ovens")
+    fetch("/api/instruments")
       .then((r) => r.json())
-      .then(setOvens)
-      .catch(() => setError("Failed to load ovens"));
+      .then((data: Instrument[]) => setInstruments(data.filter(i => i.type === "OVEN")))
+      .catch(() => setError("Failed to load instruments"));
 
     getMyActiveBookingsCount().then(setActiveCount);
   }, []);
@@ -124,7 +125,7 @@ export default function BookPage() {
 
     const formData = new FormData(e.currentTarget);
     const data = {
-      ovenId: Number(formData.get("ovenId")),
+      instrumentId: Number(formData.get("instrumentId")),
       startDate: formData.get("startDate") as string,
       endDate: formData.get("endDate") as string,
       purpose: formData.get("purpose") as string,
@@ -153,7 +154,7 @@ export default function BookPage() {
             </div>
             <h2 className="text-xl font-bold text-white mb-2">Booking Successful!</h2>
             <p className="text-slate-400 text-sm mb-6">
-              Your oven booking has been confirmed and scheduled.
+              Your instrument booking has been confirmed and scheduled.
             </p>
             <div className="flex flex-col gap-3">
               <button
@@ -207,7 +208,7 @@ export default function BookPage() {
 
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Book an Oven</h1>
+          <h1 className="text-2xl font-bold text-white">Oven Booking</h1>
           <p className="text-slate-400 mt-1">
             Select an oven and choose your time slot in WIB (max 7 days)
           </p>
@@ -225,18 +226,18 @@ export default function BookPage() {
           </div>
         )}
 
-        {/* Oven Selection */}
+        {/* Instrument Selection */}
         <div className="bg-slate-900/40 backdrop-blur-md shadow-lg border border-slate-700/50 rounded-2xl p-4 sm:p-6">
           <label className="block text-sm font-medium text-slate-300 mb-3">
-            Select Oven
+            Select Instrument
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {ovens.map((oven) => {
-              const isAvailable = oven.status === "AVAILABLE";
-              const isAqueous = oven.type !== "NON_AQUEOUS";
+            {instruments.map((instrument) => {
+              const isAvailable = instrument.status === "AVAILABLE";
+              const isAqueous = instrument.category !== "NON_AQUEOUS";
               return (
                 <label
-                  key={oven.id}
+                  key={instrument.id}
                   className={`relative flex items-center gap-3 p-3 sm:p-4 rounded-lg border cursor-pointer transition-all ${!isAvailable
                     ? "border-slate-700 bg-slate-800/30 opacity-50 cursor-not-allowed"
                     : isAqueous
@@ -246,19 +247,19 @@ export default function BookPage() {
                 >
                   <input
                     type="radio"
-                    name="ovenId"
-                    value={oven.id}
+                    name="instrumentId"
+                    value={instrument.id}
                     disabled={!isAvailable}
                     required
                     className="sr-only"
-                    onChange={() => setSelectedOvenId(oven.id)}
+                    onChange={() => setSelectedInstrumentId(instrument.id)}
                   />
                   <Flame className={`h-5 w-5 shrink-0 ${isAqueous ? "text-blue-400" : "text-orange-400"}`} />
                   <div className="min-w-0">
-                    <p className="font-medium text-white">{oven.name}</p>
+                    <p className="font-medium text-white">{instrument.name}</p>
                     <p className="text-xs text-slate-400">
                       {isAqueous ? "Aqueous" : "Non-Aqueous"}
-                      {" · Max " + oven.maxTemp + "°C"}
+                      {" · Max " + instrument.maxTemp + "°C"}
                       {!isAvailable && " — Maintenance"}
                     </p>
                   </div>
@@ -270,8 +271,8 @@ export default function BookPage() {
 
         {/* Date/Time Picker */}
         <DateTimePicker
-          ovenId={selectedOvenId}
-          ovens={ovens}
+          instrumentId={selectedInstrumentId}
+          instruments={instruments}
           startValue={startDate}
           endValue={endDate}
           onStartChange={setStartDate}
@@ -298,7 +299,7 @@ export default function BookPage() {
         )}
 
         {/* Temperature & Flap */}
-        <div className={`bg-slate-900/40 backdrop-blur-md shadow-lg border border-slate-700/50 rounded-2xl p-4 sm:p-6 transition-opacity ${ovenSelected ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+        <div className={`bg-slate-900/40 backdrop-blur-md shadow-lg border border-slate-700/50 rounded-2xl p-4 sm:p-6 transition-opacity ${instrumentSelected ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
             {/* Temperature */}
             <div>
@@ -311,11 +312,11 @@ export default function BookPage() {
                 type="number"
                 required
                 min={1}
-                max={selectedOven?.maxTemp ?? 1000}
+                max={selectedInstrument?.maxTemp ?? 1000}
                 step={1}
                 value={usageTemp}
                 onChange={(e) => setUsageTemp(e.target.value)}
-                placeholder={selectedOven ? `Max ${selectedOven.maxTemp}°C` : "Select oven first"}
+                placeholder={selectedInstrument ? `Max ${selectedInstrument.maxTemp}°C` : "Select instrument first"}
                 className={`w-full px-3 py-2.5 rounded-lg bg-slate-900 border text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 ${tempWarning ? "border-red-500/60" : "border-slate-600"
                   }`}
               />
@@ -325,9 +326,9 @@ export default function BookPage() {
                   <span className="font-medium">{tempWarning}</span>
                 </div>
               )}
-              {!tempWarning && selectedOven && (
+              {!tempWarning && selectedInstrument && (
                 <p className="text-xs text-slate-500 mt-1.5">
-                  Max for {selectedOven.name}: {selectedOven.maxTemp}°C
+                  Max for {selectedInstrument.name}: {selectedInstrument.maxTemp}°C
                 </p>
               )}
             </div>
@@ -342,16 +343,16 @@ export default function BookPage() {
                 <FlapSlider
                   value={flap}
                   onChange={setFlap}
-                  disabled={!ovenSelected}
+                  disabled={!instrumentSelected}
                 />
               </div>
               <input type="hidden" name="flap" value={flap} />
             </div>
           </div>
 
-          {!ovenSelected && (
+          {!instrumentSelected && (
             <p className="text-xs text-slate-500 italic mt-3">
-              ↑ Select an oven above to enable these fields
+              ↑ Select an instrument above to enable these fields
             </p>
           )}
         </div>

@@ -84,13 +84,13 @@ export default async function AdminUserStatsPage({ params }: Props) {
 
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
         <h2 className="text-sm font-semibold text-white mb-3">Oven Usage (6M)</h2>
-        {data.ovenUsage.length === 0 ? (
-          <p className="text-sm text-slate-500">No oven usage in this period.</p>
+        {data.instrumentUsage.length === 0 ? (
+          <p className="text-sm text-slate-500">No instrument usage in this period.</p>
         ) : (
           <div className="space-y-2">
-            {data.ovenUsage.map((item) => (
-              <div key={item.ovenName} className="flex items-center justify-between text-sm border-b border-slate-700/40 pb-1">
-                <span className="text-slate-300">{item.ovenName} ({item.ovenType === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"})</span>
+            {data.instrumentUsage.map((item) => (
+              <div key={item.instrumentName} className="flex items-center justify-between text-sm border-b border-slate-700/40 pb-1">
+                <span className="text-slate-300">{item.instrumentName} ({item.instrumentType === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"})</span>
                 <span className="text-white">{item.bookings} bookings • {item.totalHours.toFixed(1)}h</span>
               </div>
             ))}
@@ -111,7 +111,7 @@ export default async function AdminUserStatsPage({ params }: Props) {
                   href={`/admin/bookings/${booking.id}`}
                   className="block rounded-lg border border-slate-700/70 p-3 hover:bg-slate-700/20"
                 >
-                  <p className="text-sm text-white font-medium">{booking.oven.name}</p>
+                  <p className="text-sm text-white font-medium">{booking.instrument.name}</p>
                   <p className="text-xs text-slate-400">{formatDateTimeWib(booking.startDate)} — {formatDateTimeWib(booking.endDate)}</p>
                   <p className="text-xs text-slate-500 mt-1">Duration: {formatDuration(booking.startDate, booking.endDate)}</p>
                   <p className="text-xs text-slate-500">Status: {booking.status.replace("_", " ")}</p>

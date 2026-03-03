@@ -15,9 +15,10 @@ type ActionResult = {
   message: string;
 };
 
-const ovenSchema = z.object({
+const instrumentSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
-  type: z.enum(["NON_AQUEOUS", "AQUEOUS"]),
+  type: z.enum(["OVEN", "ULTRASONIC_BATH", "GLOVEBOX"]),
+  category: z.enum(["NON_AQUEOUS", "AQUEOUS"]).optional().nullable(),
   description: z.string().max(500).optional(),
   maxTemp: z.coerce
     .number()
@@ -25,6 +26,7 @@ const ovenSchema = z.object({
     .min(1, "Max temp must be at least 1°C")
     .max(1000, "Max temp cannot exceed 1000°C")
     .default(200),
+  maxN2FlowRate: z.number().min(0).optional().nullable(),
 });
 
 const bookingEditSchema = z.object({
@@ -36,8 +38,8 @@ const bookingEditSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "End date must use valid WIB date-time format"),
   purpose: z.string().min(3, "Purpose must be at least 3 characters"),
-  usageTemp: z.coerce.number().int().min(1, "Usage temperature is required"),
-  flap: z.coerce.number().int().min(0, "Flap must be 0-100%").max(100, "Flap must be 0-100%"),
+  usageTemp: z.coerce.number().int().min(1, "Usage temperature is required").optional().nullable(),
+  flap: z.coerce.number().int().min(0, "Flap must be 0-100%").max(100, "Flap must be 0-100%").optional().nullable(),
 });
 
 async function requireAdmin(): Promise<ActionResult | null> {
@@ -378,9 +380,9 @@ export async function getAllUsers() {
   });
 }
 
-// ─── Oven Management ─────────────────────────────────────────────────
+// ─── Instrument Management ─────────────────────────────────────────────────
 
-export async function setOvenMaintenance(ovenId: number): Promise<ActionResult> {
+export async function setInstrumentMaintenance(instrumentId: number): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
 
@@ -389,14 +391,14 @@ export async function setOvenMaintenance(ovenId: number): Promise<ActionResult> 
 
   try {
     await prisma.$transaction(async (tx) => {
-      await tx.oven.update({
-        where: { id: ovenId },
+      await tx.instrument.update({
+        where: { id: instrumentId },
         data: { status: "MAINTENANCE" },
       });
 
       const activeBookings = await tx.booking.findMany({
         where: {
-          ovenId,
+          instrumentId,
           status: "ACTIVE",
           deletedAt: null,
         },
@@ -405,7 +407,7 @@ export async function setOvenMaintenance(ovenId: number): Promise<ActionResult> 
 
       await tx.booking.updateMany({
         where: {
-          ovenId,
+          instrumentId,
           status: "ACTIVE",
           deletedAt: null,
         },
@@ -430,30 +432,30 @@ export async function setOvenMaintenance(ovenId: number): Promise<ActionResult> 
       }
     });
 
-    revalidatePath("/admin/ovens");
+    revalidatePath("/admin/instruments");
     revalidateBookingPaths();
     return {
       success: true,
-      message: "Oven set to maintenance. All active bookings have been auto-cancelled.",
+      message: "Instrument set to maintenance. All active bookings have been auto-cancelled.",
     };
   } catch {
     return { success: false, message: "Failed to set maintenance mode" };
   }
 }
 
-export async function clearOvenMaintenance(ovenId: number): Promise<ActionResult> {
+export async function clearInstrumentMaintenance(instrumentId: number): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
 
   try {
-    await prisma.oven.update({
-      where: { id: ovenId },
+    await prisma.instrument.update({
+      where: { id: instrumentId },
       data: { status: "AVAILABLE" },
     });
 
-    revalidatePath("/admin/ovens");
+    revalidatePath("/admin/instruments");
     revalidatePath("/");
-    return { success: true, message: "Oven is now available for bookings" };
+    return { success: true, message: "Instrument is now available for bookings" };
   } catch {
     return { success: false, message: "Failed to clear maintenance mode" };
   }
@@ -470,7 +472,7 @@ export async function getAllBookings() {
     orderBy: { createdAt: "desc" },
     include: {
       user: { select: { name: true, email: true } },
-      oven: { select: { name: true, type: true } },
+      instrument: { select: { name: true, type: true } },
     },
   });
 }
@@ -493,7 +495,7 @@ export async function getBookingDetailForAdmin(bookingId: string) {
           phone: true,
         },
       },
-      oven: true,
+      instrument: true,
       events: {
         orderBy: { createdAt: "asc" },
         include: {
@@ -514,8 +516,8 @@ export async function updateBookingByAdmin(data: {
   startDate: string;
   endDate: string;
   purpose: string;
-  usageTemp: number;
-  flap: number;
+  usageTemp?: number | null;
+  flap?: number | null;
 }): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
@@ -554,7 +556,7 @@ export async function updateBookingByAdmin(data: {
         deletedAt: null,
       },
       include: {
-        oven: true,
+        instrument: true,
       },
     });
 
@@ -562,17 +564,17 @@ export async function updateBookingByAdmin(data: {
       return { success: false, message: "Booking not found" };
     }
 
-    if (parsed.usageTemp > booking.oven.maxTemp) {
+    if (booking.instrument.type === "OVEN" && parsed.usageTemp != null && parsed.usageTemp > booking.instrument.maxTemp) {
       return {
         success: false,
-        message: `Usage temperature (${parsed.usageTemp}°C) exceeds oven maximum (${booking.oven.maxTemp}°C)`,
+        message: `Usage temperature (${parsed.usageTemp}°C) exceeds instrument maximum (${booking.instrument.maxTemp}°C)`,
       };
     }
 
     const overlap = await prisma.booking.findFirst({
       where: {
         id: { not: parsed.bookingId },
-        ovenId: booking.ovenId,
+        instrumentId: booking.instrumentId,
         status: "ACTIVE",
         deletedAt: null,
         startDate: { lt: endDate },
@@ -800,7 +802,7 @@ export async function getUserBookingStats(userId: string) {
         createdAt: { gte: sixMonthsAgo },
       },
       include: {
-        oven: {
+        instrument: {
           select: {
             id: true,
             name: true,
@@ -852,9 +854,9 @@ export async function getUserBookingStats(userId: string) {
     AUTO_CANCELLED: bookings.filter((b) => b.status === "AUTO_CANCELLED").length,
   };
 
-  const ovenUsageMap = new Map<
+  const instrumentUsageMap = new Map<
     number,
-    { ovenName: string; ovenType: string; bookings: number; totalHours: number }
+    { instrumentName: string; instrumentType: string; bookings: number; totalHours: number }
   >();
 
   for (const booking of bookings) {
@@ -863,9 +865,9 @@ export async function getUserBookingStats(userId: string) {
       (booking.endDate.getTime() - booking.startDate.getTime()) / (1000 * 60 * 60)
     );
 
-    const current = ovenUsageMap.get(booking.ovenId) ?? {
-      ovenName: booking.oven.name,
-      ovenType: booking.oven.type,
+    const current = instrumentUsageMap.get(booking.instrumentId) ?? {
+      instrumentName: booking.instrument.name,
+      instrumentType: booking.instrument.type,
       bookings: 0,
       totalHours: 0,
     };
@@ -875,7 +877,7 @@ export async function getUserBookingStats(userId: string) {
       current.totalHours += durationHours;
     }
 
-    ovenUsageMap.set(booking.ovenId, current);
+    instrumentUsageMap.set(booking.instrumentId, current);
   }
 
   const usedDerivedCount = bookings.filter(
@@ -885,7 +887,7 @@ export async function getUserBookingStats(userId: string) {
       booking.status !== "AUTO_CANCELLED"
   ).length;
 
-  const ovenUsage = Array.from(ovenUsageMap.values()).sort(
+  const instrumentUsage = Array.from(instrumentUsageMap.values()).sort(
     (a, b) => b.totalHours - a.totalHours
   );
 
@@ -901,109 +903,117 @@ export async function getUserBookingStats(userId: string) {
     },
     statusCounts,
     lifecycleCounts,
-    ovenUsage,
+    instrumentUsage,
     bookings,
     events,
   };
 }
 
-// ─── Oven CRUD ───────────────────────────────────────────────────────
+// ─── Instrument CRUD ───────────────────────────────────────────────────────
 
-export async function createOven(data: Record<string, any>): Promise<ActionResult> {
+export async function createInstrument(data: Record<string, any>): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
 
   try {
-    const parsed = ovenSchema.parse({
+    const parsed = instrumentSchema.parse({
       name: data.name,
       type: data.type,
+      category: data.category || null,
       description: data.description || undefined,
       maxTemp: data.maxTemp || 200,
+      maxN2FlowRate: data.maxN2FlowRate || null,
     });
 
-    await prisma.oven.create({
+    await prisma.instrument.create({
       data: {
         name: parsed.name,
         type: parsed.type,
         description: parsed.description || null,
         maxTemp: parsed.maxTemp,
+        maxN2FlowRate: parsed.maxN2FlowRate,
       },
     });
 
-    revalidatePath("/admin/ovens");
+    revalidatePath("/admin/instruments");
     revalidatePath("/book");
     revalidatePath("/");
-    return { success: true, message: "Oven created successfully" };
+    return { success: true, message: "Instrument created successfully" };
   } catch (err) {
     if (err instanceof z.ZodError) {
       return { success: false, message: err.issues[0]?.message || "Validation failed" };
     }
-    return { success: false, message: "Failed to create oven" };
+    return { success: false, message: "Failed to create instrument" };
   }
 }
 
-export async function updateOven(ovenId: number, data: {
+export async function updateInstrument(instrumentId: number, data: {
   name: string;
   type: string;
+  category?: string;
   description?: string;
   maxTemp: number;
+  maxN2FlowRate?: number;
 }): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
 
   try {
-    const parsed = ovenSchema.parse({
+    const parsed = instrumentSchema.parse({
       name: data.name,
       type: data.type,
+      category: data.category || null,
       description: data.description || undefined,
       maxTemp: data.maxTemp || 200,
+      maxN2FlowRate: data.maxN2FlowRate || null,
     });
 
-    await prisma.oven.update({
-      where: { id: ovenId },
+    await prisma.instrument.update({
+      where: { id: instrumentId },
       data: {
         name: parsed.name,
         type: parsed.type,
         description: parsed.description || null,
         maxTemp: parsed.maxTemp,
+        maxN2FlowRate: parsed.maxN2FlowRate,
       },
     });
 
-    revalidatePath("/admin/ovens");
+    revalidatePath("/admin/instruments");
     revalidatePath("/book");
     revalidatePath("/");
-    return { success: true, message: "Oven updated successfully" };
+    return { success: true, message: "Instrument updated successfully" };
   } catch (err) {
     if (err instanceof z.ZodError) {
       return { success: false, message: err.issues[0]?.message || "Validation failed" };
     }
-    return { success: false, message: "Failed to update oven" };
+    return { success: false, message: "Failed to update instrument" };
   }
 }
 
-export async function deleteOven(ovenId: number): Promise<ActionResult> {
+export async function deleteInstrument(instrumentId: number): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
 
   try {
     const relatedBookingCount = await prisma.booking.count({
-      where: { ovenId },
+      where: { instrumentId },
     });
 
     if (relatedBookingCount > 0) {
       return {
         success: false,
-        message: `Cannot delete oven with booking history (${relatedBookingCount} booking(s)). Keep it for audit/history integrity.`,
+        message: `Cannot delete instrument with booking history (${relatedBookingCount} booking(s)). Keep it for audit/history integrity.`,
       };
     }
 
-    await prisma.oven.delete({ where: { id: ovenId } });
+    await prisma.instrument.delete({ where: { id: instrumentId } });
 
-    revalidatePath("/admin/ovens");
+    revalidatePath("/admin/instruments");
     revalidatePath("/book");
     revalidatePath("/");
-    return { success: true, message: "Oven deleted successfully" };
+    return { success: true, message: "Instrument deleted successfully" };
   } catch {
-    return { success: false, message: "Failed to delete oven" };
+    return { success: false, message: "Failed to delete instrument" };
   }
 }

@@ -14,20 +14,21 @@ type BookingData = {
     user: { name: string | null };
 };
 
-type OvenData = {
+type InstrumentData = {
     id: number;
     name: string;
     type: string;
+    category: string | null;
     status: string;
     maxTemp: number;
     bookings: BookingData[];
 };
 
-export function OvenStatusCard({ oven }: { oven: OvenData }) {
+export function InstrumentStatusCard({ instrument }: { instrument: InstrumentData }) {
     const [showDetails, setShowDetails] = useState(false);
 
-    const currentBooking = oven.bookings[0];
-    const isMaintenance = oven.status === "MAINTENANCE";
+    const currentBooking = instrument.bookings[0];
+    const isMaintenance = instrument.status === "MAINTENANCE";
     const isInUse = !!currentBooking;
 
     let statusColor = "bg-emerald-500/10 border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.05)]";
@@ -66,16 +67,16 @@ export function OvenStatusCard({ oven }: { oven: OvenData }) {
                             {isMaintenance ? (
                                 <AlertTriangle className="h-6 w-6 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]" />
                             ) : (
-                                <Flame className={`h-6 w-6 drop-shadow-[0_0_8px_currentColor] ${oven.type === "NON_AQUEOUS" ? "text-orange-400" : "text-blue-400"}`} />
+                                <Flame className={`h-6 w-6 drop-shadow-[0_0_8px_currentColor] ${instrument.category === "NON_AQUEOUS" ? "text-orange-400" : "text-blue-400"}`} />
                             )}
                         </div>
                         <div>
-                            <h2 className={`text-xl font-bold bg-clip-text text-transparent ${oven.type === "NON_AQUEOUS" ? "bg-gradient-to-r from-orange-300 to-orange-500" : "bg-gradient-to-r from-blue-300 to-blue-500"}`}>
-                                {oven.name}
+                            <h2 className={`text-xl font-bold bg-clip-text text-transparent ${instrument.category === "NON_AQUEOUS" ? "bg-gradient-to-r from-orange-300 to-orange-500" : "bg-gradient-to-r from-blue-300 to-blue-500"}`}>
+                                {instrument.name}
                             </h2>
                             <p className="text-sm text-slate-400">
-                                {oven.type === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
-                                {" \u00b7 Max "}{oven.maxTemp}{"\u00b0C"}
+                                {instrument.category === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
+                                {" \u00b7 Max "}{instrument.maxTemp}{"\u00b0C"}
                             </p>
                         </div>
                     </div>

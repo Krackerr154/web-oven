@@ -10,11 +10,11 @@ type BookingSlot = {
     start: string;
     end: string;
     title: string;
-    ovenId: number;
+    instrumentId: number;
     color: string;
     extendedProps: {
-        ovenName: string;
-        ovenType: string;
+        instrumentName: string;
+        instrumentType: string;
         userName: string;
         userNickname: string | null;
         purpose: string;
@@ -26,21 +26,22 @@ type BookingSlot = {
     };
 };
 
-type OvenInfo = {
+type InstrumentInfo = {
     id: number;
     name: string;
     type: string;
+    category?: string | null;
 };
 
 type DashboardCalendarProps = {
-    ovens: OvenInfo[];
+    instruments: InstrumentInfo[];
     showAllStatuses?: boolean;
 };
 
 type DayBookingDetail = {
     userName: string;
     userNickname: string | null;
-    ovenName: string;
+    instrumentName: string;
     purpose: string;
     usageTemp: number;
     flap: number;
@@ -57,9 +58,9 @@ const MONTHS = [
     "July", "August", "September", "October", "November", "December",
 ];
 
-function getOvenColor(ovenId: number, ovens: OvenInfo[]): string {
-    const oven = ovens.find((o) => o.id === ovenId);
-    return oven?.type === "NON_AQUEOUS" ? "#ea580c" : "#3b82f6"; // orange-600 and blue-500
+function getInstrumentColor(instrumentId: number, instruments: InstrumentInfo[]): string {
+    const instrument = instruments.find((o) => o.id === instrumentId);
+    return instrument?.category === "NON_AQUEOUS" ? "#ea580c" : "#3b82f6"; // orange-600 and blue-500
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -85,7 +86,7 @@ function getFirstDayOfWeek(year: number, month: number) {
 
 // ─── Component ───────────────────────────────────────────────────────
 
-export default function DashboardCalendar({ ovens, showAllStatuses = false }: DashboardCalendarProps) {
+export default function DashboardCalendar({ instruments, showAllStatuses = false }: DashboardCalendarProps) {
     const now = new Date();
     const todayWib = toWibDate(now);
     const todayKey = dateKey(todayWib.year, todayWib.month, todayWib.day);
@@ -128,7 +129,7 @@ export default function DashboardCalendar({ ovens, showAllStatuses = false }: Da
         for (const b of bookings) {
             const start = new Date(b.start);
             const end = new Date(b.end);
-            const color = getOvenColor(b.ovenId, ovens);
+            const color = getInstrumentColor(b.instrumentId, instruments);
 
             const cursor = new Date(start);
             while (cursor < end) {
@@ -137,12 +138,12 @@ export default function DashboardCalendar({ ovens, showAllStatuses = false }: Da
 
                 const existing = map.get(key) || [];
                 // Avoid duplicate entries for same booking on same day
-                if (!existing.find((e) => e.start === b.start && e.ovenName === b.extendedProps.ovenName)) {
+                if (!existing.find((e) => e.start === b.start && e.instrumentName === b.extendedProps.instrumentName)) {
                     existing.push({
                         userName: b.extendedProps.userName,
                         userNickname: b.extendedProps.userNickname,
                         userPhone: b.extendedProps.userPhone,
-                        ovenName: b.extendedProps.ovenName,
+                        instrumentName: b.extendedProps.instrumentName,
                         purpose: b.extendedProps.purpose,
                         usageTemp: b.extendedProps.usageTemp,
                         flap: b.extendedProps.flap,
@@ -160,7 +161,7 @@ export default function DashboardCalendar({ ovens, showAllStatuses = false }: Da
         }
 
         return map;
-    }, [bookings, ovens]);
+    }, [bookings, instruments]);
 
     // ─── Month navigation ─────────────────────────────────────────
     function prevMonth() {
@@ -342,7 +343,7 @@ export default function DashboardCalendar({ ovens, showAllStatuses = false }: Da
                                 <div key={i} className="text-xs space-y-0.5">
                                     <div className="flex items-center gap-1.5 w-full">
                                         <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: det.color }} />
-                                        <span className="text-white font-medium truncate">{det.ovenName}</span>
+                                        <span className="text-white font-medium truncate">{det.instrumentName}</span>
                                         <span className="text-slate-500">·</span>
                                         <span className="text-slate-400 truncate flex-1">{det.userNickname || det.userName}</span>
                                         {det.status && det.status !== "ACTIVE" && (
@@ -377,15 +378,15 @@ export default function DashboardCalendar({ ovens, showAllStatuses = false }: Da
                     </div>
                 )}
 
-                {/* Legend — per oven colors */}
+                {/* Legend — per instrument colors */}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-slate-500">
-                    {ovens.map((oven, i) => (
-                        <div key={oven.id} className="flex items-center gap-1.5">
+                    {instruments.map((instrument, i) => (
+                        <div key={instrument.id} className="flex items-center gap-1.5">
                             <span
                                 className="h-1.5 w-1.5 rounded-full"
-                                style={{ backgroundColor: getOvenColor(oven.id, ovens) }}
+                                style={{ backgroundColor: getInstrumentColor(instrument.id, instruments) }}
                             />
-                            <span>{oven.name}</span>
+                            <span>{instrument.name}</span>
                         </div>
                     ))}
                     <div className="flex items-center gap-1.5">

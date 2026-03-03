@@ -17,7 +17,7 @@ export default async function MyBookingsPage() {
   const bookings = await prisma.booking.findMany({
     where: { userId: session?.user?.id, deletedAt: null },
     include: {
-      oven: { select: { name: true, type: true, maxTemp: true } },
+      instrument: { select: { name: true, type: true, maxTemp: true, category: true } },
       user: { select: { name: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -39,7 +39,7 @@ export default async function MyBookingsPage() {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold text-white">My Bookings</h1>
-        <p className="text-slate-400 mt-1">View and manage your oven bookings</p>
+        <p className="text-slate-400 mt-1">View and manage your instrument bookings</p>
       </div>
 
       {bookings.length === 0 ? (
@@ -51,7 +51,7 @@ export default async function MyBookingsPage() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-colors"
           >
             <CalendarPlus className="h-4 w-4" />
-            Book an Oven
+            Book an Instrument
           </Link>
         </div>
       ) : (
@@ -66,9 +66,9 @@ export default async function MyBookingsPage() {
                 <Link href={`/my-bookings/${booking.id}`} className="block">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-medium text-white">{booking.oven.name}</p>
+                      <p className="font-medium text-white">{booking.instrument.name}</p>
                       <p className="text-xs text-slate-400">
-                        {booking.oven.type === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
+                        {booking.instrument.category === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
                       </p>
                     </div>
                     <span
@@ -112,7 +112,7 @@ export default async function MyBookingsPage() {
                 {booking.status === "ACTIVE" && (
                   <div className="pt-2 border-t border-slate-700/50">
                     {(() => {
-                      const cancelInfo = getCancellationWindowInfo(booking.createdAt, 15);
+                      const cancelInfo = getCancellationWindowInfo(booking.createdAt, 60);
                       return (
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
@@ -142,7 +142,7 @@ export default async function MyBookingsPage() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-slate-700">
-                    <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Oven</th>
+                    <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Instrument</th>
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Start</th>
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">End</th>
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Duration</th>
@@ -158,9 +158,9 @@ export default async function MyBookingsPage() {
                     <tr key={booking.id} className="hover:bg-slate-700/20">
                       <td className="px-4 py-3">
                         <Link href={`/my-bookings/${booking.id}`} className="block hover:opacity-90">
-                          <p className="text-sm font-medium text-white">{booking.oven.name}</p>
+                          <p className="text-sm font-medium text-white">{booking.instrument.name}</p>
                           <p className="text-xs text-slate-400">
-                            {booking.oven.type === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
+                            {booking.instrument.category === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
                           </p>
                         </Link>
                       </td>
@@ -201,7 +201,7 @@ export default async function MyBookingsPage() {
                               />
                             </div>
                             {(() => {
-                              const cancelInfo = getCancellationWindowInfo(booking.createdAt, 15);
+                              const cancelInfo = getCancellationWindowInfo(booking.createdAt, 60);
                               return (
                                 <p className="text-[11px] text-slate-500">
                                   {cancelInfo.canCancel

@@ -2,20 +2,21 @@
 
 import { useState } from "react";
 import {
-  setOvenMaintenance,
-  clearOvenMaintenance,
-  deleteOven,
+  setInstrumentMaintenance,
+  clearInstrumentMaintenance,
+  deleteInstrument,
 } from "@/app/actions/admin";
 import { useRouter } from "next/navigation";
 import { Loader2, Wrench, Power, Trash2 } from "lucide-react";
-import { EditOvenModal } from "./edit-oven-modal";
+import { EditInstrumentModal } from "./edit-oven-modal";
 import { useToast } from "@/components/toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 
-type OvenData = {
+type InstrumentData = {
   id: number;
   name: string;
   type: string;
+  category: string | null;
   description: string | null;
   maxTemp: number;
 };
@@ -38,11 +39,11 @@ const initialConfirm: ConfirmState = {
   action: null,
 };
 
-export function OvenActionButtons({
-  oven,
+export function InstrumentActionButtons({
+  instrument,
   isMaintenance,
 }: {
-  oven: OvenData;
+  instrument: InstrumentData;
   isMaintenance: boolean;
 }) {
   const router = useRouter();
@@ -92,21 +93,21 @@ export function OvenActionButtons({
   return (
     <>
       <div className="flex items-center gap-2">
-        <EditOvenModal oven={oven} />
+        <EditInstrumentModal oven={instrument} />
 
         <button
           onClick={() =>
             openConfirm(
-              `Delete "${oven.name}"`,
-              "All completed/cancelled booking history for this oven will also be removed. This cannot be undone.",
-              "Delete Oven",
+              `Delete "${instrument.name}"`,
+              "All completed/cancelled booking history for this instrument will also be removed. This cannot be undone.",
+              "Delete Instrument",
               "danger",
-              () => deleteOven(oven.id)
+              () => deleteInstrument(instrument.id)
             )
           }
           disabled={deleting}
           className="p-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors disabled:opacity-50"
-          title="Delete oven"
+          title="Delete instrument"
         >
           {deleting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -120,7 +121,7 @@ export function OvenActionButtons({
             if (isMaintenance) {
               // No confirmation needed to set available
               setLoading(true);
-              clearOvenMaintenance(oven.id).then((result) => {
+              clearInstrumentMaintenance(instrument.id).then((result) => {
                 setLoading(false);
                 if (result.success) {
                   toast.success(result.message);
@@ -132,17 +133,17 @@ export function OvenActionButtons({
             } else {
               openConfirm(
                 "Enable Maintenance Mode",
-                "This will AUTO-CANCEL all active bookings on this oven. Are you sure?",
+                "This will AUTO-CANCEL all active bookings on this instrument. Are you sure?",
                 "Set Maintenance",
                 "warning",
-                () => setOvenMaintenance(oven.id)
+                () => setInstrumentMaintenance(instrument.id)
               );
             }
           }}
           disabled={loading}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${isMaintenance
-              ? "bg-emerald-600 hover:bg-emerald-500 text-white"
-              : "bg-amber-600 hover:bg-amber-500 text-white"
+            ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+            : "bg-amber-600 hover:bg-amber-500 text-white"
             }`}
         >
           {loading ? (

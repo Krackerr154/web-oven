@@ -12,11 +12,11 @@ type BookingItem = {
     startDate: Date;
     endDate: Date;
     purpose: string;
-    usageTemp: number;
-    flap: number;
+    usageTemp: number | null;
+    flap: number | null;
     status: "ACTIVE" | "COMPLETED" | "CANCELLED" | "AUTO_CANCELLED";
     user: { name: string | null; email: string };
-    oven: { name: string; type: string };
+    instrument: { name: string; category: string | null };
 };
 
 type SortField = "startDate" | "duration" | "usageTemp" | "flap";
@@ -51,7 +51,7 @@ export function AdminBookingTable({ bookings }: { bookings: BookingItem[] }) {
                 b =>
                     (b.user.name?.toLowerCase() || "").includes(q) ||
                     b.user.email.toLowerCase().includes(q) ||
-                    b.oven.name.toLowerCase().includes(q) ||
+                    b.instrument.name.toLowerCase().includes(q) ||
                     b.purpose.toLowerCase().includes(q)
             );
         }
@@ -71,12 +71,12 @@ export function AdminBookingTable({ bookings }: { bookings: BookingItem[] }) {
                     bVal = new Date(b.endDate).getTime() - new Date(b.startDate).getTime();
                     break;
                 case "usageTemp":
-                    aVal = a.usageTemp;
-                    bVal = b.usageTemp;
+                    aVal = a.usageTemp ?? 0;
+                    bVal = b.usageTemp ?? 0;
                     break;
                 case "flap":
-                    aVal = a.flap;
-                    bVal = b.flap;
+                    aVal = a.flap ?? 0;
+                    bVal = b.flap ?? 0;
                     break;
                 default:
                     aVal = 0;
@@ -111,7 +111,7 @@ export function AdminBookingTable({ bookings }: { bookings: BookingItem[] }) {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                     <input
                         type="text"
-                        placeholder="Search users, ovens, or purpose..."
+                        placeholder="Search users, instruments, or purpose..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="w-full pl-9 pr-4 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
@@ -158,11 +158,11 @@ export function AdminBookingTable({ bookings }: { bookings: BookingItem[] }) {
                             </span>
                         </div>
                         <div className="text-sm">
-                            <p className="text-xs text-slate-500">Oven</p>
+                            <p className="text-xs text-slate-500">Instrument</p>
                             <p className="text-slate-300">
-                                {booking.oven.name}{" "}
+                                {booking.instrument.name}{" "}
                                 <span className="text-xs text-slate-500">
-                                    ({booking.oven.type === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"})
+                                    ({booking.instrument.category === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"})
                                 </span>
                             </p>
                         </div>
@@ -205,7 +205,7 @@ export function AdminBookingTable({ bookings }: { bookings: BookingItem[] }) {
                         <thead>
                             <tr className="border-b border-slate-700 bg-slate-800/80">
                                 <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">User</th>
-                                <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Oven</th>
+                                <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Instrument</th>
                                 <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase cursor-pointer hover:text-white transition-colors whitespace-nowrap" onClick={() => handleSort("startDate")}>
                                     Start <SortIcon field="startDate" />
                                 </th>
@@ -234,9 +234,9 @@ export function AdminBookingTable({ bookings }: { bookings: BookingItem[] }) {
                                         </div>
                                     </td>
                                     <td className="px-4 py-3">
-                                        <p className="text-sm text-white">{booking.oven.name}</p>
+                                        <p className="text-sm text-white">{booking.instrument.name}</p>
                                         <p className="text-xs text-slate-400">
-                                            {booking.oven.type === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
+                                            {booking.instrument.category === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"}
                                         </p>
                                     </td>
                                     <td className="px-4 py-3 text-sm text-slate-300">{formatDateTimeWib(booking.startDate)}</td>

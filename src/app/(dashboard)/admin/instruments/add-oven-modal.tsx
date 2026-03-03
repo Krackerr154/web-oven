@@ -1,17 +1,18 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createOven } from "@/app/actions/admin";
+import { createInstrument } from "@/app/actions/admin";
 import { useRouter } from "next/navigation";
 import { Plus, X, Loader2 } from "lucide-react";
 import { useToast } from "@/components/toast";
 
-export function AddOvenModal() {
+export function AddInstrumentModal() {
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedType, setSelectedType] = useState<"OVEN" | "ULTRASONIC_BATH" | "GLOVEBOX">("OVEN");
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   // Escape key handler
@@ -39,11 +40,13 @@ export function AddOvenModal() {
     const formData = new FormData(e.currentTarget);
     const data = {
       name: formData.get("name") as string,
-      type: formData.get("type") as string,
+      type: formData.get("type") as string as "OVEN" | "ULTRASONIC_BATH" | "GLOVEBOX",
+      category: (formData.get("category") as string as "AQUEOUS" | "NON_AQUEOUS") || undefined,
       description: (formData.get("description") as string) || undefined,
       maxTemp: Number(formData.get("maxTemp")),
+      maxN2FlowRate: formData.get("maxN2FlowRate") ? Number(formData.get("maxN2FlowRate")) : undefined,
     };
-    const result = await createOven(data);
+    const result = await createInstrument(data);
 
     setLoading(false);
 
@@ -63,7 +66,7 @@ export function AddOvenModal() {
         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium text-sm transition-colors"
       >
         <Plus className="h-4 w-4" />
-        Add Oven
+        Add Instrument
       </button>
 
       {open && (
@@ -78,11 +81,11 @@ export function AddOvenModal() {
           <div
             role="dialog"
             aria-modal="true"
-            aria-labelledby="add-oven-title"
+            aria-labelledby="add-instrument-title"
             className="relative bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md shadow-2xl animate-toast-in"
           >
             <div className="flex items-center justify-between mb-5">
-              <h2 id="add-oven-title" className="text-lg font-semibold text-white">Add New Oven</h2>
+              <h2 id="add-instrument-title" className="text-lg font-semibold text-white">Add New Instrument</h2>
               <button
                 onClick={() => setOpen(false)}
                 className="text-slate-400 hover:text-white transition-colors"
@@ -113,14 +116,28 @@ export function AddOvenModal() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                  Type
-                </label>
                 <select
                   name="type"
                   required
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value as any)}
                   className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
                 >
+                  <option value="OVEN">Oven</option>
+                  <option value="ULTRASONIC_BATH">Ultrasonic Bath</option>
+                  <option value="GLOVEBOX">Glovebox</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                  Category
+                </label>
+                <select
+                  name="category"
+                  className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+                >
+                  <option value="">None</option>
                   <option value="NON_AQUEOUS">Non-Aqueous</option>
                   <option value="AQUEOUS">Aqueous</option>
                 </select>
@@ -154,6 +171,22 @@ export function AddOvenModal() {
                 />
               </div>
 
+              {selectedType === "GLOVEBOX" && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                    Max N₂ Flow Rate (LPM)
+                  </label>
+                  <input
+                    name="maxN2FlowRate"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="Leave empty for unlimited"
+                    className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+                  />
+                </div>
+              )}
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -173,7 +206,7 @@ export function AddOvenModal() {
                       Creating...
                     </>
                   ) : (
-                    "Create Oven"
+                    "Create Instrument"
                   )}
                 </button>
               </div>

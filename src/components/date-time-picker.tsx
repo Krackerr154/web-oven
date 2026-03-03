@@ -12,11 +12,10 @@ type BookingSlot = {
     start: string;
     end: string;
     title: string;
-    ovenId: number;
-    color: string;
+    instrumentId: number;
     extendedProps: {
-        ovenName: string;
-        ovenType: string;
+        instrumentName: string;
+        instrumentType: string;
         userName: string;
         purpose: string;
         usageTemp: number;
@@ -25,28 +24,31 @@ type BookingSlot = {
     };
 };
 
-type OvenInfo = {
+type InstrumentInfo = {
     id: number;
     name: string;
     type: string;
+    category?: string | null;
 };
 
 type DateTimePickerProps = {
-    ovenId: number | null;
-    ovens: OvenInfo[];
+    instrumentId: number | null;
+    instruments: InstrumentInfo[];
     startValue: string;
     endValue: string;
     onStartChange: (v: string) => void;
     onEndChange: (v: string) => void;
     onConflict?: (hasConflict: boolean) => void;
     ignoreBookingId?: string;
+    maxDays?: number; // Max booking duration. Default: 7
+    accentColor?: "orange" | "cyan" | "blue" | "emerald" | "purple";
 };
 
 type SelectionStep = "start" | "end";
 
 type DayBookingDetail = {
     userName: string;
-    ovenName: string;
+    instrumentName: string;
     purpose: string;
     usageTemp: number;
     flap: number;
@@ -61,9 +63,9 @@ const MONTHS = [
     "July", "August", "September", "October", "November", "December",
 ];
 
-function getOvenColor(ovenId: number, ovens: OvenInfo[]): string {
-    const oven = ovens.find((o) => o.id === ovenId);
-    return oven?.type === "NON_AQUEOUS" ? "#ea580c" : "#3b82f6";
+function getInstrumentColor(instrumentId: number, instruments: InstrumentInfo[]): string {
+    const instrument = instruments.find((o) => o.id === instrumentId);
+    return instrument?.category === "NON_AQUEOUS" ? "#ea580c" : "#3b82f6";
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -105,14 +107,16 @@ function rangesOverlap(s1: Date, e1: Date, s2: Date, e2: Date): boolean {
 // ─── Component ───────────────────────────────────────────────────────
 
 export default function DateTimePicker({
-    ovenId,
-    ovens,
+    instrumentId,
+    instruments,
     startValue,
     endValue,
     onStartChange,
     onEndChange,
     onConflict,
     ignoreBookingId,
+    maxDays = 7,
+    accentColor = "orange",
 }: DateTimePickerProps) {
     const now = new Date();
     const todayWib = toWibDate(now);
@@ -149,13 +153,13 @@ export default function DateTimePicker({
 
     // ─── Fetch bookings ────────────────────────────────────────────
     const fetchBookings = useCallback(async () => {
-        if (!ovenId) {
+        if (!instrumentId) {
             setBookings([]);
             return;
         }
         setLoading(true);
         try {
-            const res = await fetch(`/api/bookings?ovenId=${ovenId}`);
+            const res = await fetch(`/api/bookings?instrumentId=${instrumentId}`);
             const data = await res.json();
             setBookings(data);
         } catch {
@@ -163,7 +167,7 @@ export default function DateTimePicker({
         } finally {
             setLoading(false);
         }
-    }, [ovenId]);
+    }, [instrumentId]);
 
     useEffect(() => {
         fetchBookings();
@@ -181,7 +185,7 @@ export default function DateTimePicker({
         for (const b of bookings) {
             const start = new Date(b.start);
             const end = new Date(b.end);
-            const color = getOvenColor(b.ovenId, ovens);
+            const color = getInstrumentColor(b.instrumentId, instruments);
 
             const cursor = new Date(start);
             while (cursor < end) {
@@ -190,10 +194,10 @@ export default function DateTimePicker({
 
                 const existing = map.get(key) || [];
                 // Avoid duplicate entries for same booking on same day
-                if (!existing.find((e) => e.start === b.start && e.ovenName === b.extendedProps.ovenName)) {
+                if (!existing.find((e) => e.start === b.start && e.instrumentName === b.extendedProps.instrumentName)) {
                     existing.push({
                         userName: b.extendedProps.userName,
-                        ovenName: b.extendedProps.ovenName,
+                        instrumentName: b.extendedProps.instrumentName,
                         purpose: b.extendedProps.purpose,
                         usageTemp: b.extendedProps.usageTemp,
                         flap: b.extendedProps.flap,
@@ -210,11 +214,22 @@ export default function DateTimePicker({
         }
 
         return map;
-    }, [bookings, ovens]);
+    }, [bookings, instruments]);
+
+    // ─── Max end date key (greys out end dates beyond maxDays) ────────
+    const maxEndDateKey = useMemo(() => {
+        if (!startDateKey) return null;
+        const [sy, sm, sd] = startDateKey.split("-").map(Number);
+        const maxD = new Date(sy, sm - 1, sd);
+        // maxDays=1 means same day only (offset by maxDays-1 so 1→0 extra days)
+        maxD.setDate(maxD.getDate() + maxDays - 1);
+        const mWib = toWibDate(maxD);
+        return dateKey(mWib.year, mWib.month, mWib.day);
+    }, [startDateKey, maxDays]);
 
     // ─── Conflict detection ────────────────────────────────────────
     const conflictWarning = useMemo(() => {
-        if (!startValue || !endValue || !ovenId) return null;
+        if (!startValue || !endValue || !instrumentId) return null;
         const selStart = new Date(startValue);
         const selEnd = new Date(endValue);
         if (isNaN(selStart.getTime()) || isNaN(selEnd.getTime())) return null;
@@ -225,11 +240,11 @@ export default function DateTimePicker({
             const bStart = new Date(b.start);
             const bEnd = new Date(b.end);
             if (rangesOverlap(selStart, selEnd, bStart, bEnd)) {
-                return `Conflicts with booking: ${b.extendedProps.ovenName} by ${b.extendedProps.userName} (${formatDateTimeWib(b.start)} – ${formatDateTimeWib(b.end)})`;
+                return `Conflicts with booking: ${b.extendedProps.instrumentName} by ${b.extendedProps.userName} (${formatDateTimeWib(b.start)} – ${formatDateTimeWib(b.end)})`;
             }
         }
         return null;
-    }, [startValue, endValue, ovenId, bookings, ignoreBookingId]);
+    }, [startValue, endValue, instrumentId, bookings, ignoreBookingId]);
 
     // Notify parent about conflict state
     useEffect(() => {
@@ -261,8 +276,21 @@ export default function DateTimePicker({
     function handleDateClick(key: string) {
         if (isPastDate(key, todayKey)) return;
 
+        // ── Same-day mode (maxDays === 1): one click sets both start and end day ──
+        if (maxDays === 1) {
+            const effectiveStartTime = key === todayKey ? minStartTimeToday : startTime;
+            if (key === todayKey) setStartTime(effectiveStartTime);
+
+            setStartDateKey(key);
+            setEndDateKey(key); // auto-lock end to same day
+            onStartChange(`${key}T${effectiveStartTime}`);
+            onEndChange(`${key}T${endTime}`);
+            setStep("start"); // stay on "start" — just time picker remains
+            return;
+        }
+
+        // ── Multi-day mode ─────────────────────────────────────────────────────
         if (step === "start") {
-            // Auto-set start time to next full hour if today
             const effectiveStartTime = key === todayKey ? minStartTimeToday : startTime;
             if (key === todayKey) setStartTime(effectiveStartTime);
 
@@ -388,7 +416,11 @@ export default function DateTimePicker({
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                         <h3 className="text-sm font-semibold text-white">
-                            {step === "start" ? "Select Start Date" : "Select End Date"}
+                            {maxDays === 1
+                                ? startDateKey
+                                    ? `Booking Day: ${startDateKey.split("-").reverse().slice(0, 2).join("/")}/${startDateKey.split("-")[0]} — adjust times below`
+                                    : "Select Booking Day"
+                                : step === "start" ? "Select Start Date" : "Select End Date"}
                         </h3>
                         {loading && (
                             <span className="text-xs text-slate-400 animate-pulse">Loading...</span>
@@ -419,7 +451,10 @@ export default function DateTimePicker({
                 {/* Calendar grid */}
                 <div className="grid grid-cols-7 gap-0">
                     {cells.map((cell) => {
-                        const isDisabled = cell.isPast || !ovenId;
+                        // In end-selection step, also grey out dates beyond maxDays from start
+                        const isBeyondMax = step === "end" && !!maxEndDateKey && cell.key > maxEndDateKey;
+                        const isBeforeStart = step === "end" && !!startDateKey && cell.key < startDateKey;
+                        const isDisabled = cell.isPast || !instrumentId || isBeyondMax || isBeforeStart;
                         const isSelected = cell.isStart || cell.isEnd;
                         const hasBookings = cell.bookingDetails.length > 0 && cell.isCurrentMonth;
 
@@ -427,14 +462,17 @@ export default function DateTimePicker({
 
                         if (!cell.isCurrentMonth) {
                             cellClass += "text-slate-600 ";
+                        } else if (isBeyondMax) {
+                            // Beyond max days — same grey as past/disabled days
+                            cellClass += "text-slate-600 cursor-not-allowed ";
                         } else if (isDisabled) {
                             cellClass += "text-slate-600 cursor-not-allowed ";
                         } else if (isSelected) {
-                            cellClass += "bg-orange-500 text-white font-semibold cursor-pointer ";
+                            cellClass += `bg-${accentColor}-500 text-white font-semibold cursor-pointer `;
                         } else if (cell.isInRange) {
-                            cellClass += "bg-orange-500/15 text-orange-200 cursor-pointer hover:bg-orange-500/25 ";
+                            cellClass += `bg-${accentColor}-500/15 text-${accentColor}-200 cursor-pointer hover:bg-${accentColor}-500/25 `;
                         } else if (cell.isToday) {
-                            cellClass += "text-orange-400 font-semibold ring-1 ring-orange-500/50 cursor-pointer hover:bg-slate-700/50 ";
+                            cellClass += `text-${accentColor}-400 font-semibold ring-1 ring-${accentColor}-500/50 cursor-pointer hover:bg-slate-700/50 `;
                         } else {
                             cellClass += "text-slate-300 cursor-pointer hover:bg-slate-700/50 ";
                         }
@@ -486,7 +524,7 @@ export default function DateTimePicker({
                                 <div key={i} className="text-xs space-y-0.5">
                                     <div className="flex items-center gap-1.5">
                                         <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: det.color }} />
-                                        <span className="text-white font-medium truncate">{det.ovenName}</span>
+                                        <span className="text-white font-medium truncate">{det.instrumentName}</span>
                                         <span className="text-slate-500">·</span>
                                         <span className="text-slate-400 truncate">{det.userName}</span>
                                     </div>
@@ -502,19 +540,19 @@ export default function DateTimePicker({
                     </div>
                 )}
 
-                {/* Legend — per oven colors */}
+                {/* Legend — per instrument colors */}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-slate-500">
-                    {ovens.map((oven, i) => (
-                        <div key={oven.id} className="flex items-center gap-1.5">
+                    {instruments.map((instrument, i) => (
+                        <div key={instrument.id} className="flex items-center gap-1.5">
                             <span
                                 className="h-1.5 w-1.5 rounded-full"
-                                style={{ backgroundColor: getOvenColor(oven.id, ovens) }}
+                                style={{ backgroundColor: getInstrumentColor(instrument.id, instruments) }}
                             />
-                            <span>{oven.name}</span>
+                            <span>{instrument.name}</span>
                         </div>
                     ))}
                     <div className="flex items-center gap-1.5">
-                        <span className="h-3 w-3 rounded-md bg-slate-700 ring-1 ring-orange-500/50" />
+                        <span className={`h-3 w-3 rounded-md bg-slate-700 ring-1 ring-${accentColor}-500/50`} />
                         <span>Today</span>
                     </div>
                 </div>
@@ -523,10 +561,10 @@ export default function DateTimePicker({
             {/* Time Selectors */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Start */}
-                <div className={`bg-slate-800/50 border rounded-xl p-4 transition-all ${startDateKey ? "border-orange-500/40" : "border-slate-700"
+                <div className={`bg-slate-800/50 border rounded-xl p-4 transition-all ${startDateKey ? `border-${accentColor}-500/40` : "border-slate-700"
                     }`}>
                     <div className="flex items-center gap-2 mb-2">
-                        <Clock className="h-4 w-4 text-orange-400" />
+                        <Clock className={`h-4 w-4 text-${accentColor}-400`} />
                         <span className="text-sm font-medium text-slate-300">Start</span>
                     </div>
                     {startDateKey ? (
@@ -556,7 +594,7 @@ export default function DateTimePicker({
 
                 {/* End */}
                 <div className={`bg-slate-800/50 border rounded-xl p-4 transition-all ${endDateKey
-                    ? conflictWarning ? "border-red-500/40" : "border-orange-500/40"
+                    ? conflictWarning ? "border-red-500/40" : `border-${accentColor}-500/40`
                     : "border-slate-700"
                     }`}>
                     <div className="flex items-center gap-2 mb-2">
@@ -587,7 +625,9 @@ export default function DateTimePicker({
                         </div>
                     ) : (
                         <p className="text-sm text-slate-500 italic">
-                            {startDateKey ? "Now click an end date" : "Select start first"}
+                            {maxDays === 1
+                                ? "Select a day on the calendar above"
+                                : startDateKey ? "Now click an end date" : "Select start first"}
                         </p>
                     )}
                 </div>

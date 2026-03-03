@@ -18,7 +18,7 @@ export function CancelBookingButton({
     createdAt: Date;
     startDate: Date;
     endDate: Date;
-    oven: { name: string };
+    instrument: { name: string };
     user: { name: string };
   };
   contactPhone: string | null;
@@ -30,7 +30,7 @@ export function CancelBookingButton({
   const [showWaModal, setShowWaModal] = useState(false);
   const [reason, setReason] = useState("");
 
-  const isLate = new Date().getTime() > new Date(booking.createdAt).getTime() + 15 * 60 * 1000;
+  const isLate = new Date().getTime() > new Date(booking.createdAt).getTime() + 60 * 60 * 1000;
 
   async function handleCancel() {
     setShowConfirm(false);
@@ -57,7 +57,7 @@ export function CancelBookingButton({
       return;
     }
 
-    const text = `*[PEMBATALAN BOOKING]*\n\n${booking.user.name} membatalkan penggunaan ${booking.oven.name} pada ${formatDateTimeWib(booking.startDate)} hingga ${formatDateTimeWib(booking.endDate)}\n\n*Alasan:* ${reason}\n\n#oven #cancelbooking`;
+    const text = `*[PEMBATALAN BOOKING]*\n\n${booking.user.name} membatalkan penggunaan ${booking.instrument.name} pada ${formatDateTimeWib(booking.startDate)} hingga ${formatDateTimeWib(booking.endDate)}\n\n*Alasan:* ${reason}\n\n#instrument #cancelbooking`;
 
     // Attempt clipboard copy
     try {
@@ -72,7 +72,7 @@ export function CancelBookingButton({
   }
 
   function handleTriggerClick() {
-    const isCurrentlyLate = new Date().getTime() > new Date(booking.createdAt).getTime() + 15 * 60 * 1000;
+    const isCurrentlyLate = new Date().getTime() > new Date(booking.createdAt).getTime() + 60 * 60 * 1000;
     if (isCurrentlyLate) {
       setShowWaModal(true);
     } else {
@@ -112,7 +112,7 @@ export function CancelBookingButton({
           <DialogHeader>
             <DialogTitle>Request Cancellation</DialogTitle>
             <DialogDescription>
-              The 15-minute cancellation window has passed. You must contact the Admin directly to cancel this booking.
+              The 1-hour cancellation window has passed. You must contact the Admin directly to cancel this booking.
               <br /><br />
               Please provide a reason below, and we will generate a WhatsApp template for you.
             </DialogDescription>

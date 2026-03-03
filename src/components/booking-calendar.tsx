@@ -9,13 +9,13 @@ import { CalendarDays, X } from "lucide-react";
 import { formatDateTimeWib, WIB_TIME_ZONE } from "@/lib/utils";
 
 type BookingCalendarProps = {
-  selectedOvenId: number | null;
+  selectedInstrumentId: number | null;
   onDateClick?: (dateStr: string) => void;
 };
 
 type EventExtendedProps = {
-  ovenName: string;
-  ovenType: string;
+  instrumentName: string;
+  instrumentType: string;
   userName: string;
   purpose: string;
   usageTemp: number;
@@ -24,7 +24,7 @@ type EventExtendedProps = {
 };
 
 export default function BookingCalendar({
-  selectedOvenId,
+  selectedInstrumentId,
   onDateClick,
 }: BookingCalendarProps) {
   const [events, setEvents] = useState<EventInput[]>([]);
@@ -42,8 +42,8 @@ export default function BookingCalendar({
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const url = selectedOvenId
-        ? `/api/bookings?ovenId=${selectedOvenId}`
+      const url = selectedInstrumentId
+        ? `/api/bookings?instrumentId=${selectedInstrumentId}`
         : "/api/bookings";
       const res = await fetch(url);
       const data = await res.json();
@@ -53,7 +53,7 @@ export default function BookingCalendar({
     } finally {
       setLoading(false);
     }
-  }, [selectedOvenId]);
+  }, [selectedInstrumentId]);
 
   useEffect(() => {
     fetchEvents();
@@ -107,9 +107,9 @@ export default function BookingCalendar({
           <span>Aqueous</span>
         </div>
         <span className="text-slate-500">
-          {selectedOvenId
-            ? "Showing selected oven"
-            : "Showing all ovens"}
+          {selectedInstrumentId
+            ? "Showing selected instrument"
+            : "Showing all instruments"}
         </span>
       </div>
 
@@ -149,7 +149,7 @@ export default function BookingCalendar({
         >
           <div className="flex items-start justify-between gap-2 mb-2">
             <p className="text-sm font-medium text-white">
-              {tooltip.data.ovenName}
+              {tooltip.data.instrumentName}
             </p>
             <button
               onClick={closeTooltip}

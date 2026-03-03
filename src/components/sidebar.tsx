@@ -15,19 +15,24 @@ import {
   Menu,
   X,
   User,
+  Beaker,
+  TestTubes,
+  Search,
+  Settings2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const userNav = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard },
-  { label: "Book Oven", href: "/book", icon: CalendarPlus },
+  { label: "Overview", href: "/", icon: LayoutDashboard },
+  { label: "Instruments", href: "/instruments", icon: Beaker },
+  { label: "Reagents", href: "/reagents", icon: Search },
   { label: "My Bookings", href: "/my-bookings", icon: CalendarDays },
 ];
 
 const adminNav = [
   { label: "Manage Users", href: "/admin/users", icon: Users },
   { label: "All Bookings", href: "/admin/bookings", icon: ListChecks },
-  { label: "Oven Settings", href: "/admin/ovens", icon: Settings },
+  { label: "Instrument Settings", href: "/admin/instruments", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -51,10 +56,10 @@ export function Sidebar() {
     <>
       {/* Brand */}
       <div className="flex items-center gap-2 px-4 py-6 border-b border-slate-700">
-        <Flame className="h-7 w-7 text-orange-400" />
+        <TestTubes className="h-7 w-7 text-emerald-400" />
         <div>
-          <h1 className="text-lg font-bold text-white leading-tight">Lab Oven</h1>
-          <p className="text-xs text-slate-400">Booking System</p>
+          <h1 className="text-lg font-bold text-white leading-tight">AP Lab</h1>
+          <p className="text-xs text-slate-400">Dashboard</p>
         </div>
       </div>
 
@@ -159,7 +164,7 @@ export function Sidebar() {
         className="fixed top-4 left-4 z-50 lg:hidden bg-slate-800 text-white p-2 rounded-lg shadow-lg flex items-center gap-2"
       >
         {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        <span className="text-sm font-semibold pr-1">Lab Oven</span>
+        <span className="text-sm font-semibold pr-1">AP Lab Layout</span>
       </button>
 
       {/* Mobile overlay */}

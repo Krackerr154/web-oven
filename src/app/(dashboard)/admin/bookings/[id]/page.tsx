@@ -42,9 +42,11 @@ export default async function AdminBookingDetailPage({ params }: Props) {
         <div className="lg:col-span-2 bg-slate-800/50 border border-slate-700 rounded-xl p-5 space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-lg font-semibold text-white">{booking.oven.name}</p>
+              <p className="text-lg font-semibold text-white">{booking.instrument.name}</p>
               <p className="text-sm text-slate-400">
-                {booking.oven.type === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"} • Max {booking.oven.maxTemp}°C
+                {booking.instrument.type === "OVEN"
+                  ? `${booking.instrument.category === "NON_AQUEOUS" ? "Non-Aqueous" : "Aqueous"} • Max ${booking.instrument.maxTemp}°C`
+                  : `${booking.instrument.type.replace("_", " ")} • Max ${booking.instrument.maxTemp}°C`}
               </p>
             </div>
             <span
@@ -77,10 +79,44 @@ export default async function AdminBookingDetailPage({ params }: Props) {
               <p className="text-xs text-slate-500">Duration</p>
               <p className="text-slate-200">{formatDuration(booking.startDate, booking.endDate)}</p>
             </div>
-            <div>
-              <p className="text-xs text-slate-500">Temp / Flap</p>
-              <p className="text-slate-200">{booking.usageTemp}°C / {booking.flap}%</p>
-            </div>
+            {booking.instrument.type === "ULTRASONIC_BATH" ? (
+              <div>
+                <p className="text-xs text-slate-500">Modes</p>
+                <p className="text-slate-200">
+                  {booking.sonicatorModes.length > 0
+                    ? booking.sonicatorModes.join(" + ")
+                    : "—"}
+                </p>
+              </div>
+            ) : booking.instrument.type === "GLOVEBOX" ? (
+              <>
+                <div>
+                  <p className="text-xs text-slate-500">N₂ Flow / Duration</p>
+                  <p className="text-slate-200">
+                    {booking.n2FlowRate != null ? `${booking.n2FlowRate} LPM` : "—"} / {booking.n2Duration != null ? `${booking.n2Duration} min` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Equipment</p>
+                  <p className="text-slate-200 truncate" title={booking.equipmentBrought || "—"}>
+                    {booking.equipmentBrought || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Chemicals</p>
+                  <p className="text-slate-200 truncate" title={booking.chemicalsBrought || "—"}>
+                    {booking.chemicalsBrought || "—"}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div>
+                <p className="text-xs text-slate-500">Temp / Flap</p>
+                <p className="text-slate-200">
+                  {booking.usageTemp != null ? `${booking.usageTemp}°C` : "—"} / {booking.flap != null ? `${booking.flap}%` : "—"}
+                </p>
+              </div>
+            )}
             <div>
               <p className="text-xs text-slate-500">Created At</p>
               <p className="text-slate-200">{formatDateTimeWib(booking.createdAt)}</p>
@@ -93,8 +129,15 @@ export default async function AdminBookingDetailPage({ params }: Props) {
 
           <div>
             <p className="text-xs text-slate-500">Purpose</p>
-            <p className="text-slate-200 text-sm">{booking.purpose}</p>
+            <p className="text-slate-200 text-sm whitespace-pre-wrap">{booking.purpose}</p>
           </div>
+
+          {booking.instrument.type === "GLOVEBOX" && booking.specialNotes && (
+            <div className="pt-2">
+              <p className="text-xs text-orange-400">Special Notes / Irregularities</p>
+              <p className="text-orange-200 text-sm whitespace-pre-wrap">{booking.specialNotes}</p>
+            </div>
+          )}
 
           <div className="pt-3 border-t border-slate-700/60">
             <BookingManagementForm
@@ -107,6 +150,7 @@ export default async function AdminBookingDetailPage({ params }: Props) {
                 flap: booking.flap,
                 status: booking.status,
               }}
+              instrumentType={booking.instrument.type}
             />
           </div>
         </div>

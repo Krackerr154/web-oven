@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminBookingsPage() {
   await autoCompleteBookings();
   const bookings = await getAllBookings();
-  const ovens = await prisma.oven.findMany({ select: { id: true, name: true, type: true } });
+  const instruments = await prisma.instrument.findMany({ select: { id: true, name: true, type: true, category: true } });
 
   return (
     <div className="space-y-8 animate-fade-in relative z-0">
@@ -20,7 +20,7 @@ export default async function AdminBookingsPage() {
       </div>
 
       <div className="pb-4">
-        <DashboardCalendar ovens={ovens} showAllStatuses={true} />
+        <DashboardCalendar instruments={instruments} showAllStatuses={true} />
       </div>
 
       <div className="pt-6 border-t border-slate-700/50">

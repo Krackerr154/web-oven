@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const ovenId = searchParams.get("ovenId");
+  const instrumentId = searchParams.get("instrumentId");
   const allStatuses = searchParams.get("allStatuses") === "true";
 
   const where: Record<string, unknown> = {
@@ -25,15 +25,15 @@ export async function GET(request: NextRequest) {
     where.status = "ACTIVE";
   }
 
-  if (ovenId) {
-    where.ovenId = parseInt(ovenId, 10);
+  if (instrumentId) {
+    where.instrumentId = parseInt(instrumentId, 10);
   }
 
   const bookings = await prisma.booking.findMany({
     where,
     include: {
       user: { select: { name: true, id: true, phone: true, nickname: true } },
-      oven: { select: { name: true, type: true } },
+      instrument: { select: { name: true, type: true, category: true } },
     },
     orderBy: { startDate: "asc" },
   });
@@ -41,14 +41,14 @@ export async function GET(request: NextRequest) {
   // Map to FullCalendar event format
   const events = bookings.map((b: any) => ({
     id: b.id,
-    ovenId: b.ovenId,
-    title: `${b.oven.name} — ${b.userId === session.user.id ? "You" : b.user.name}`,
+    instrumentId: b.instrumentId,
+    title: `${b.instrument.name} — ${b.userId === session.user.id ? "You" : b.user.name}`,
     start: b.startDate.toISOString(),
     end: b.endDate.toISOString(),
-    color: b.oven.type === "NON_AQUEOUS" ? "#ea580c" : "#3b82f6",
+    color: b.instrument.category === "NON_AQUEOUS" ? "#ea580c" : "#3b82f6",
     extendedProps: {
-      ovenName: b.oven.name,
-      ovenType: b.oven.type,
+      instrumentName: b.instrument.name,
+      instrumentType: b.instrument.type,
       userName: b.user.name,
       userNickname: b.user.nickname || null,
       userPhone: b.user.phone,

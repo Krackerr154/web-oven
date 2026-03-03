@@ -70,7 +70,7 @@ export function toWibDateTimeLocalValue(value: Date | string): string {
   return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 
-export function getCancellationWindowInfo(createdAt: Date | string, windowMinutes = 15) {
+export function getCancellationWindowInfo(createdAt: Date | string, windowMinutes = 60) {
   const created = parseDateInput(createdAt);
   if (!created) {
     return {

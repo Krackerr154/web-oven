@@ -13,7 +13,7 @@ enum Role {
   ADMIN
   USER
 
-  @@map("oven_role")
+  @@map("ap_role")
 }
 
 enum UserStatus {
@@ -21,21 +21,29 @@ enum UserStatus {
   APPROVED
   REJECTED
 
-  @@map("oven_user_status")
+  @@map("ap_user_status")
 }
 
-enum OvenType {
+enum InstrumentCategory {
   NON_AQUEOUS
   AQUEOUS
 
-  @@map("oven_type")
+  @@map("ap_instrument_category")
 }
 
-enum OvenStatus {
+enum InstrumentType {
+  OVEN
+  ULTRASONIC_BATH
+  GLOVEBOX
+
+  @@map("ap_instrument_type")
+}
+
+enum InstrumentStatus {
   AVAILABLE
   MAINTENANCE
 
-  @@map("oven_status")
+  @@map("ap_instrument_status")
 }
 
 enum BookingStatus {
@@ -44,7 +52,7 @@ enum BookingStatus {
   CANCELLED
   AUTO_CANCELLED
 
-  @@map("oven_booking_status")
+  @@map("ap_booking_status")
 }
 
 enum BookingEventType {
@@ -55,7 +63,7 @@ enum BookingEventType {
   COMPLETED
   REMOVED
 
-  @@map("oven_booking_event_type")
+  @@map("ap_booking_event_type")
 }
 
 enum BookingActorType {
@@ -63,7 +71,23 @@ enum BookingActorType {
   ADMIN
   SYSTEM
 
-  @@map("oven_booking_actor_type")
+  @@map("ap_booking_actor_type")
+}
+
+enum ReagentStatus {
+  AVAILABLE
+  LOW
+  OUT_OF_STOCK
+
+  @@map("ap_reagent_status")
+}
+
+enum SonicatorMode {
+  SONIC
+  HEAT
+  DEGAS
+
+  @@map("ap_sonicator_mode")
 }
 
 // ─── Models ──────────────────────────────────────────────────────────
@@ -91,49 +115,57 @@ model User {
   deletedBookings   Booking[]     @relation("booking_deleted_by")
   bookingEvents     BookingEvent[] @relation("booking_event_actor")
 
-  @@map("oven_users")
+  @@map("ap_users")
 }
 
-model Oven {
-  id          Int        @id @default(autoincrement())
+model Instrument {
+  id          Int                 @id @default(autoincrement())
   name        String
-  type        OvenType
-  status      OvenStatus @default(AVAILABLE)
+  type        InstrumentType      @default(OVEN)
+  category    InstrumentCategory? 
+  status      InstrumentStatus    @default(AVAILABLE)
   description String?
-  maxTemp     Int        @default(200) @map("max_temp")
+  maxTemp     Int                 @default(200) @map("max_temp")
+  maxN2FlowRate Float?            @map("max_n2_flow_rate")
 
   bookings Booking[]
 
-  @@map("oven_ovens")
+  @@map("ap_instruments")
 }
 
 model Booking {
-  id        String        @id @default(uuid())
-  userId    String        @map("user_id")
-  ovenId    Int           @map("oven_id")
-  startDate DateTime      @map("start_date")
-  endDate   DateTime      @map("end_date")
-  purpose   String
-  usageTemp Int           @default(0) @map("usage_temp")
-  flap      Int           @default(0)
-  status    BookingStatus @default(ACTIVE)
-  cancelledAt   DateTime? @map("cancelled_at")
-  cancelledById String?   @map("cancelled_by_id")
-  cancelReason  String?   @map("cancel_reason")
-  deletedAt     DateTime? @map("deleted_at")
-  deletedById   String?   @map("deleted_by_id")
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
+  id           String        @id @default(uuid())
+  userId       String        @map("user_id")
+  instrumentId Int           @map("instrument_id")
+  startDate    DateTime      @map("start_date")
+  endDate      DateTime      @map("end_date")
+  purpose      String
+  usageTemp    Int?          @map("usage_temp")
+  flap         Int?
+  sonicatorModes SonicatorMode[] @map("sonicator_modes")
+  equipmentBrought String?       @map("equipment_brought")
+  chemicalsBrought String?       @map("chemicals_brought")
+  n2FlowRate       Float?        @map("n2_flow_rate")
+  n2Duration       Int?          @map("n2_duration")
+  specialNotes     String?       @map("special_notes")
+  status       BookingStatus @default(ACTIVE)
+  cancelledAt  DateTime?     @map("cancelled_at")
+  cancelledById String?      @map("cancelled_by_id")
+  cancelReason String?       @map("cancel_reason")
+  deletedAt    DateTime?     @map("deleted_at")
+  deletedById  String?       @map("deleted_by_id")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id])
-  oven Oven @relation(fields: [ovenId], references: [id])
-  cancelledBy User? @relation("booking_cancelled_by", fields: [cancelledById], references: [id])
-  deletedBy User? @relation("booking_deleted_by", fields: [deletedById], references: [id])
-  events BookingEvent[]
+  user         User          @relation(fields: [userId], references: [id])
+  instrument   Instrument    @relation(fields: [instrumentId], references: [id])
+  cancelledBy  User?         @relation("booking_cancelled_by", fields: [cancelledById], references: [id])
+  deletedBy    User?         @relation("booking_deleted_by", fields: [deletedById], references: [id])
+  events       BookingEvent[]
 
-  @@index([ovenId, startDate, endDate])
+  @@index([instrumentId, startDate, endDate])
   @@index([deletedAt])
-  @@map("oven_bookings")
+  @@map("ap_bookings")
 }
 
 model BookingEvent {
@@ -151,7 +183,22 @@ model BookingEvent {
 
   @@index([bookingId, createdAt])
   @@index([actorId, createdAt])
-  @@map("oven_booking_events")
+  @@map("ap_booking_events")
+}
+
+model Reagent {
+  id          String        @id @default(uuid())
+  name        String
+  casNumber   String?       @map("cas_number")
+  quantity    String        // e.g., "500ml", "1kg", "250g"
+  location    String?       // e.g., "Cabinet A", "Fridge 1"
+  status      ReagentStatus @default(AVAILABLE)
+  notes       String?       @db.Text
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@index([name])
+  @@map("ap_reagents")
 }
 
 model PasswordResetToken {
@@ -162,7 +209,7 @@ model PasswordResetToken {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([email, token])
-  @@map("oven_password_reset_tokens")
+  @@map("ap_password_reset_tokens")
 }
 
 model EmailOtp {
@@ -173,5 +220,5 @@ model EmailOtp {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([email])
-  @@map("oven_email_otps")
+  @@map("ap_email_otps")
 }
