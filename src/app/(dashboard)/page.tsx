@@ -129,7 +129,7 @@ export default async function DashboardPage() {
             </p>
             <Link
               href="/instruments"
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors shadow-lg shadow-blue-500/20"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors shadow-lg shadow-blue-500/20"
             >
               <CalendarPlus className="h-4 w-4" />
               Book Instrument

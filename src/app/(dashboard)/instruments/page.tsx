@@ -56,7 +56,7 @@ export default async function InstrumentsPage() {
                     <div className="p-4 border-t border-slate-700/50 bg-slate-900/30">
                         <Link
                             href="/book"
-                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-500 shadow-lg shadow-orange-500/20"
+                            className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-500 shadow-lg shadow-orange-500/20"
                         >
                             <CalendarPlus className="h-4 w-4" />
                             Book Instrument
@@ -95,7 +95,7 @@ export default async function InstrumentsPage() {
                     <div className="p-4 border-t border-slate-700/50 bg-slate-900/30">
                         <Link
                             href="/book/ultrasonic"
-                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cyan-500 shadow-lg shadow-cyan-500/20"
+                            className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cyan-500 shadow-lg shadow-cyan-500/20"
                         >
                             <CalendarPlus className="h-4 w-4" />
                             Book Ultrasonic Bath
@@ -138,7 +138,7 @@ export default async function InstrumentsPage() {
                     <div className="p-4 border-t border-slate-700/50 bg-slate-900/30">
                         <Link
                             href="/book/glovebox"
-                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white transition-all hover:shadow-[0_0_15px_rgba(52,211,153,0.3)] shadow-[0_0_10px_rgba(52,211,153,0.1)] active:scale-[0.98]"
+                            className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white transition-all hover:shadow-[0_0_15px_rgba(52,211,153,0.3)] shadow-[0_0_10px_rgba(52,211,153,0.1)] active:scale-[0.98]"
                         >
                             <CalendarPlus className="h-4 w-4" />
                             Book Glovebox
