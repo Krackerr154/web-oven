@@ -9,6 +9,22 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function getInstrumentColor(instrumentId: number): string {
+  const colors = [
+    "#ea580c", // orange-600
+    "#3b82f6", // blue-500
+    "#10b981", // emerald-500
+    "#8b5cf6", // violet-500
+    "#ec4899", // pink-500
+    "#eab308", // yellow-500
+    "#06b6d4", // cyan-500
+    "#f43f5e", // rose-500
+    "#84cc16", // lime-500
+    "#6366f1", // indigo-500
+  ];
+  return colors[(instrumentId - 1) % colors.length];
+}
+
 function parseDateInput(value: Date | string): Date | null {
   if (value instanceof Date) {
     return Number.isNaN(value.getTime()) ? null : value;

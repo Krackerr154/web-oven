@@ -59,7 +59,7 @@ export default async function InstrumentsPage() {
                             className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-500 shadow-lg shadow-orange-500/20"
                         >
                             <CalendarPlus className="h-4 w-4" />
-                            Book Instrument
+                            Book Lab Oven
                         </Link>
                     </div>
                 </div>
@@ -71,8 +71,12 @@ export default async function InstrumentsPage() {
                             <div className="rounded-xl bg-cyan-500/20 p-3 text-cyan-400">
                                 <Activity className="h-6 w-6" />
                             </div>
-                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full border bg-slate-500/10 text-slate-400 border-slate-500/20">
-                                Integration Pending
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full border bg-cyan-500/10 text-cyan-400 border-cyan-500/20 flex items-center gap-1.5">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                                </span>
+                                Available
                             </span>
                         </div>
                         <h3 className="text-xl font-semibold text-white mb-2">Ultrasonic Bath</h3>

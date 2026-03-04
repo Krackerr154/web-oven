@@ -68,7 +68,8 @@ async function logBookingEvent(
     | "CANCELLED"
     | "AUTO_CANCELLED"
     | "COMPLETED"
-    | "REMOVED";
+    | "REMOVED"
+    | "COMMENTED";
     note?: string;
     payload?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
   }
@@ -841,6 +842,7 @@ export async function getUserBookingStats(userId: string) {
     AUTO_CANCELLED: 0,
     COMPLETED: 0,
     REMOVED: 0,
+    COMMENTED: 0,
   };
 
   for (const event of events) {
@@ -1016,4 +1018,178 @@ export async function deleteInstrument(instrumentId: number): Promise<ActionResu
   } catch {
     return { success: false, message: "Failed to delete instrument" };
   }
+}
+
+// ─── Booking Comments ──────────────────────────────────────────────────────
+
+export async function addBookingComment(
+  bookingId: string,
+  comment: string
+): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
+  const adminId = await getAdminId();
+  if (!adminId) return { success: false, message: "Admin access required" };
+
+  if (!comment || comment.trim().length < 1) {
+    return { success: false, message: "Comment cannot be empty" };
+  }
+
+  if (comment.trim().length > 500) {
+    return { success: false, message: "Comment must be under 500 characters" };
+  }
+
+  try {
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, deletedAt: null },
+    });
+
+    if (!booking) {
+      return { success: false, message: "Booking not found" };
+    }
+
+    await prisma.bookingEvent.create({
+      data: {
+        bookingId,
+        actorId: adminId,
+        actorType: "ADMIN",
+        eventType: "COMMENTED",
+        note: comment.trim(),
+      },
+    });
+
+    revalidateBookingPaths(bookingId);
+    return { success: true, message: "Comment posted" };
+  } catch {
+    return { success: false, message: "Failed to post comment" };
+  }
+}
+
+// ─── Instrument Bans ───────────────────────────────────────────────────────
+
+export async function banUserFromInstrumentCategory(
+  userId: string,
+  instrumentType: "OVEN" | "ULTRASONIC_BATH" | "GLOVEBOX",
+  reason?: string
+): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
+  const adminId = await getAdminId();
+  if (!adminId) return { success: false, message: "Admin access required" };
+
+  if (userId === adminId) {
+    return { success: false, message: "You cannot ban yourself" };
+  }
+
+  try {
+    // Check if already banned from this category
+    const existing = await prisma.instrumentBan.findFirst({
+      where: { userId, instrumentType, isActive: true },
+    });
+
+    if (existing) {
+      return { success: false, message: `User is already banned from ${instrumentType}` };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Create the category ban
+      await tx.instrumentBan.create({
+        data: {
+          userId,
+          instrumentType,
+          reason: reason?.trim() || null,
+          bannedById: adminId,
+        },
+      });
+
+      // Auto-cancel all active bookings for ANY instrument of this category by this user
+      const activeBookings = await tx.booking.findMany({
+        where: {
+          userId,
+          instrument: { type: instrumentType },
+          status: "ACTIVE",
+          deletedAt: null,
+        },
+      });
+
+      for (const booking of activeBookings) {
+        await tx.booking.update({
+          where: { id: booking.id },
+          data: {
+            status: "CANCELLED",
+            cancelledAt: new Date(),
+            cancelledById: adminId,
+            cancelReason: `Instrument ban: ${reason?.trim() || "No reason provided"}`,
+          },
+        });
+
+        await logBookingEvent(tx, {
+          bookingId: booking.id,
+          actorId: adminId,
+          actorType: "ADMIN",
+          eventType: "CANCELLED",
+          note: `Booking auto-cancelled due to instrument ban. Reason: ${reason?.trim() || "No reason provided"}`,
+        });
+      }
+    });
+
+    revalidatePath("/admin/users");
+    revalidatePath("/admin/bookings");
+    revalidatePath("/my-bookings");
+    revalidatePath("/");
+
+    return {
+      success: true,
+      message: `User banned from ${instrumentType}s`,
+    };
+  } catch {
+    return { success: false, message: "Failed to ban user from instrument" };
+  }
+}
+
+export async function liftInstrumentBan(
+  banId: string
+): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
+  try {
+    const ban = await prisma.instrumentBan.findUnique({
+      where: { id: banId },
+    });
+
+    if (!ban) {
+      return { success: false, message: "Ban not found" };
+    }
+
+    if (!ban.isActive) {
+      return { success: false, message: "Ban is already lifted" };
+    }
+
+    await prisma.instrumentBan.update({
+      where: { id: banId },
+      data: { isActive: false, liftedAt: new Date() },
+    });
+
+    revalidatePath("/admin/users");
+    revalidatePath(`/admin/users/${ban.userId}`);
+    return { success: true, message: `Ban lifted for ${ban.instrumentType.replace(/_/g, " ")}` };
+  } catch {
+    return { success: false, message: "Failed to lift ban" };
+  }
+}
+
+export async function getUserInstrumentBans(userId: string) {
+  const guard = await requireAdmin();
+  if (guard) return [];
+
+  return await prisma.instrumentBan.findMany({
+    where: { userId, isActive: true },
+    include: {
+      bannedBy: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
 }

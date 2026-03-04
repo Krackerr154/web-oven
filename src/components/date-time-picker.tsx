@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ChevronLeft, ChevronRight, Clock, AlertTriangle } from "lucide-react";
-import { formatDateTimeWib } from "@/lib/utils";
+import { formatDateTimeWib, getInstrumentColor } from "@/lib/utils";
 import TimePicker from "@/components/time-picker";
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -63,10 +63,6 @@ const MONTHS = [
     "July", "August", "September", "October", "November", "December",
 ];
 
-function getInstrumentColor(instrumentId: number, instruments: InstrumentInfo[]): string {
-    const instrument = instruments.find((o) => o.id === instrumentId);
-    return instrument?.category === "NON_AQUEOUS" ? "#ea580c" : "#3b82f6";
-}
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
@@ -185,7 +181,7 @@ export default function DateTimePicker({
         for (const b of bookings) {
             const start = new Date(b.start);
             const end = new Date(b.end);
-            const color = getInstrumentColor(b.instrumentId, instruments);
+            const color = getInstrumentColor(b.instrumentId);
 
             const cursor = new Date(start);
             while (cursor < end) {
@@ -546,7 +542,7 @@ export default function DateTimePicker({
                         <div key={instrument.id} className="flex items-center gap-1.5">
                             <span
                                 className="h-1.5 w-1.5 rounded-full"
-                                style={{ backgroundColor: getInstrumentColor(instrument.id, instruments) }}
+                                style={{ backgroundColor: getInstrumentColor(instrument.id) }}
                             />
                             <span>{instrument.name}</span>
                         </div>

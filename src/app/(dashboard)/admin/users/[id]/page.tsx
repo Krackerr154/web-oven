@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getUserBookingStats } from "@/app/actions/admin";
+import { getUserBookingStats, getUserInstrumentBans, liftInstrumentBan } from "@/app/actions/admin";
 import { formatDateTimeWib, formatDuration } from "@/lib/utils";
+import { ShieldBan, ShieldCheck } from "lucide-react";
+import { LiftBanButton } from "./lift-ban-button";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +14,7 @@ type Props = {
 export default async function AdminUserStatsPage({ params }: Props) {
   const { id } = await params;
   const data = await getUserBookingStats(id);
+  const activeBans = await getUserInstrumentBans(id);
 
   if (!data) notFound();
 
@@ -40,6 +43,31 @@ export default async function AdminUserStatsPage({ params }: Props) {
           <p className="text-slate-400 text-xs mt-1">Registered: {formatDateTimeWib(data.user.createdAt)}</p>
         </div>
       </div>
+
+      {activeBans.length > 0 && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <ShieldBan className="h-5 w-5 text-red-400" />
+            <h2 className="text-red-300 font-semibold text-sm">Active Instrument Bans</h2>
+          </div>
+          <div className="grid gap-2">
+            {activeBans.map((ban) => (
+              <div key={ban.id} className="flex items-center justify-between gap-4 bg-slate-900/50 border border-red-500/20 rounded-lg p-3">
+                <div>
+                  <p className="text-sm font-medium text-red-200">{ban.instrument.name}</p>
+                  <p className="text-[11px] text-red-300/70 mt-0.5">
+                    Issued {formatDateTimeWib(ban.createdAt)} by {ban.bannedBy.name}
+                  </p>
+                  {ban.reason && (
+                    <p className="text-xs text-red-300 mt-1">Reason: {ban.reason}</p>
+                  )}
+                </div>
+                <LiftBanButton banId={ban.id} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">

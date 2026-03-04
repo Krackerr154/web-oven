@@ -7,11 +7,28 @@ import { RoleManagementButtons } from "./role-buttons";
 import { Users, Star } from "lucide-react";
 import { EditUserModal } from "./edit-user-modal";
 import { DeleteUserButton } from "./delete-user-button";
+import { BanUserButton } from "./ban-user-button";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
-  const users = await getAllUsers();
+  const [users, instruments, bans] = await Promise.all([
+    getAllUsers(),
+    prisma.instrument.findMany({ select: { id: true, name: true, type: true } }),
+    prisma.instrumentBan.findMany({
+      where: { isActive: true },
+      include: {
+        bannedBy: { select: { name: true } },
+      },
+    }),
+  ]);
+
+  const bansByUser = bans.reduce((acc, ban) => {
+    if (!acc[ban.userId]) acc[ban.userId] = [];
+    acc[ban.userId].push(ban as any);
+    return acc;
+  }, {} as Record<string, any[]>);
 
   const statusStyles: Record<string, string> = {
     PENDING: "bg-amber-500/10 border border-amber-500/20 text-amber-300",
@@ -110,10 +127,20 @@ export default async function AdminUsersPage() {
                   </Link>
 
                   <div className="flex items-center gap-1">
+                    <BanUserButton userId={user.id} instruments={instruments} activeBans={bansByUser[user.id] || []} />
                     <EditUserModal user={user} />
                     <DeleteUserButton userId={user.id} />
                   </div>
                 </div>
+                {(bansByUser[user.id] || []).length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {(bansByUser[user.id]).map((ban: any) => (
+                      <span key={ban.id} className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20">
+                        🚫 {ban.instrument.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -186,10 +213,20 @@ export default async function AdminUsersPage() {
                           </Link>
 
                           <div className="flex items-center">
+                            <BanUserButton userId={user.id} instruments={instruments} activeBans={bansByUser[user.id] || []} />
                             <EditUserModal user={user} />
                             <DeleteUserButton userId={user.id} />
                           </div>
                         </div>
+                        {(bansByUser[user.id] || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {(bansByUser[user.id]).map((ban: any) => (
+                              <span key={ban.id} className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20">
+                                🚫 {ban.instrumentType.replace(/_/g, " ")}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {user.status === "APPROVED" && (
                           <div className="mt-2 min-w-[140px]">
                             <RoleManagementButtons

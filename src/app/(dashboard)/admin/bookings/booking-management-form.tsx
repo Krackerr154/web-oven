@@ -6,6 +6,7 @@ import {
   cancelBookingByAdmin,
   completeBookingByAdmin,
   removeBookingByAdmin,
+  addBookingComment,
 } from "@/app/actions/admin";
 import { toWibDateTimeLocalValue } from "@/lib/utils";
 import { useToast } from "@/components/toast";
@@ -46,6 +47,7 @@ export function BookingManagementForm({ booking, instrumentType }: Props) {
   const [isPending, startTransition] = useTransition();
   const toast = useToast();
   const [confirm, setConfirm] = useState<ConfirmState>(initialConfirm);
+  const [comment, setComment] = useState("");
 
   function openConfirm(
     title: string,
@@ -220,7 +222,41 @@ export function BookingManagementForm({ booking, instrumentType }: Props) {
             Soft Remove
           </button>
         </div>
-      </div >
+
+        {/* Admin Comment */}
+        <div className="pt-3 border-t border-slate-700/60 space-y-2">
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Admin Comment</h3>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={2}
+            maxLength={500}
+            placeholder="Leave a note on this booking..."
+            className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 resize-none"
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-500">{comment.length}/500</span>
+            <button
+              type="button"
+              disabled={isPending || comment.trim().length < 1}
+              onClick={() => {
+                startTransition(async () => {
+                  const result = await addBookingComment(booking.id, comment);
+                  if (result.success) {
+                    toast.success(result.message);
+                    setComment("");
+                  } else {
+                    toast.error(result.message);
+                  }
+                });
+              }}
+              className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-colors"
+            >
+              Post Comment
+            </button>
+          </div>
+        </div>
+      </div>
 
       <ConfirmDialog
         open={confirm.open}

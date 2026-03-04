@@ -161,16 +161,21 @@ export default async function AdminBookingDetailPage({ params }: Props) {
             <p className="text-xs text-slate-500">No lifecycle events recorded.</p>
           ) : (
             <div className="space-y-3 max-h-[540px] overflow-auto pr-1">
-              {booking.events.map((event: any) => (
-                <div key={event.id} className="rounded-lg border border-slate-700/70 p-3">
-                  <p className="text-xs font-medium text-slate-200">{event.eventType.replace("_", " ")}</p>
-                  <p className="text-[11px] text-slate-500">{formatDateTimeWib(event.createdAt)}</p>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    By {event.actor?.name ?? event.actorType}
-                  </p>
-                  {event.note && <p className="text-xs text-slate-300 mt-1">{event.note}</p>}
-                </div>
-              ))}
+              {booking.events.map((event: any) => {
+                const isComment = event.eventType === "COMMENTED";
+                return (
+                  <div key={event.id} className={`rounded-lg border p-3 ${isComment ? "border-blue-500/40 bg-blue-500/5" : "border-slate-700/70"}`}>
+                    <p className={`text-xs font-medium ${isComment ? "text-blue-300" : "text-slate-200"}`}>
+                      {isComment ? "💬 Admin Comment" : event.eventType.replace("_", " ")}
+                    </p>
+                    <p className="text-[11px] text-slate-500">{formatDateTimeWib(event.createdAt)}</p>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      By {event.actor?.name ?? event.actorType}
+                    </p>
+                    {event.note && <p className={`text-xs mt-1 ${isComment ? "text-blue-200" : "text-slate-300"}`}>{event.note}</p>}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

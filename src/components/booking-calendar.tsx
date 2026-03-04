@@ -6,10 +6,11 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
 import type { EventInput, EventClickArg } from "@fullcalendar/core";
 import { CalendarDays, X } from "lucide-react";
-import { formatDateTimeWib, WIB_TIME_ZONE } from "@/lib/utils";
+import { formatDateTimeWib, WIB_TIME_ZONE, getInstrumentColor } from "@/lib/utils";
 
 type BookingCalendarProps = {
   selectedInstrumentId: number | null;
+  instruments: { id: number; name: string }[];
   onDateClick?: (dateStr: string) => void;
 };
 
@@ -25,6 +26,7 @@ type EventExtendedProps = {
 
 export default function BookingCalendar({
   selectedInstrumentId,
+  instruments,
   onDateClick,
 }: BookingCalendarProps) {
   const [events, setEvents] = useState<EventInput[]>([]);
@@ -98,15 +100,17 @@ export default function BookingCalendar({
 
       {/* Legend */}
       <div className="flex flex-wrap gap-4 mb-4 text-xs text-slate-400">
-        <div className="flex items-center gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-sm bg-orange-600" />
-          <span>Non-Aqueous</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-sm bg-blue-600" />
-          <span>Aqueous</span>
-        </div>
-        <span className="text-slate-500">
+        {instruments.map((instrument) => (
+          <div key={instrument.id} className="flex items-center gap-1.5">
+            <div
+              className="h-2.5 w-2.5 rounded-sm"
+              style={{ backgroundColor: getInstrumentColor(instrument.id) }}
+            />
+            <span>{instrument.name}</span>
+          </div>
+        ))}
+
+        <span className="text-slate-500 ml-auto">
           {selectedInstrumentId
             ? "Showing selected instrument"
             : "Showing all instruments"}

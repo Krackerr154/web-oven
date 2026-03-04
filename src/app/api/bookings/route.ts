@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { autoCompleteBookings } from "@/app/actions/booking";
+import { getInstrumentColor } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     title: `${b.instrument.name} — ${b.userId === session.user.id ? "You" : b.user.name}`,
     start: b.startDate.toISOString(),
     end: b.endDate.toISOString(),
-    color: b.instrument.category === "NON_AQUEOUS" ? "#ea580c" : "#3b82f6",
+    color: getInstrumentColor(b.instrumentId),
     extendedProps: {
       instrumentName: b.instrument.name,
       instrumentType: b.instrument.type,
