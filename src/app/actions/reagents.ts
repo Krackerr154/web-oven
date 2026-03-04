@@ -3,6 +3,7 @@
 import { fetchReagents, Reagent } from "@/lib/sheets";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import Fuse from "fuse.js";
 
 /**
  * Normalizes text for search (lowercase, removes extra spaces)
@@ -30,13 +31,23 @@ export async function searchReagents(query: string): Promise<{ success: boolean;
             return { success: true, data: [] };
         }
 
-        // Filter reagents based on generic matching (ID, Name, or Brand)
-        const filtered = reagents.filter((r) => {
-            const matchId = normalizeText(r.id).includes(trimmedQuery);
-            const matchName = normalizeText(r.name).includes(trimmedQuery);
-            const matchBrand = normalizeText(r.brand).includes(trimmedQuery);
-            return matchId || matchName || matchBrand;
+        // Configure Fuse.js for fuzzy-searching
+        const fuse = new Fuse(reagents, {
+            keys: [
+                { name: 'name', weight: 1.0 },
+                { name: 'searchTags', weight: 0.8 },
+                { name: 'brand', weight: 0.5 },
+                { name: 'id', weight: 0.3 }
+            ],
+            // Lower threshold = stricter match. 0.3-0.4 is good for typo tolerance.
+            threshold: 0.4,
+            distance: 100, // How close the match must be to the exact string
+            ignoreLocation: true, // Find the match anywhere in the string
         });
+
+        // Search and map back to the original Reagent objects
+        const results = fuse.search(trimmedQuery);
+        const filtered = results.map(result => result.item);
 
         return { success: true, data: filtered };
     } catch (error) {

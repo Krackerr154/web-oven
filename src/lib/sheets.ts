@@ -13,6 +13,53 @@ export interface Reagent {
     unit: string;        // Satuan
     notes: string;       // Keterangan
     location: string;    // Posisi
+    searchTags: string;  // Derived synonyms for Fuse.js searching
+}
+
+// ── Hardcoded Synonym Dictionary for Chemistry ───────────────────────────
+const synonymDictionary: Record<string, string[]> = {
+    // Abbreviations -> Full names (or vice versa depending on what's in sheet)
+    "etoh": ["ethanol", "ethyl alcohol"],
+    "meoh": ["methanol", "methyl alcohol"],
+    "dmf": ["dimethylformamide", "n,n-dimethylformamide"],
+    "ipa": ["isopropanol", "isopropyl alcohol", "2-propanol", "propan-2-ol"],
+    "tfh": ["tetrahydrofuran"],
+    "dcm": ["dichloromethane", "methylene chloride"],
+    "dmso": ["dimethyl sulfoxide", "dimethylsulfoxide"],
+    "ea": ["ethyl acetate", "etac"],
+    "hex": ["hexane", "n-hexane"],
+    "hcl": ["hydrochloric acid", "hydrogen chloride"],
+    "h2so4": ["sulfuric acid", "sulphuric acid"],
+    "hno3": ["nitric acid"],
+    "ch3cooh": ["acetic acid", "ethanoic acid", "glacial acetic acid"],
+    "naoh": ["sodium hydroxide", "lye", "caustic soda"],
+    "koh": ["potassium hydroxide", "caustic potash"],
+    "di hp": ["deionized water", "di water", "h2o", "aquadest", "akuades"],
+};
+
+/**
+ * Normalizes text to lowercase and checks if it matches any known synonyms
+ */
+function getSynonyms(text: string): string {
+    if (!text) return "";
+    const lower = text.toLowerCase();
+    const tags = new Set<string>();
+
+    // Check if the exact text (like "ethanol") is a value in our dictionary
+    // If so, add its abbreviation (like "etoh")
+    for (const [abbr, fullNames] of Object.entries(synonymDictionary)) {
+        if (lower === abbr) {
+            fullNames.forEach(n => tags.add(n));
+        }
+        for (const fullName of fullNames) {
+            if (lower.includes(fullName) || fullName.includes(lower)) {
+                tags.add(abbr);
+                fullNames.forEach(n => tags.add(n));
+            }
+        }
+    }
+
+    return Array.from(tags).join(" ");
 }
 
 // In-memory cache to avoid Google Sheets API rate limits
@@ -42,17 +89,22 @@ export async function fetchReagents(): Promise<Reagent[]> {
 
         const reagents: Reagent[] = parsed.data
             .filter((row) => row["Identifier"] || row["Nama"]) // basic filter for non-empty rows
-            .map((row) => ({
-                id: row["Identifier"] || "",
-                name: row["Nama"] || "",
-                brand: row["Merk"] || "",
-                catalogNo: row["No. katalog"] || "",
-                arrivalDate: row["Waktu kedatangan"] || "",
-                size: row["Ukuran"] || "",
-                unit: row["Satuan"] || "",
-                notes: row["Keterangan"] || "",
-                location: row["Posisi"] || "",
-            }));
+            .map((row) => {
+                const name = row["Nama"] || "";
+                const brand = row["Merk"] || "";
+                return {
+                    id: row["Identifier"] || "",
+                    name,
+                    brand,
+                    catalogNo: row["No. katalog"] || "",
+                    arrivalDate: row["Waktu kedatangan"] || "",
+                    size: row["Ukuran"] || "",
+                    unit: row["Satuan"] || "",
+                    notes: row["Keterangan"] || "",
+                    location: row["Posisi"] || "",
+                    searchTags: getSynonyms(name) + " " + getSynonyms(brand),
+                };
+            });
 
         cachedReagents = reagents;
         lastFetchTime = now;

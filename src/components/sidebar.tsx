@@ -26,13 +26,13 @@ import { useState, useEffect } from "react";
 const userNav = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
   { label: "Instruments", href: "/instruments", icon: Beaker },
-  { label: "Reagents", href: "/reagents", icon: Search },
+  { label: "Chemical Inventory", href: "/reagents", icon: FlaskConical },
   { label: "My Bookings", href: "/my-bookings", icon: CalendarDays },
 ];
 
 const adminNav = [
   { label: "Manage Users", href: "/admin/users", icon: Users },
-  { label: "Reagents", href: "/admin/reagents", icon: FlaskConical },
+  { label: "Chemical Inventory", href: "/admin/reagents", icon: FlaskConical },
   { label: "All Bookings", href: "/admin/bookings", icon: ListChecks },
   { label: "Instrument Settings", href: "/admin/instruments", icon: Settings },
 ];

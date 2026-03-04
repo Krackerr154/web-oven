@@ -3,8 +3,8 @@ import { SearchIcon, FlaskConical } from "lucide-react";
 import ReagentSearchClient from "./reagent-search-client";
 
 export const metadata: Metadata = {
-    title: "Reagents | AP Lab",
-    description: "Search the laboratory reagent catalog",
+    title: "Chemical Inventory | AP Lab",
+    description: "Search the laboratory chemical inventory",
 };
 
 export default function ReagentsPage() {
@@ -16,8 +16,8 @@ export default function ReagentsPage() {
                         <FlaskConical className="h-6 w-6" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Reagent Catalog</h1>
-                        <p className="text-slate-400 mt-0.5 text-sm">Search the inventory for available chemicals and reagents</p>
+                        <h1 className="text-2xl font-bold text-white">Chemical Inventory</h1>
+                        <p className="text-slate-400 mt-0.5 text-sm">Search the inventory for available chemicals, solvents, and materials</p>
                     </div>
                 </div>
             </div>

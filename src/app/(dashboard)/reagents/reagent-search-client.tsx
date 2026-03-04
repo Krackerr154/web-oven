@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Search, Loader2, FlaskConical, MapPin, Package, Hash } from "lucide-react";
+import { useState, useTransition, useEffect } from "react";
+import { Search, Loader2, FlaskConical, MapPin, Package, Hash, Zap } from "lucide-react";
 import { searchReagents } from "@/app/actions/reagents";
+import { useDebounce } from "use-debounce";
 import type { Reagent } from "@/lib/sheets";
 
 export default function ReagentSearchClient() {
@@ -11,21 +12,28 @@ export default function ReagentSearchClient() {
     const [hasSearched, setHasSearched] = useState(false);
     const [isPending, startTransition] = useTransition();
 
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!query.trim()) {
+    const [debouncedQuery] = useDebounce(query, 300);
+
+    // Auto-search when the debounced query changes
+    useEffect(() => {
+        if (!debouncedQuery.trim()) {
             setResults([]);
             setHasSearched(false);
             return;
         }
 
         startTransition(async () => {
-            const res = await searchReagents(query);
+            const res = await searchReagents(debouncedQuery);
             if (res.success && res.data) {
                 setResults(res.data);
                 setHasSearched(true);
             }
         });
+    }, [debouncedQuery]);
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        // The useEffect handles the actual search, this just prevents page reload
     };
 
     return (
@@ -41,13 +49,16 @@ export default function ReagentSearchClient() {
                         className="w-full pl-12 pr-24 py-4 bg-slate-900/80 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all text-lg shadow-inner"
                     />
                     <button
-                        type="submit"
-                        disabled={isPending || !query.trim()}
-                        className="absolute right-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:hover:bg-purple-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                        type="button"
+                        className="absolute right-4 text-slate-400 flex items-center gap-1.5"
                     >
-                        {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
+                        {isPending ? <Loader2 className="h-5 w-5 animate-spin text-purple-500" /> : <Zap className="h-5 w-5 text-purple-400/70" />}
                     </button>
                 </div>
+                <p className="text-xs text-slate-500 mt-2 px-1 flex items-center gap-1">
+                    <Zap className="h-3 w-3 text-purple-400" />
+                    Typo-tolerant smart search is active (e.g., searches for "etoh", "dmf", or misspelled words work too)
+                </p>
             </form>
 
             {/* Results State */}
@@ -60,7 +71,9 @@ export default function ReagentSearchClient() {
                 ) : hasSearched ? (
                     results.length > 0 ? (
                         <div className="space-y-4">
-                            <h3 className="text-sm font-medium text-slate-400">Found {results.length} result(s)</h3>
+                            <h3 className="text-sm font-medium text-slate-400">
+                                Found {results.length} result(s) for "{debouncedQuery}"
+                            </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {results.map((reagent) => (
                                     <div key={reagent.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 hover:border-purple-500/30 transition-colors group">
@@ -111,13 +124,13 @@ export default function ReagentSearchClient() {
                         <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-slate-800/20 border border-slate-700/30 rounded-xl border-dashed">
                             <FlaskConical className="h-12 w-12 text-slate-600 mb-4" />
                             <p className="text-lg font-medium text-slate-300 mb-1">No reagents found</p>
-                            <p className="text-sm">We couldn't find anything matching "{query}"</p>
+                            <p className="text-sm">We couldn't find anything matching "{debouncedQuery}"</p>
                         </div>
                     )
                 ) : (
                     <div className="flex flex-col items-center justify-center h-64 text-slate-500">
                         <Search className="h-12 w-12 text-slate-600 mb-4 opacity-50" />
-                        <p>Enter a name, brand, or identifier to search the catalog</p>
+                        <p>Enter a chemical name, brand, or synonym to instantly search the inventory</p>
                     </div>
                 )}
             </div>

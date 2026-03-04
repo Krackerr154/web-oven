@@ -3,8 +3,8 @@ import { getAllReagents } from "@/app/actions/reagents";
 import { FlaskConical, AlertCircle, RefreshCw, Plus, Package, MapPin, Hash } from "lucide-react";
 
 export const metadata: Metadata = {
-    title: "Manage Reagents | Admin",
-    description: "View and manage the comprehensive laboratory reagent inventory",
+    title: "Manage Chemical Inventory | Admin",
+    description: "View and manage the comprehensive laboratory chemical inventory",
 };
 
 export const dynamic = "force-dynamic"; // Ensure fresh list roughly every time
@@ -17,7 +17,7 @@ export default async function AdminReagentsPage() {
             <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-red-300 flex items-start gap-3">
                 <AlertCircle className="h-6 w-6 shrink-0 mt-0.5" />
                 <div>
-                    <h2 className="text-lg font-bold text-red-400">Failed to load reagents</h2>
+                    <h2 className="text-lg font-bold text-red-400">Failed to load chemical inventory</h2>
                     <p className="text-sm mt-1">{result.message}</p>
                 </div>
             </div>
@@ -34,7 +34,7 @@ export default async function AdminReagentsPage() {
                         <FlaskConical className="h-6 w-6" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Manage Reagents</h1>
+                        <h1 className="text-2xl font-bold text-white">Manage Chemical Inventory</h1>
                         <p className="text-slate-400 mt-0.5 text-sm">
                             View the complete lab catalog synced directly from Google Sheets.
                         </p>
@@ -47,7 +47,7 @@ export default async function AdminReagentsPage() {
                         className="px-4 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20 opacity-50 cursor-not-allowed group relative"
                         title="Management is currently handled directly in Google Sheets"
                     >
-                        <Plus className="h-4 w-4" /> Add Reagent
+                        <Plus className="h-4 w-4" /> Add Chemical
                         <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-800 text-xs rounded text-white opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity">
                             Edit in Google Sheets
                         </span>
@@ -111,7 +111,7 @@ export default async function AdminReagentsPage() {
                                     <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                                         <div className="flex flex-col items-center gap-2">
                                             <FlaskConical className="h-8 w-8 opacity-50" />
-                                            <p>No reagents found in the integration sheet.</p>
+                                            <p>No chemicals found in the integration sheet.</p>
                                         </div>
                                     </td>
                                 </tr>
