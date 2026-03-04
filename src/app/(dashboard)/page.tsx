@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { CalendarPlus, Beaker, Search, Users, ArrowRight } from "lucide-react";
+import { CalendarPlus, Beaker, Search, Users, ArrowRight, Waves, Package, ThermometerSun, CalendarClock } from "lucide-react";
 import { formatDateWib, formatMonthDayWib } from "@/lib/utils";
 import Link from "next/link";
 import { autoCompleteBookings } from "@/app/actions/booking";
@@ -141,24 +141,51 @@ export default async function DashboardPage() {
               <Link
                 key={booking.id}
                 href={`/my-bookings/${booking.id}`}
-                className="group relative overflow-hidden rounded-xl border border-slate-700 bg-slate-800/50 p-5 hover:bg-slate-700/80 transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-500/10 block"
+                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-700/60 bg-gradient-to-b from-slate-800/40 to-slate-900/40 p-5 hover:border-slate-600 hover:shadow-xl hover:shadow-blue-900/10 transition-all duration-300 block"
               >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400">
-                      <Beaker className="h-4 w-4" />
-                    </div>
-                    <h3 className="font-semibold text-white">{booking.instrument.name}</h3>
+                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all duration-300">
+                  <div className="bg-slate-700/50 p-1.5 rounded-full text-white">
+                    <ArrowRight className="h-4 w-4" />
                   </div>
-                  <span className="text-xs font-semibold bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                    Active
-                  </span>
                 </div>
-                <div className="space-y-2 text-sm text-slate-400">
-                  <div className="flex justify-between items-center bg-slate-900/40 p-2.5 rounded-lg border border-slate-700/50">
+
+                {/* Top Section */}
+                <div className="flex items-start justify-between mb-5">
+                  <div className="flex gap-4">
+                    <div className={`p-3 rounded-xl transition-colors ${booking.instrument.type === 'OVEN' ? 'bg-orange-500/10 text-orange-400 group-hover:bg-orange-500/20' :
+                        booking.instrument.type === 'ULTRASONIC_BATH' ? 'bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20' :
+                          booking.instrument.type === 'GLOVEBOX' ? 'bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20' :
+                            'bg-blue-500/10 text-blue-400 group-hover:bg-blue-500/20'
+                      }`}>
+                      {booking.instrument.type === 'OVEN' ? <ThermometerSun className="h-6 w-6" /> :
+                        booking.instrument.type === 'ULTRASONIC_BATH' ? <Waves className="h-6 w-6" /> :
+                          booking.instrument.type === 'GLOVEBOX' ? <Package className="h-6 w-6" /> :
+                            <Beaker className="h-6 w-6" />
+                      }
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white tracking-wide text-lg">{booking.instrument.name}</h3>
+                      <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold tracking-wide text-emerald-400 bg-emerald-500/10 w-fit px-2 py-0.5 rounded-full border border-emerald-500/20 shadow-inner">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                        </span>
+                        ACTIVE
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Details Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2.5 text-sm text-slate-300 bg-slate-800/50 rounded-lg p-2.5 border border-slate-700/50">
+                    <CalendarClock className="h-4 w-4 text-slate-400 shrink-0" />
                     <span>{formatMonthDayWib(booking.startDate)} — {formatDateWib(booking.endDate)}</span>
                   </div>
-                  <p className="line-clamp-2 pt-2 h-10">{booking.purpose}</p>
+
+                  <div className="pl-3 border-l-2 border-slate-700/50">
+                    <p className="text-sm text-slate-400 line-clamp-2 italic">"{booking.purpose}"</p>
+                  </div>
                 </div>
               </Link>
             ))}
