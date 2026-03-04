@@ -19,6 +19,7 @@ import {
   TestTubes,
   Search,
   Settings2,
+  FlaskConical,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -31,6 +32,7 @@ const userNav = [
 
 const adminNav = [
   { label: "Manage Users", href: "/admin/users", icon: Users },
+  { label: "Reagents", href: "/admin/reagents", icon: FlaskConical },
   { label: "All Bookings", href: "/admin/bookings", icon: ListChecks },
   { label: "Instrument Settings", href: "/admin/instruments", icon: Settings },
 ];

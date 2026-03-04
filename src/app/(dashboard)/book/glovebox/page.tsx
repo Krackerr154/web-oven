@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { createGloveboxBooking, getMyActiveBookingsCount } from "@/app/actions/booking";
+import { createGloveboxBooking, getMyActiveBookingsCount, getMyInstrumentBan } from "@/app/actions/booking";
 import { useRouter } from "next/navigation";
 import {
     CalendarPlus, Loader2, AlertCircle, AlertTriangle, CheckCircle2,
@@ -22,6 +22,7 @@ export default function GloveboxBookPage() {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [hasConflict, setHasConflict] = useState(false);
+    const [banInfo, setBanInfo] = useState<{ instrumentName: string; reason: string | null } | null>(null);
 
     // Glovebox specific fields
     const [purpose, setPurpose] = useState("");
@@ -110,6 +111,7 @@ export default function GloveboxBookPage() {
                 if (glovebox) {
                     setInstrumentId(glovebox.id);
                     setMaxN2FlowRate(glovebox.maxN2FlowRate ?? null);
+                    getMyInstrumentBan(glovebox.type as any).then((ban) => { if (ban) setBanInfo(ban); });
                 } else {
                     setError("Glovebox instrument not found. Please contact an administrator.");
                 }
@@ -157,6 +159,30 @@ export default function GloveboxBookPage() {
 
     return (
         <div className="space-y-6 animate-fade-in relative max-w-4xl mx-auto">
+
+            {/* Ban blocker */}
+            {banInfo && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm px-4">
+                    <div className="bg-slate-800 border border-red-500/30 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl animate-toast-in">
+                        <div className="h-16 w-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+                            <AlertTriangle className="h-8 w-8 text-red-400" />
+                        </div>
+                        <h2 className="text-xl font-bold text-white mb-2">Access Suspended</h2>
+                        <p className="text-slate-400 text-sm mb-2">
+                            You have been suspended from booking <strong className="text-red-300">{banInfo.instrumentName}</strong>.
+                        </p>
+                        {banInfo.reason && (
+                            <p className="text-xs text-red-300/80 mb-4 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                                Reason: {banInfo.reason}
+                            </p>
+                        )}
+                        <p className="text-xs text-slate-500 mb-6">Contact an administrator for more information.</p>
+                        <button onClick={() => router.push("/")} className="w-full py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium transition-colors">
+                            Back to Dashboard
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* ── Post-use reminder confirmation popup ────────────────── */}
             {showConfirmPopup && (
@@ -321,7 +347,7 @@ export default function GloveboxBookPage() {
 
                         <div>
                             <label htmlFor="purpose" className="block text-sm font-medium text-slate-300 mb-1.5 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
-                                <span>Deskripsi Pekerjaan (Job Description)</span>
+                                <span>Job Description</span>
                                 <span className="text-xs text-slate-500 font-normal">What are you doing inside?</span>
                             </label>
                             <textarea
@@ -338,7 +364,7 @@ export default function GloveboxBookPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label htmlFor="equipment" className="block text-sm font-medium text-slate-300 mb-1.5">
-                                    Peralatan yang dibawa masuk
+                                    Equipment Brought Inside
                                 </label>
                                 <input
                                     id="equipment"
@@ -354,7 +380,7 @@ export default function GloveboxBookPage() {
 
                             <div>
                                 <label htmlFor="chemicals" className="block text-sm font-medium text-slate-300 mb-1.5">
-                                    Chemicals yang dibawa masuk
+                                    Chemicals Brought Inside
                                 </label>
                                 <input
                                     id="chemicals"
@@ -381,7 +407,7 @@ export default function GloveboxBookPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label htmlFor="n2flow" className="block text-sm font-medium text-slate-300 mb-1.5">
-                                    Laju alir N₂ (LPM) <span className="text-slate-500 font-normal">(Optional)</span>
+                                    N₂ Flow Rate (LPM) <span className="text-slate-500 font-normal">(Optional)</span>
                                 </label>
                                 <input
                                     id="n2flow"
@@ -406,7 +432,7 @@ export default function GloveboxBookPage() {
 
                             <div>
                                 <label htmlFor="n2duration" className="block text-sm font-medium text-slate-300 mb-1.5">
-                                    Total Durasi Pengaliran (menit) <span className="text-slate-500 font-normal">(Optional)</span>
+                                    Total Flow Duration (minutes) <span className="text-slate-500 font-normal">(Optional)</span>
                                 </label>
                                 <input
                                     id="n2duration"
@@ -430,7 +456,7 @@ export default function GloveboxBookPage() {
 
                         <div>
                             <label htmlFor="notes" className="block text-sm font-medium text-slate-300 mb-1.5">
-                                Catatan Khusus (Special Notes) <span className="text-slate-500 font-normal">(Optional)</span>
+                                Special Notes <span className="text-slate-500 font-normal">(Optional)</span>
                             </label>
                             <textarea
                                 id="notes"

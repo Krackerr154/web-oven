@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { createUltrasonicBooking, getMyActiveBookingsCount } from "@/app/actions/booking";
+import { createUltrasonicBooking, getMyActiveBookingsCount, getMyInstrumentBan } from "@/app/actions/booking";
 import { useRouter } from "next/navigation";
 import {
     CalendarPlus, Loader2, AlertCircle, AlertTriangle, CheckCircle2,
@@ -63,6 +63,7 @@ export default function UltrasonicBathBookPage() {
     const [activeCount, setActiveCount] = useState<number | null>(null);
     const [showSuccessPopup, setShowSuccessPopup] = useState(false);
     const [showConfirmPopup, setShowConfirmPopup] = useState(false);
+    const [banInfo, setBanInfo] = useState<{ instrumentName: string; reason: string | null } | null>(null);
 
     const isHeatMode = selectedModes.includes("HEAT");
 
@@ -113,8 +114,12 @@ export default function UltrasonicBathBookPage() {
             .then((r) => r.json())
             .then((instruments: { id: number; type: string }[]) => {
                 const bath = instruments.find((i) => i.type === "ULTRASONIC_BATH");
-                if (bath) setInstrumentId(bath.id);
-                else setError("Ultrasonic bath instrument not found. Please contact an administrator.");
+                if (bath) {
+                    setInstrumentId(bath.id);
+                    getMyInstrumentBan(bath.type as any).then((ban) => { if (ban) setBanInfo(ban); });
+                } else {
+                    setError("Ultrasonic bath instrument not found. Please contact an administrator.");
+                }
             })
             .catch(() => setError("Failed to load instrument data"));
 
@@ -163,6 +168,30 @@ export default function UltrasonicBathBookPage() {
     return (
         <div className="space-y-6 animate-fade-in relative">
 
+            {/* Ban blocker */}
+            {banInfo && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm px-4">
+                    <div className="bg-slate-800 border border-red-500/30 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl animate-toast-in">
+                        <div className="h-16 w-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+                            <AlertTriangle className="h-8 w-8 text-red-400" />
+                        </div>
+                        <h2 className="text-xl font-bold text-white mb-2">Access Suspended</h2>
+                        <p className="text-slate-400 text-sm mb-2">
+                            You have been suspended from booking <strong className="text-red-300">{banInfo.instrumentName}</strong>.
+                        </p>
+                        {banInfo.reason && (
+                            <p className="text-xs text-red-300/80 mb-4 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                                Reason: {banInfo.reason}
+                            </p>
+                        )}
+                        <p className="text-xs text-slate-500 mb-6">Contact an administrator for more information.</p>
+                        <button onClick={() => router.push("/")} className="w-full py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium transition-colors">
+                            Back to Dashboard
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* ── Post-use reminder confirmation popup ────────────────── */}
             {showConfirmPopup && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm px-4">
@@ -193,7 +222,6 @@ export default function UltrasonicBathBookPage() {
                             ))}
                         </div>
 
-                        {/* Actions */}
                         <div className="flex flex-col gap-2.5">
                             <button
                                 onClick={handleConfirmedBooking}

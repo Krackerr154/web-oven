@@ -58,6 +58,22 @@ async function logBookingEvent(
   });
 }
 
+async function checkInstrumentBan(userId: string, instrumentId: number): Promise<BookingResult | null> {
+  const targetInstrument = await prisma.instrument.findUnique({ where: { id: instrumentId } });
+  if (!targetInstrument) return null;
+
+  const ban = await prisma.instrumentBan.findFirst({
+    where: { userId, instrumentType: targetInstrument.type, isActive: true },
+  });
+  if (ban) {
+    return {
+      success: false,
+      message: `You are currently suspended from booking ${targetInstrument.type}s.${ban.reason ? ` Reason: ${ban.reason}` : ""} Contact an administrator.`,
+    };
+  }
+  return null;
+}
+
 export async function autoCompleteBookings() {
   try {
     const expiredBookings = await prisma.booking.findMany({
@@ -135,6 +151,10 @@ export async function createBooking(data: {
     }
 
     const userId = session.user.id;
+
+    // ── Rule: Check instrument ban ──────────────────────────────────
+    const banCheck = await checkInstrumentBan(userId, instrumentId);
+    if (banCheck) return banCheck;
 
     // ── Rule: Max 7 days duration ───────────────────────────────────
     if (differenceInDays(endDate, startDate) > 7) {
@@ -505,6 +525,33 @@ export async function getMyActiveBookingsCount() {
   });
 }
 
+export async function getMyInstrumentBan(instrumentType: "OVEN" | "ULTRASONIC_BATH" | "GLOVEBOX") {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return null;
+
+  const ban = await prisma.instrumentBan.findFirst({
+    where: {
+      userId: session.user.id,
+      instrumentType,
+      isActive: true,
+    },
+  });
+
+  if (!ban) return null;
+
+  const typeNameMap: Record<string, string> = {
+    OVEN: "Oven",
+    ULTRASONIC_BATH: "Ultrasonic Bath",
+    GLOVEBOX: "Acrylic Glovebox",
+  };
+
+  return {
+    reason: ban.reason,
+    instrumentType: ban.instrumentType,
+    instrumentName: typeNameMap[ban.instrumentType] || ban.instrumentType,
+  };
+}
+
 // ── Ultrasonic Bath (Sonicator) ─────────────────────────────────────────────
 
 const ultrasonicSchema = z.object({
@@ -548,6 +595,10 @@ export async function createUltrasonicBooking(data: {
     if (startDate < new Date()) return { success: false, message: "Start date cannot be in the past" };
 
     const userId = session.user.id;
+
+    // Check instrument ban
+    const banCheck = await checkInstrumentBan(userId, instrumentId);
+    if (banCheck) return banCheck;
 
     const result = await prisma.$transaction(async (tx) => {
       const activeCount = await tx.booking.count({ where: { userId, status: "ACTIVE" } });
@@ -646,6 +697,10 @@ export async function createGloveboxBooking(data: {
     if (startDate < new Date()) return { success: false, message: "Start date cannot be in the past" };
 
     const userId = session.user.id;
+
+    // Check instrument ban
+    const banCheck = await checkInstrumentBan(userId, instrumentId);
+    if (banCheck) return banCheck;
 
     const result = await prisma.$transaction(async (tx) => {
       const activeCount = await tx.booking.count({ where: { userId, status: "ACTIVE" } });

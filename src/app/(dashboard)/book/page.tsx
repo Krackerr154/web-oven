@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { createBooking, getMyActiveBookingsCount } from "@/app/actions/booking";
+import { createBooking, getMyActiveBookingsCount, getMyInstrumentBan } from "@/app/actions/booking";
 import { useRouter } from "next/navigation";
 import { CalendarPlus, Loader2, Flame, Clock, AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
 import DateTimePicker from "@/components/date-time-picker";
@@ -37,6 +37,7 @@ export default function BookPage() {
   const [purpose, setPurpose] = useState("");
   const [activeCount, setActiveCount] = useState<number | null>(null);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [banInfo, setBanInfo] = useState<{ instrumentName: string; reason: string | null } | null>(null);
 
   const selectedInstrument = useMemo(
     () => instruments.find((o) => o.id === selectedInstrumentId) ?? null,
@@ -112,7 +113,14 @@ export default function BookPage() {
   useEffect(() => {
     fetch("/api/instruments")
       .then((r) => r.json())
-      .then((data: Instrument[]) => setInstruments(data.filter(i => i.type === "OVEN")))
+      .then((data: Instrument[]) => {
+        const ovens = data.filter(i => i.type === "OVEN");
+        setInstruments(ovens);
+        // Check ban for first oven instrument
+        if (ovens.length > 0) {
+          getMyInstrumentBan(ovens[0].type as any).then((ban) => { if (ban) setBanInfo(ban); });
+        }
+      })
       .catch(() => setError("Failed to load instruments"));
 
     getMyActiveBookingsCount().then(setActiveCount);
@@ -146,6 +154,30 @@ export default function BookPage() {
 
   return (
     <div className="space-y-6 animate-fade-in relative">
+      {/* Ban blocker */}
+      {banInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm px-4">
+          <div className="bg-slate-800 border border-red-500/30 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl animate-toast-in">
+            <div className="h-16 w-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+              <AlertTriangle className="h-8 w-8 text-red-400" />
+            </div>
+            <h2 className="text-xl font-bold text-white mb-2">Access Suspended</h2>
+            <p className="text-slate-400 text-sm mb-2">
+              You have been suspended from booking <strong className="text-red-300">{banInfo.instrumentName}</strong>.
+            </p>
+            {banInfo.reason && (
+              <p className="text-xs text-red-300/80 mb-4 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                Reason: {banInfo.reason}
+              </p>
+            )}
+            <p className="text-xs text-slate-500 mb-6">Contact an administrator for more information.</p>
+            <button onClick={() => router.push("/")} className="w-full py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium transition-colors">
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
+      )}
+
       {showSuccessPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm px-4">
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl animate-toast-in">
