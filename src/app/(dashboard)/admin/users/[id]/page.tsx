@@ -51,20 +51,27 @@ export default async function AdminUserStatsPage({ params }: Props) {
             <h2 className="text-red-300 font-semibold text-sm">Active Instrument Bans</h2>
           </div>
           <div className="grid gap-2">
-            {activeBans.map((ban) => (
-              <div key={ban.id} className="flex items-center justify-between gap-4 bg-slate-900/50 border border-red-500/20 rounded-lg p-3">
-                <div>
-                  <p className="text-sm font-medium text-red-200">{ban.instrument.name}</p>
-                  <p className="text-[11px] text-red-300/70 mt-0.5">
-                    Issued {formatDateTimeWib(ban.createdAt)} by {ban.bannedBy.name}
-                  </p>
-                  {ban.reason && (
-                    <p className="text-xs text-red-300 mt-1">Reason: {ban.reason}</p>
-                  )}
+            {activeBans.map((ban) => {
+              const typeNameMap: Record<string, string> = {
+                OVEN: "Oven",
+                ULTRASONIC_BATH: "Ultrasonic Bath",
+                GLOVEBOX: "Acrylic Glovebox",
+              };
+              return (
+                <div key={ban.id} className="flex items-center justify-between gap-4 bg-slate-900/50 border border-red-500/20 rounded-lg p-3">
+                  <div>
+                    <p className="text-sm font-medium text-red-200">{typeNameMap[ban.instrumentType] || ban.instrumentType}</p>
+                    <p className="text-[11px] text-red-300/70 mt-0.5">
+                      Issued {formatDateTimeWib(ban.createdAt)} by {ban.bannedBy.name}
+                    </p>
+                    {ban.reason && (
+                      <p className="text-xs text-red-300 mt-1">Reason: {ban.reason}</p>
+                    )}
+                  </div>
+                  <LiftBanButton banId={ban.id} />
                 </div>
-                <LiftBanButton banId={ban.id} />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
