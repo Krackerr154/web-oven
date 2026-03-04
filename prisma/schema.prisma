@@ -117,6 +117,9 @@ model User {
   bookingEvents     BookingEvent[] @relation("booking_event_actor")
   instrumentBans    InstrumentBan[]
   issuedBans        InstrumentBan[] @relation("ban_issued_by")
+  reagents          Reagent[]       @relation("reagent_owner")
+  glassware         Glassware[]     @relation("glassware_owner")
+  glasswareLoans    GlasswareLoan[] @relation("glassware_borrower")
 
   @@map("ap_users")
 }
@@ -208,17 +211,76 @@ model InstrumentBan {
 
 model Reagent {
   id          String        @id @default(uuid())
+  customId    String?       @map("custom_id") // Optional explicit identifier like H-OAC_02
   name        String
-  casNumber   String?       @map("cas_number")
-  quantity    String        // e.g., "500ml", "1kg", "250g"
+  brand       String?
+  casNumber   String?       @map("cas_number") // Catalog No
+  quantity    String        // Legacy aggregate
+  size        String?       // Numerical amount
+  unit        String?       // mL, g, L
+  arrivalDate String?       @map("arrival_date") // e.g. 2025/08
+  condition   String?       // unopened, unsealed
   location    String?       // e.g., "Cabinet A", "Fridge 1"
   status      ReagentStatus @default(AVAILABLE)
   notes       String?       @db.Text
+  synonyms    String?       @db.Text // Cached from PubChem API
+  ownerId     String?       @map("owner_id") // Null means Lab Owned
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
+  owner       User?         @relation("reagent_owner", fields: [ownerId], references: [id], onDelete: SetNull)
+
   @@index([name])
+  @@index([ownerId])
   @@map("ap_reagents")
+}
+
+model Glassware {
+  id          String   @id @default(uuid())
+  customId    String?  @map("custom_id") // Optional explicit identifier
+  name        String   // e.g. "Griffin Beaker"
+  type        String   // e.g. "Beaker", "Flask"
+  brand       String?
+  size        String   // e.g. "250"
+  unit        String   // e.g. "mL"
+  quantity    Int      // Total stock count
+  condition   String?  // e.g. "Good", "Chipped", "New"
+  location    String?  // Storage location
+  notes       String?  @db.Text
+  ownerId     String?  @map("owner_id") // Null means Lab Owned
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  owner       User?    @relation("glassware_owner", fields: [ownerId], references: [id], onDelete: SetNull)
+  loans       GlasswareLoan[] @relation("glassware_loaned")
+
+  @@index([name])
+  @@index([type])
+  @@index([ownerId])
+  @@map("ap_glassware")
+}
+
+model GlasswareLoan {
+  id          String     @id @default(uuid())
+  glasswareId String     @map("glassware_id")
+  userId      String     @map("user_id")
+  quantity    Int
+  purpose     String?    @db.Text
+  borrowedAt  DateTime   @default(now()) @map("borrowed_at")
+  returnedAt  DateTime?  @map("returned_at")
+  status      LoanStatus @default(BORROWED)
+
+  glassware   Glassware  @relation("glassware_loaned", fields: [glasswareId], references: [id])
+  user        User       @relation("glassware_borrower", fields: [userId], references: [id])
+
+  @@index([glasswareId])
+  @@index([userId])
+  @@map("ap_glassware_loans")
+}
+
+enum LoanStatus {
+  BORROWED
+  RETURNED
 }
 
 model PasswordResetToken {

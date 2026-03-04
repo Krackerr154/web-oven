@@ -1,5 +1,6 @@
 import { Metadata } from "next";
-import { SearchIcon, FlaskConical } from "lucide-react";
+import { SearchIcon, FlaskConical, Plus } from "lucide-react";
+import Link from "next/link";
 import ReagentSearchClient from "./reagent-search-client";
 
 export const metadata: Metadata = {
@@ -19,6 +20,15 @@ export default function ReagentsPage() {
                         <h1 className="text-2xl font-bold text-white">Chemical Inventory</h1>
                         <p className="text-slate-400 mt-0.5 text-sm">Search the inventory for available chemicals, solvents, and materials</p>
                     </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <Link
+                        href="/reagents/add"
+                        className="px-4 py-2.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
+                    >
+                        <Plus className="h-4 w-4" /> Add Personal Chemical
+                    </Link>
                 </div>
             </div>
 

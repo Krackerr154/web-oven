@@ -1,8 +1,9 @@
 "use server";
 
-import { fetchReagents, Reagent } from "@/lib/sheets";
+import { fetchReagents, Reagent, getSynonyms } from "@/lib/sheets";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import Fuse from "fuse.js";
 
 /**
@@ -10,6 +11,27 @@ import Fuse from "fuse.js";
  */
 function normalizeText(text: string): string {
     return (text || "").toLowerCase().trim();
+}
+
+/**
+ * Fetches synonyms from the public PubChem API
+ * Exposed to client for live-typing debounced fetching
+ */
+export async function fetchPubChemSynonyms(name: string): Promise<string> {
+    try {
+        const url = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(name.trim())}/synonyms/JSON`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) }); // 5 second timeout
+        if (!res.ok) return ""; // Likely not found (404) or rate limited
+
+        const data = await res.json();
+        const synonymsList = data?.InformationList?.Information?.[0]?.Synonym || [];
+
+        // Take the top 10 synonyms and join them
+        return synonymsList.slice(0, 10).join(", ");
+    } catch (error) {
+        console.error(`PubChem fetch error for ${name}:`, error);
+        return "";
+    }
 }
 
 /**
@@ -24,15 +46,51 @@ export async function searchReagents(query: string): Promise<{ success: boolean;
         }
 
         const trimmedQuery = normalizeText(query);
-        const reagents = await fetchReagents();
+
+        // 1. Fetch Google Sheets remote reagents
+        const sheetReagents = await fetchReagents();
+
+        // 2. Fetch local Database reagents (both lab owned and user owned)
+        const dbReagentsRaw = await prisma.reagent.findMany({
+            include: {
+                owner: {
+                    select: {
+                        name: true,
+                        phone: true
+                    }
+                }
+            }
+        });
+
+        // 3. Map DB Reagents to our standard interface
+        const dbReagents: Reagent[] = dbReagentsRaw.map(r => ({
+            id: r.customId || r.id,
+            name: r.name,
+            brand: r.brand || "",
+            catalogNo: r.casNumber || "",
+            arrivalDate: r.arrivalDate || r.createdAt.toISOString().split('T')[0],
+            size: r.size || r.quantity,
+            unit: r.unit || "",
+            notes: [r.condition, r.notes].filter(Boolean).join(" - "),
+            location: r.location || "",
+            searchTags: getSynonyms(r.name) + " " + getSynonyms(r.brand || "") + " " + (r.synonyms || ""),
+            ownershipType: r.ownerId ? "USER" : "LAB",
+            ownerContact: r.owner ? {
+                name: r.owner.name,
+                phone: r.owner.phone
+            } : null
+        }));
+
+        // 4. Combine all sources
+        const combinedReagents = [...sheetReagents, ...dbReagents];
 
         if (!trimmedQuery) {
             // Empty query = return nothing for standard users to prevent browsing
             return { success: true, data: [] };
         }
 
-        // Configure Fuse.js for fuzzy-searching
-        const fuse = new Fuse(reagents, {
+        // Configure Fuse.js for fuzzy-searching across ALL sources
+        const fuse = new Fuse(combinedReagents, {
             keys: [
                 { name: 'name', weight: 1.0 },
                 { name: 'searchTags', weight: 0.8 },
@@ -67,10 +125,114 @@ export async function getAllReagents(): Promise<{ success: boolean; data?: Reage
             return { success: false, message: "Unauthorized. Admin access required." };
         }
 
-        const reagents = await fetchReagents();
-        return { success: true, data: reagents };
+        const sheetReagents = await fetchReagents();
+
+        // Fetch local Database reagents
+        const dbReagentsRaw = await prisma.reagent.findMany({
+            include: {
+                owner: {
+                    select: {
+                        name: true,
+                        phone: true
+                    }
+                }
+            }
+        });
+
+        // Map DB Reagents
+        const dbReagents: Reagent[] = dbReagentsRaw.map(r => ({
+            id: r.customId || r.id,
+            name: r.name,
+            brand: r.brand || "",
+            catalogNo: r.casNumber || "",
+            arrivalDate: r.arrivalDate || r.createdAt.toISOString().split('T')[0],
+            size: r.size || r.quantity,
+            unit: r.unit || "",
+            notes: [r.condition, r.notes].filter(Boolean).join(" - "),
+            location: r.location || "",
+            searchTags: getSynonyms(r.name) + " " + getSynonyms(r.brand || "") + " " + (r.synonyms || ""),
+            ownershipType: r.ownerId ? "USER" : "LAB",
+            ownerContact: r.owner ? {
+                name: r.owner.name,
+                phone: r.owner.phone
+            } : null
+        }));
+
+        const combinedReagents = [...sheetReagents, ...dbReagents];
+
+        return { success: true, data: combinedReagents };
     } catch (error) {
         console.error("Error fetching all reagents:", error);
+        return { success: false, message: "Internal server error" };
+    }
+}
+
+/**
+ * Add a new lab-owned chemical to the database (Admin only)
+ */
+export async function addLabChemical(data: { customId?: string, name: string, brand?: string, catalogNo?: string, arrivalDate?: string, size: string, unit: string, condition?: string, location?: string, notes?: string, synonyms?: string }): Promise<{ success: boolean; message?: string }> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user || session.user.role !== "ADMIN") {
+            return { success: false, message: "Unauthorized. Admin access required." };
+        }
+
+        const newChemical = await prisma.reagent.create({
+            data: {
+                customId: data.customId || null,
+                name: data.name,
+                brand: data.brand || null,
+                casNumber: data.catalogNo || null,
+                arrivalDate: data.arrivalDate || null,
+                quantity: `${data.size} ${data.unit}`.trim(),
+                size: data.size,
+                unit: data.unit,
+                condition: data.condition || null,
+                location: data.location || null,
+                notes: data.notes || null,
+                synonyms: data.synonyms || null,
+                ownerId: null, // Explicitly null for lab-owned
+            }
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error("Error adding lab chemical:", error);
+        return { success: false, message: "Internal server error" };
+    }
+}
+
+/**
+ * Add a new user-owned chemical to the database (Any signed-in user)
+ */
+export async function addUserChemical(data: { customId?: string, name: string, brand?: string, catalogNo?: string, arrivalDate?: string, size: string, unit: string, condition?: string, location?: string, notes?: string, synonyms?: string }): Promise<{ success: boolean; message?: string }> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return { success: false, message: "Unauthorized." };
+        }
+
+        const newChemical = await prisma.reagent.create({
+            data: {
+                customId: data.customId || null,
+                name: data.name,
+                brand: data.brand || null,
+                casNumber: data.catalogNo || null,
+                arrivalDate: data.arrivalDate || null,
+                quantity: `${data.size} ${data.unit}`.trim(),
+                size: data.size,
+                unit: data.unit,
+                condition: data.condition || null,
+                location: data.location || null,
+                notes: data.notes || null,
+                synonyms: data.synonyms || null,
+                ownerId: session.user.id, // Explicitly tied to the requesting user
+            }
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error("Error adding user chemical:", error);
         return { success: false, message: "Internal server error" };
     }
 }

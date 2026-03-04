@@ -20,21 +20,24 @@ import {
   Search,
   Settings2,
   FlaskConical,
+  ShieldAlert,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const userNav = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
-  { label: "Instruments", href: "/instruments", icon: Beaker },
+  { label: "Instruments", href: "/instruments", icon: FlaskConical }, // Slightly changed icons distinct from glassware
   { label: "Chemical Inventory", href: "/reagents", icon: FlaskConical },
+  { label: "Glassware Inventory", href: "/glassware", icon: Beaker },
   { label: "My Bookings", href: "/my-bookings", icon: CalendarDays },
 ];
 
 const adminNav = [
-  { label: "Manage Users", href: "/admin/users", icon: Users },
   { label: "Chemical Inventory", href: "/admin/reagents", icon: FlaskConical },
+  { label: "Lab Glassware", href: "/admin/glassware", icon: Beaker },
   { label: "All Bookings", href: "/admin/bookings", icon: ListChecks },
   { label: "Instrument Settings", href: "/admin/instruments", icon: Settings },
+  { label: "Danger Zone", href: "/admin/danger", icon: ShieldAlert },
 ];
 
 export function Sidebar() {

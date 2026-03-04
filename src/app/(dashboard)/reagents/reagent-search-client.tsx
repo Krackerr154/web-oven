@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { Search, Loader2, FlaskConical, MapPin, Package, Hash, Zap } from "lucide-react";
+import { Search, Loader2, FlaskConical, MapPin, Package, Hash, Zap, User, Building2, MessageSquare } from "lucide-react";
 import { searchReagents } from "@/app/actions/reagents";
 import { useDebounce } from "use-debounce";
 import type { Reagent } from "@/lib/sheets";
@@ -77,10 +77,19 @@ export default function ReagentSearchClient() {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {results.map((reagent) => (
                                     <div key={reagent.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 hover:border-purple-500/30 transition-colors group">
-                                        <div className="flex items-start justify-between mb-3">
+                                        <div className="flex items-start justify-between mb-3 gap-2">
                                             <h4 className="font-bold text-white text-lg leading-tight group-hover:text-purple-300 transition-colors">
                                                 {reagent.name}
                                             </h4>
+                                            {reagent.ownershipType === "LAB" ? (
+                                                <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 px-2 py-1 rounded-full border border-blue-500/20">
+                                                    <Building2 className="h-3 w-3" /> Lab Owned
+                                                </span>
+                                            ) : (
+                                                <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-full border border-emerald-500/20">
+                                                    <User className="h-3 w-3" /> User Owned
+                                                </span>
+                                            )}
                                         </div>
 
                                         <div className="space-y-2 text-sm">
@@ -114,6 +123,30 @@ export default function ReagentSearchClient() {
                                                 <div className="mt-2 text-xs italic text-slate-500 bg-slate-900/50 p-2 rounded border border-slate-800">
                                                     Note: {reagent.notes}
                                                 </div>
+                                            )}
+                                        </div>
+
+                                        <div className="mt-4 pt-4 border-t border-slate-700/50">
+                                            {reagent.ownershipType === "LAB" ? (
+                                                <a
+                                                    href={`https://wa.me/6281234567890?text=Hi Admin, I need to request some ${reagent.name} from the Lab Inventory.`}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-emerald-600 border border-slate-700 hover:border-emerald-500 text-slate-300 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                                                >
+                                                    <MessageSquare className="h-4 w-4" /> Request from Admin
+                                                </a>
+                                            ) : (
+                                                <a
+                                                    href={reagent.ownerContact?.phone ? `https://wa.me/${reagent.ownerContact.phone.replace(/\D/g, '')}?text=Hi ${reagent.ownerContact.name}, can I borrow some of your ${reagent.name}?` : "#"}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className={`w-full flex items-center justify-center gap-2 ${reagent.ownerContact?.phone ? "bg-slate-800 hover:bg-emerald-600 border border-slate-700 hover:border-emerald-500 text-slate-300 hover:text-white" : "bg-slate-800/50 border border-slate-800 text-slate-500 cursor-not-allowed"} px-3 py-2 rounded-lg text-sm font-medium transition-all`}
+                                                    onClick={(e) => { if (!reagent.ownerContact?.phone) e.preventDefault(); }}
+                                                >
+                                                    <MessageSquare className="h-4 w-4" />
+                                                    {reagent.ownerContact ? `Contact ${reagent.ownerContact.name}` : "Owner Contact Unavailable"}
+                                                </a>
                                             )}
                                         </div>
                                     </div>

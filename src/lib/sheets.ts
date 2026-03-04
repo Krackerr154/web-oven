@@ -14,6 +14,13 @@ export interface Reagent {
     notes: string;       // Keterangan
     location: string;    // Posisi
     searchTags: string;  // Derived synonyms for Fuse.js searching
+
+    // Hybrid Database properties
+    ownershipType: "LAB" | "USER";
+    ownerContact: {
+        name: string;
+        phone: string;
+    } | null;
 }
 
 // ── Hardcoded Synonym Dictionary for Chemistry ───────────────────────────
@@ -40,7 +47,7 @@ const synonymDictionary: Record<string, string[]> = {
 /**
  * Normalizes text to lowercase and checks if it matches any known synonyms
  */
-function getSynonyms(text: string): string {
+export function getSynonyms(text: string): string {
     if (!text) return "";
     const lower = text.toLowerCase();
     const tags = new Set<string>();
@@ -103,6 +110,8 @@ export async function fetchReagents(): Promise<Reagent[]> {
                     notes: row["Keterangan"] || "",
                     location: row["Posisi"] || "",
                     searchTags: getSynonyms(name) + " " + getSynonyms(brand),
+                    ownershipType: "LAB" as const,
+                    ownerContact: null, // Will be filled by the backend if needed, or left null for Admin
                 };
             });
 

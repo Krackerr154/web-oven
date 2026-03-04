@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { getAllReagents } from "@/app/actions/reagents";
-import { FlaskConical, AlertCircle, RefreshCw, Plus, Package, MapPin, Hash } from "lucide-react";
+import { FlaskConical, AlertCircle, RefreshCw, Plus, Package, MapPin, Hash, Database } from "lucide-react";
+import Link from "next/link";
 
 export const metadata: Metadata = {
     title: "Manage Chemical Inventory | Admin",
@@ -36,22 +37,18 @@ export default async function AdminReagentsPage() {
                     <div>
                         <h1 className="text-2xl font-bold text-white">Manage Chemical Inventory</h1>
                         <p className="text-slate-400 mt-0.5 text-sm">
-                            View the complete lab catalog synced directly from Google Sheets.
+                            View the complete lab catalog synced directly from Google Sheets and the Local Database.
                         </p>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button
-                        type="button"
-                        className="px-4 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20 opacity-50 cursor-not-allowed group relative"
-                        title="Management is currently handled directly in Google Sheets"
+                    <Link
+                        href="/admin/reagents/add"
+                        className="px-4 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20"
                     >
                         <Plus className="h-4 w-4" /> Add Chemical
-                        <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-800 text-xs rounded text-white opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity">
-                            Edit in Google Sheets
-                        </span>
-                    </button>
+                    </Link>
                 </div>
             </div>
 

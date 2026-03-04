@@ -81,18 +81,18 @@ export default async function DashboardPage() {
         </Link>
 
         {currentUser?.role === "ADMIN" ? (
-          <Link href="/admin/users" className="group relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/50 p-6 transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-purple-500/10">
+          <Link href="/admin/glassware" className="group relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/50 p-6 transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-purple-500/10">
             <div className="absolute right-0 top-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-purple-500/10 blur-2xl transition-all group-hover:bg-purple-500/20" />
             <div className="relative flex items-center justify-between">
               <div className="rounded-xl bg-purple-500/20 p-3 text-purple-400">
-                <Users className="h-6 w-6" />
+                <Beaker className="h-6 w-6" />
               </div>
               <ArrowRight className="h-5 w-5 text-slate-500 transition-transform group-hover:translate-x-1 group-hover:text-white" />
             </div>
             <div className="mt-6">
-              <h3 className="text-xl font-semibold text-white">User Management</h3>
+              <h3 className="text-xl font-semibold text-white">Lab Glassware</h3>
               <p className="mt-2 text-sm text-slate-400">
-                Manage lab members, approve accounts, and configure permissions.
+                Search the lab glassware inventory and log new items.
               </p>
             </div>
           </Link>
@@ -153,9 +153,9 @@ export default async function DashboardPage() {
                 <div className="flex items-start justify-between mb-5">
                   <div className="flex gap-4">
                     <div className={`p-3 rounded-xl transition-colors ${booking.instrument.type === 'OVEN' ? 'bg-orange-500/10 text-orange-400 group-hover:bg-orange-500/20' :
-                        booking.instrument.type === 'ULTRASONIC_BATH' ? 'bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20' :
-                          booking.instrument.type === 'GLOVEBOX' ? 'bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20' :
-                            'bg-blue-500/10 text-blue-400 group-hover:bg-blue-500/20'
+                      booking.instrument.type === 'ULTRASONIC_BATH' ? 'bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20' :
+                        booking.instrument.type === 'GLOVEBOX' ? 'bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20' :
+                          'bg-blue-500/10 text-blue-400 group-hover:bg-blue-500/20'
                       }`}>
                       {booking.instrument.type === 'OVEN' ? <ThermometerSun className="h-6 w-6" /> :
                         booking.instrument.type === 'ULTRASONIC_BATH' ? <Waves className="h-6 w-6" /> :
