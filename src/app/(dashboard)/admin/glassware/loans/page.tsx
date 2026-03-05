@@ -9,12 +9,15 @@ export const metadata: Metadata = {
 
 export default async function AdminActiveLoansPage() {
     const activeLoans = await prisma.glasswareLoan.findMany({
-        where: { status: "BORROWED" },
+        where: { status: { in: ["PENDING_BORROW", "BORROWED", "PENDING_RETURN"] } },
         include: {
             glassware: true,
             user: { select: { name: true, email: true } }
         },
-        orderBy: { borrowedAt: "desc" }
+        orderBy: [
+            { status: "asc" }, // Groups by status (BORROWED, PENDING_BORROW, PENDING_RETURN)
+            { borrowedAt: "desc" }
+        ]
     });
 
     return (
@@ -25,7 +28,7 @@ export default async function AdminActiveLoansPage() {
                         Active Loans
                     </h1>
                     <p className="text-slate-400 mt-2 text-sm leading-relaxed max-w-2xl">
-                        Monitor all currently borrowed glassware. Administrators can use the Force Return feature if items are not returned on time.
+                        Monitor active glassware loans, approve borrow requests, and confirm inspections for returned items.
                     </p>
                 </div>
             </div>

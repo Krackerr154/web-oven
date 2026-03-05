@@ -26,6 +26,7 @@ export type GlasswareItem = {
         quantity: number;
         purpose: string | null;
         borrowedAt: Date;
+        status: string;
         user: { name: string | null; email: string };
     }[];
     updatedAt: Date;
@@ -42,7 +43,7 @@ export async function getAllGlassware(query?: string): Promise<GlasswareItem[]> 
                     select: { name: true, phone: true }
                 },
                 loans: {
-                    where: { status: "BORROWED" },
+                    where: { status: { in: ["PENDING_BORROW", "BORROWED", "PENDING_RETURN"] } },
                     include: {
                         user: { select: { name: true, email: true } }
                     }
@@ -74,6 +75,7 @@ export async function getAllGlassware(query?: string): Promise<GlasswareItem[]> 
                     quantity: l.quantity,
                     purpose: l.purpose,
                     borrowedAt: l.borrowedAt,
+                    status: l.status,
                     user: {
                         name: l.user.name,
                         email: l.user.email
@@ -234,7 +236,7 @@ export async function borrowGlassware(glasswareId: string, quantity: number, pur
         // 1. Verify Glassware exists and is Lab Owned
         const item = await prisma.glassware.findUnique({
             where: { id: glasswareId },
-            include: { loans: { where: { status: "BORROWED" } } }
+            include: { loans: { where: { status: { in: ["PENDING_BORROW", "BORROWED", "PENDING_RETURN"] } } } }
         });
 
         if (!item) return { success: false, message: "Glassware not found." };
@@ -258,7 +260,7 @@ export async function borrowGlassware(glasswareId: string, quantity: number, pur
                 userId: session.user.id,
                 quantity,
                 purpose,
-                status: "BORROWED"
+                status: "PENDING_BORROW"
             }
         });
 
@@ -292,7 +294,7 @@ export async function borrowMultipleGlassware(
         // 1. Fetch all requested items to verify availability
         const dbItems = await prisma.glassware.findMany({
             where: { id: { in: items.map(i => i.id) } },
-            include: { loans: { where: { status: "BORROWED" } } }
+            include: { loans: { where: { status: { in: ["PENDING_BORROW", "BORROWED", "PENDING_RETURN"] } } } }
         });
 
         if (dbItems.length !== items.length) {
@@ -329,7 +331,7 @@ export async function borrowMultipleGlassware(
                         userId: session.user.id,
                         quantity: reqItem.quantity,
                         purpose: reqItem.purpose,
-                        status: "BORROWED"
+                        status: "PENDING_BORROW"
                     }
                 })
             )
@@ -347,12 +349,45 @@ export async function borrowMultipleGlassware(
 }
 
 /**
- * Return Borrowed Glassware (Handles Partial/Broken Returns)
+ * User Request to Return Glassware
  */
-export async function returnGlassware(loanId: string, returnedQty: number, brokenQty: number): Promise<{ success: boolean; message?: string }> {
+export async function requestReturnGlassware(loanId: string): Promise<{ success: boolean; message?: string }> {
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user) {
+            return { success: false, message: "Unauthorized." };
+        }
+
+        const loan = await prisma.glasswareLoan.findUnique({ where: { id: loanId } });
+
+        if (!loan) return { success: false, message: "Loan record not found." };
+        if (loan.userId !== session.user.id && session.user.role !== "ADMIN") {
+            return { success: false, message: "Unauthorized. You did not borrow this item." };
+        }
+        if (loan.status !== "BORROWED") return { success: false, message: "Only actively borrowed items can be requested to return." };
+
+        await prisma.glasswareLoan.update({
+            where: { id: loanId },
+            data: { status: "PENDING_RETURN" }
+        });
+
+        revalidatePath("/glassware");
+        revalidatePath("/glassware/borrowed");
+        revalidatePath("/admin/glassware/loans");
+        return { success: true };
+    } catch (error) {
+        console.error("Error requesting return:", error);
+        return { success: false, message: "Internal server error." };
+    }
+}
+
+/**
+ * Admin Confirm Return Glassware (Handles Partial/Broken Returns)
+ */
+export async function confirmReturnGlassware(loanId: string, returnedQty: number, brokenQty: number): Promise<{ success: boolean; message?: string }> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user || session.user.role !== "ADMIN") {
             return { success: false, message: "Unauthorized." };
         }
 
@@ -362,9 +397,6 @@ export async function returnGlassware(loanId: string, returnedQty: number, broke
         });
 
         if (!loan) return { success: false, message: "Loan record not found." };
-        if (loan.userId !== session.user.id && session.user.role !== "ADMIN") {
-            return { success: false, message: "Unauthorized. You did not borrow this item." };
-        }
         if (loan.status === "RETURNED") return { success: false, message: "Already returned." };
 
         const totalAccounted = returnedQty + brokenQty;
@@ -399,11 +431,73 @@ export async function returnGlassware(loanId: string, returnedQty: number, broke
 
         revalidatePath("/glassware");
         revalidatePath("/glassware/borrowed");
+        revalidatePath("/admin/glassware/loans");
         revalidatePath("/admin/glassware");
 
         return { success: true };
     } catch (error) {
         console.error("Error returning glassware:", error);
+        return { success: false, message: "Internal server error." };
+    }
+}
+
+/**
+ * Admin Approve Borrow Request
+ */
+export async function approveBorrow(loanId: string): Promise<{ success: boolean; message?: string }> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user || session.user.role !== "ADMIN") {
+            return { success: false, message: "Unauthorized." };
+        }
+
+        const loan = await prisma.glasswareLoan.findUnique({ where: { id: loanId } });
+        if (!loan) return { success: false, message: "Loan record not found." };
+        if (loan.status !== "PENDING_BORROW") return { success: false, message: "Only pending borrow requests can be approved." };
+
+        await prisma.glasswareLoan.update({
+            where: { id: loanId },
+            data: { status: "BORROWED" }
+        });
+
+        revalidatePath("/glassware");
+        revalidatePath("/glassware/borrowed");
+        revalidatePath("/admin/glassware/loans");
+        return { success: true };
+    } catch (error) {
+        console.error("Error approving borrow:", error);
+        return { success: false, message: "Internal server error." };
+    }
+}
+
+/**
+ * Admin Reject Borrow Request
+ */
+export async function rejectBorrow(loanId: string, reason?: string): Promise<{ success: boolean; message?: string }> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user || session.user.role !== "ADMIN") {
+            return { success: false, message: "Unauthorized." };
+        }
+
+        const loan = await prisma.glasswareLoan.findUnique({ where: { id: loanId } });
+        if (!loan) return { success: false, message: "Loan record not found." };
+        if (loan.status !== "PENDING_BORROW") return { success: false, message: "Only pending borrow requests can be rejected." };
+
+        await prisma.glasswareLoan.update({
+            where: { id: loanId },
+            data: {
+                status: "REJECTED",
+                purpose: reason ? `Rejected: ${reason}` : loan.purpose
+            }
+        });
+
+        revalidatePath("/glassware");
+        revalidatePath("/glassware/borrowed");
+        revalidatePath("/admin/glassware/loans");
+        return { success: true };
+    } catch (error) {
+        console.error("Error rejecting borrow:", error);
         return { success: false, message: "Internal server error." };
     }
 }

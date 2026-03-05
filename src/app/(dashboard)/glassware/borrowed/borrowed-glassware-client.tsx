@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Beaker, Calendar, Clock, RotateCcw, Loader2, ArrowLeft, AlertCircle } from "lucide-react";
-import { returnGlassware } from "@/app/actions/glassware";
+import { requestReturnGlassware } from "@/app/actions/glassware";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,7 @@ type LoanItem = {
     quantity: number;
     purpose: string | null;
     borrowedAt: Date;
+    status: string;
     glassware: {
         name: string;
         type: string;
@@ -57,20 +58,15 @@ export default function BorrowedGlasswareClient({ loans }: { loans: LoanItem[] }
     const submitReturn = async () => {
         if (!returnModal.loan) return;
 
-        if (returnedQty + brokenQty !== returnModal.loan.quantity) {
-            toast.error(`Total returned must equal exactly ${returnModal.loan.quantity}`);
-            return;
-        }
-
         setReturningId(returnModal.loan.id);
         try {
-            const res = await returnGlassware(returnModal.loan.id, returnedQty, brokenQty);
+            const res = await requestReturnGlassware(returnModal.loan.id);
             if (res.success) {
-                toast.success(`Successfully returned ${returnModal.loan.glassware.name}!`);
+                toast.success(`Successfully requested return for ${returnModal.loan.glassware.name}!`);
                 setReturnModal({ isOpen: false, loan: null });
                 router.refresh();
             } else {
-                toast.error(res.message || "Failed to return item.");
+                toast.error(res.message || "Failed to request return.");
             }
         } catch (error) {
             toast.error("An unexpected error occurred.");
@@ -85,59 +81,10 @@ export default function BorrowedGlasswareClient({ loans }: { loans: LoanItem[] }
             {returnModal.isOpen && returnModal.loan && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                     <div className="bg-slate-900 border border-slate-700/50 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-                        <h2 className="text-xl font-bold text-white mb-2">Return Glassware</h2>
+                        <h2 className="text-xl font-bold text-white mb-2">Request Return</h2>
                         <p className="text-slate-400 mb-6 text-sm">
-                            Returning <strong className="text-white">{returnModal.loan.quantity}x {returnModal.loan.glassware.name}</strong>. Please specify the condition of the items you are returning.
+                            You are requesting to return <strong className="text-white">{returnModal.loan.quantity}x {returnModal.loan.glassware.name}</strong>. Please bring the items to the lab admin for inspection.
                         </p>
-
-                        <div className="space-y-4 mb-6">
-                            <div>
-                                <label className="block text-sm font-medium text-emerald-400 mb-1">
-                                    Intact & Clean Quantity
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max={returnModal.loan.quantity}
-                                    value={returnedQty}
-                                    onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        setReturnedQty(val);
-                                    }}
-                                    className="w-full bg-slate-950 border border-slate-700/50 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-red-400 mb-1 gap-2 flex items-center">
-                                    Broken / Lost Quantity
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max={returnModal.loan.quantity}
-                                    value={brokenQty}
-                                    onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        setBrokenQty(val);
-                                    }}
-                                    className="w-full bg-slate-950 border border-slate-700/50 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all"
-                                />
-                                {brokenQty > 0 && (
-                                    <p className="text-xs text-red-400 mt-2 flex items-start gap-1.5">
-                                        <AlertCircle className="h-4 w-4 shrink-0" />
-                                        These items will be permanently deducted from the lab's inventory.
-                                    </p>
-                                )}
-                            </div>
-
-                            {returnedQty + brokenQty !== returnModal.loan.quantity && (
-                                <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg text-orange-400 text-sm flex items-start gap-2">
-                                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                                    <span>Quantities must add up to exactly {returnModal.loan.quantity}. Currently: {returnedQty + brokenQty}</span>
-                                </div>
-                            )}
-                        </div>
 
                         <div className="flex gap-3 justify-end pt-2 border-t border-slate-700/50">
                             <button
@@ -148,16 +95,16 @@ export default function BorrowedGlasswareClient({ loans }: { loans: LoanItem[] }
                             </button>
                             <button
                                 onClick={submitReturn}
-                                disabled={returningId !== null || returnedQty + brokenQty !== returnModal.loan.quantity}
+                                disabled={returningId !== null}
                                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors font-medium text-sm"
                             >
                                 {returningId !== null ? (
                                     <>
                                         <Loader2 className="h-4 w-4 animate-spin" />
-                                        Processing...
+                                        Requesting...
                                     </>
                                 ) : (
-                                    "Confirm Return"
+                                    "Confirm Return Request"
                                 )}
                             </button>
                         </div>
@@ -203,9 +150,26 @@ export default function BorrowedGlasswareClient({ loans }: { loans: LoanItem[] }
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
                                         <div className="flex flex-col mb-1 gap-1">
-                                            <span className="w-fit px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                                                Active Loan
-                                            </span>
+                                            {loan.status === "PENDING_BORROW" && (
+                                                <span className="w-fit px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                    Pending Approval
+                                                </span>
+                                            )}
+                                            {loan.status === "BORROWED" && (
+                                                <span className="w-fit px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                    Active Loan
+                                                </span>
+                                            )}
+                                            {loan.status === "PENDING_RETURN" && (
+                                                <span className="w-fit px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                                    Pending Inspection
+                                                </span>
+                                            )}
+                                            {loan.status === "REJECTED" && (
+                                                <span className="w-fit px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                                    Rejected
+                                                </span>
+                                            )}
                                             {loan.glassware.customId && (
                                                 <span className="text-xs font-mono text-slate-500">ID: {loan.glassware.customId}</span>
                                             )}
@@ -247,15 +211,29 @@ export default function BorrowedGlasswareClient({ loans }: { loans: LoanItem[] }
                                 </div>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={() => openReturnModal(loan)}
-                                disabled={returningId === loan.id}
-                                className="mt-6 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600/10 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-lg transition-all font-medium border border-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed group/btn"
-                            >
-                                <RotateCcw className="h-5 w-5 transition-transform group-hover/btn:-rotate-90" />
-                                <span>Return Glassware</span>
-                            </button>
+                            {loan.status === "BORROWED" && (
+                                <button
+                                    type="button"
+                                    onClick={() => openReturnModal(loan)}
+                                    disabled={returningId === loan.id}
+                                    className="mt-6 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600/10 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-lg transition-all font-medium border border-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed group/btn"
+                                >
+                                    <RotateCcw className="h-5 w-5 transition-transform group-hover/btn:-rotate-90" />
+                                    <span>Request Return</span>
+                                </button>
+                            )}
+                            {loan.status === "PENDING_BORROW" && (
+                                <div className="mt-6 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-400 text-sm flex items-start justify-center gap-2">
+                                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                                    <span>Waiting for admin to issue equipment.</span>
+                                </div>
+                            )}
+                            {loan.status === "PENDING_RETURN" && (
+                                <div className="mt-6 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg text-purple-400 text-sm flex items-start justify-center gap-2">
+                                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                                    <span>Waiting for admin inspection.</span>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>

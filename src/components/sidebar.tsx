@@ -22,14 +22,22 @@ import {
   FlaskConical,
   ShieldAlert,
   ClipboardList,
+  Megaphone,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const userNavGroups = [
   {
-    title: "Dashboard",
+    title: "Main",
     items: [
       { label: "Overview", href: "/", icon: LayoutDashboard },
+      { label: "Announcements", href: "/announcements", icon: Megaphone },
+    ],
+  },
+  {
+    title: "Laboratory",
+    items: [
+      { label: "Instruments", href: "/instruments", icon: Settings2 },
       { label: "My Bookings", href: "/my-bookings", icon: CalendarDays },
     ],
   },
@@ -40,34 +48,23 @@ const userNavGroups = [
       { label: "Glassware", href: "/glassware", icon: Beaker },
     ],
   },
-  {
-    title: "Laboratory",
-    items: [
-      { label: "Instruments", href: "/instruments", icon: FlaskConical }, // Slightly changed icons distinct from glassware
-    ],
-  },
 ];
 
 const adminNavGroups = [
   {
-    title: "Admin Tools",
+    title: "Management",
     items: [
-      { label: "All Bookings", href: "/admin/bookings", icon: ListChecks },
-      { label: "Instrument Settings", href: "/admin/instruments", icon: Settings },
+      { label: "Users", href: "/admin/users", icon: Users },
+      { label: "Bookings", href: "/admin/bookings", icon: ListChecks },
+      { label: "Instruments", href: "/admin/instruments", icon: Settings },
     ],
   },
   {
-    title: "Admin Inventory",
+    title: "Inventory Control",
     items: [
-      { label: "Chemical Stock", href: "/admin/reagents", icon: FlaskConical },
-      { label: "Glassware Stock", href: "/admin/glassware", icon: Beaker },
-      { label: "Active Loans", href: "/admin/glassware/loans", icon: ClipboardList },
-    ],
-  },
-  {
-    title: "System",
-    items: [
-      { label: "Danger Zone", href: "/admin/danger", icon: ShieldAlert },
+      { label: "Chemicals", href: "/admin/reagents", icon: FlaskConical },
+      { label: "Glassware", href: "/admin/glassware", icon: Beaker },
+      { label: "Loans", href: "/admin/glassware/loans", icon: ClipboardList },
     ],
   },
 ];
@@ -106,8 +103,8 @@ export function Sidebar() {
               id={item.href === "/book" ? "tour-book" : undefined}
               onClick={() => setMobileOpen(false)}
               className={`group flex items-center gap-3 px-3 py-2.5 rounded-r-lg text-sm font-medium transition-all duration-200 ${isActive
-                  ? "bg-gradient-to-r from-orange-500/20 to-orange-500/0 text-orange-300 shadow-[0_0_15px_rgba(249,115,22,0.1)] border-l-2 border-orange-500"
-                  : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:pl-4 border-l-2 border-transparent"
+                ? "bg-gradient-to-r from-orange-500/20 to-orange-500/0 text-orange-300 shadow-[0_0_15px_rgba(249,115,22,0.1)] border-l-2 border-orange-500"
+                : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:pl-4 border-l-2 border-transparent"
                 }`}
             >
               <item.icon className="h-4 w-4 transition-transform group-hover:scale-110" />

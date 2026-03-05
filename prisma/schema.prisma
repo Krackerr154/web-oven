@@ -120,6 +120,8 @@ model User {
   reagents          Reagent[]       @relation("reagent_owner")
   glassware         Glassware[]     @relation("glassware_owner")
   glasswareLoans    GlasswareLoan[] @relation("glassware_borrower")
+  announcements     Announcement[]
+  reactions         Reaction[]
 
   @@map("ap_users")
 }
@@ -279,8 +281,11 @@ model GlasswareLoan {
 }
 
 enum LoanStatus {
+  PENDING_BORROW
   BORROWED
+  PENDING_RETURN
   RETURNED
+  REJECTED
 }
 
 model PasswordResetToken {
@@ -303,4 +308,40 @@ model EmailOtp {
 
   @@index([email])
   @@map("ap_email_otps")
+}
+
+model Announcement {
+  id          String     @id @default(uuid())
+  title       String
+  content     String     @db.Text
+  isPinned    Boolean    @default(false) @map("is_pinned")
+  
+  authorId    String     @map("author_id")
+  author      User       @relation(fields: [authorId], references: [id])
+  
+  reactions   Reaction[]
+  
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  @@map("ap_announcements")
+}
+
+model Reaction {
+  id             String       @id @default(uuid())
+  type           String       // e.g., "LIKE", "HEART", "CELEBRATE", etc.
+  
+  announcementId String       @map("announcement_id")
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  
+  userId         String       @map("user_id")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  // Ensure a user can only leave a specific type of reaction once per announcement
+  @@unique([announcementId, userId, type])
+  @@index([announcementId])
+  @@index([userId])
+  @@map("ap_reactions")
 }

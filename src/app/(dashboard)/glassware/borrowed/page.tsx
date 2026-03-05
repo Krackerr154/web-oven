@@ -20,14 +20,15 @@ export default async function BorrowedGlasswarePage() {
     const activeLoans = await prisma.glasswareLoan.findMany({
         where: {
             userId: session.user.id,
-            status: "BORROWED"
+            status: { in: ["PENDING_BORROW", "BORROWED", "PENDING_RETURN", "REJECTED"] }
         },
         include: {
             glassware: true
         },
-        orderBy: {
-            borrowedAt: "desc"
-        }
+        orderBy: [
+            { status: "asc" },
+            { borrowedAt: "desc" }
+        ]
     });
 
     // Map to a format suitable for the client component
@@ -36,6 +37,7 @@ export default async function BorrowedGlasswarePage() {
         quantity: loan.quantity,
         purpose: loan.purpose,
         borrowedAt: loan.borrowedAt,
+        status: loan.status,
         glassware: {
             name: loan.glassware.name,
             type: loan.glassware.type,
