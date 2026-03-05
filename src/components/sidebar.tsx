@@ -21,6 +21,7 @@ import {
   Settings2,
   FlaskConical,
   ShieldAlert,
+  ClipboardList,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -35,6 +36,7 @@ const userNav = [
 const adminNav = [
   { label: "Chemical Inventory", href: "/admin/reagents", icon: FlaskConical },
   { label: "Lab Glassware", href: "/admin/glassware", icon: Beaker },
+  { label: "Active Loans", href: "/admin/glassware/loans", icon: ClipboardList },
   { label: "All Bookings", href: "/admin/bookings", icon: ListChecks },
   { label: "Instrument Settings", href: "/admin/instruments", icon: Settings },
   { label: "Danger Zone", href: "/admin/danger", icon: ShieldAlert },

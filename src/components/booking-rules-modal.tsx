@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, ReactNode } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/dialog";
 import { BookOpen, CheckCircle2, ShieldAlert, Clock, AlertTriangle, FileText, Waves, Droplets, Thermometer } from "lucide-react";
 
@@ -98,7 +98,7 @@ function GloveboxRules() {
             <RuleRow icon={<FileText className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />}>
                 <h4 className="font-medium text-slate-200 text-sm">1. Digital Logbook Only</h4>
                 <p className="text-sm text-slate-400 mt-1">
-                    Silahkan mengisi logbook online form ini saat menggunakan glovebox. There is no physical logbook. Bookings must be submitted before usage.
+                    Please fill out this online logbook form when using the glovebox. There is no physical logbook. Bookings must be submitted before usage.
                 </p>
             </RuleRow>
 
@@ -112,21 +112,21 @@ function GloveboxRules() {
             <RuleRow icon={<Droplets className="h-5 w-5 text-sky-400 shrink-0 mt-0.5" />}>
                 <h4 className="font-medium text-slate-200 text-sm">3. Cleanliness is Mandatory</h4>
                 <p className="text-sm text-slate-400 mt-1">
-                    Mohon selalu menjaga kebersihan ruangan di dalam glovebox. Do <strong>not</strong> leave glassware, spatulas, tissues, samples, or trash inside.
+                    Please always keep the workspace inside the glovebox clean. Do <strong>not</strong> leave glassware, spatulas, tissues, samples, or trash inside.
                 </p>
             </RuleRow>
 
             <RuleRow icon={<AlertTriangle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />}>
                 <h4 className="font-medium text-slate-200 text-sm">4. No Storage Allowed</h4>
                 <p className="text-sm text-slate-400 mt-1">
-                    <strong>Tidak</strong> menyimpan larutan atau pelarut apapun di dalam glovebox. Do not use the glovebox for storage.
+                    <strong>Do not</strong> store any solutions or solvents inside the glovebox. Do not use the glovebox for storage.
                 </p>
             </RuleRow>
 
             <RuleRow icon={<Waves className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />}>
                 <h4 className="font-medium text-slate-200 text-sm">5. Turn Off Nitrogen</h4>
                 <p className="text-sm text-slate-400 mt-1">
-                    Jangan lupa <strong>mematikan suplai gas nitrogen</strong> setelah selesai digunakan. Logging your flow rate and duration is also required.
+                    Do not forget to <strong>shut off the nitrogen gas supply</strong> after you are done. Logging your flow rate and duration is also required.
                 </p>
             </RuleRow>
 
@@ -142,7 +142,7 @@ function GloveboxRules() {
 
 // ─── Shared layout ────────────────────────────────────────────────────────────
 
-function RuleRow({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+function RuleRow({ icon, children }: { icon: ReactNode; children: ReactNode }) {
     return (
         <div className="flex items-start gap-3 p-3 bg-slate-900/50 rounded-lg border border-slate-700/50">
             {icon}
@@ -195,10 +195,10 @@ export function BookingRulesModal({ id, variant = "oven" }: { id?: string; varia
                 onClick={() => setOpen(true)}
                 type="button"
                 className={`text-sm flex items-center gap-2 px-3 py-2 ${variant === "ultrasonic"
-                        ? "bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20"
-                        : variant === "glovebox"
-                            ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20"
-                            : "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20"
+                    ? "bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20"
+                    : variant === "glovebox"
+                        ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20"
+                        : "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20"
                     } rounded-lg transition-colors shrink-0`}
             >
                 <BookOpen className="h-4 w-4" />

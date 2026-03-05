@@ -274,9 +274,82 @@ export async function borrowGlassware(glasswareId: string, quantity: number, pur
 }
 
 /**
- * Return Borrowed Glassware
+ * Borrow Multiple Lab-Owned Glassware Items (Cart Checkout)
  */
-export async function returnGlassware(loanId: string): Promise<{ success: boolean; message?: string }> {
+export async function borrowMultipleGlassware(
+    items: { id: string; quantity: number; purpose: string }[]
+): Promise<{ success: boolean; message?: string }> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return { success: false, message: "Unauthorized." };
+        }
+
+        if (!items || items.length === 0) {
+            return { success: false, message: "Cart is empty." };
+        }
+
+        // 1. Fetch all requested items to verify availability
+        const dbItems = await prisma.glassware.findMany({
+            where: { id: { in: items.map(i => i.id) } },
+            include: { loans: { where: { status: "BORROWED" } } }
+        });
+
+        if (dbItems.length !== items.length) {
+            return { success: false, message: "One or more items in your cart do not exist." };
+        }
+
+        // 2. Pre-flight check: Verify availability for EVERYTHING before creating any loans
+        for (const reqItem of items) {
+            const dbItem = dbItems.find(i => i.id === reqItem.id);
+            if (!dbItem) continue;
+
+            if (dbItem.ownerId !== null) {
+                return { success: false, message: `Cannot borrow user-owned item: ${dbItem.name}.` };
+            }
+
+            if (reqItem.quantity <= 0) {
+                return { success: false, message: `Invalid quantity for ${dbItem.name}.` };
+            }
+
+            const borrowedCount = dbItem.loans.reduce((acc, loan) => acc + loan.quantity, 0);
+            const available = dbItem.quantity - borrowedCount;
+
+            if (reqItem.quantity > available) {
+                return { success: false, message: `Not enough stock for ${dbItem.name}. Requested: ${reqItem.quantity}, Available: ${available}.` };
+            }
+        }
+
+        // 3. Execute all loans in a single transaction
+        await prisma.$transaction(
+            items.map(reqItem =>
+                prisma.glasswareLoan.create({
+                    data: {
+                        glasswareId: reqItem.id,
+                        userId: session.user.id,
+                        quantity: reqItem.quantity,
+                        purpose: reqItem.purpose,
+                        status: "BORROWED"
+                    }
+                })
+            )
+        );
+
+        revalidatePath("/glassware");
+        revalidatePath("/glassware/borrowed");
+        revalidatePath("/admin/glassware");
+
+        return { success: true };
+    } catch (error) {
+        console.error("Error borrowing multiple glassware:", error);
+        return { success: false, message: "Internal server error." };
+    }
+}
+
+/**
+ * Return Borrowed Glassware (Handles Partial/Broken Returns)
+ */
+export async function returnGlassware(loanId: string, returnedQty: number, brokenQty: number): Promise<{ success: boolean; message?: string }> {
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user) {
@@ -284,7 +357,8 @@ export async function returnGlassware(loanId: string): Promise<{ success: boolea
         }
 
         const loan = await prisma.glasswareLoan.findUnique({
-            where: { id: loanId }
+            where: { id: loanId },
+            include: { glassware: true } // Need parent glassware to deduct broken items
         });
 
         if (!loan) return { success: false, message: "Loan record not found." };
@@ -293,12 +367,33 @@ export async function returnGlassware(loanId: string): Promise<{ success: boolea
         }
         if (loan.status === "RETURNED") return { success: false, message: "Already returned." };
 
-        // Mark as returned
-        await prisma.glasswareLoan.update({
-            where: { id: loanId },
-            data: {
-                status: "RETURNED",
-                returnedAt: new Date()
+        const totalAccounted = returnedQty + brokenQty;
+        if (totalAccounted !== loan.quantity) {
+            return { success: false, message: `Quantities mismatch. Must account for exactly ${loan.quantity} items.` };
+        }
+
+        // Transaction to ensure both the loan and parent inventory update safely
+        await prisma.$transaction(async (tx: any) => {
+            // 1. Mark Loan as Returned
+            await tx.glasswareLoan.update({
+                where: { id: loanId },
+                data: {
+                    status: "RETURNED",
+                    returnedAt: new Date(),
+                    // Optional: You could add broken tracking columns to GlasswareLoan here in the future
+                }
+            });
+
+            // 2. Permanently deduct broken items from Lab Inventory
+            if (brokenQty > 0) {
+                await tx.glassware.update({
+                    where: { id: loan.glasswareId },
+                    data: {
+                        quantity: {
+                            decrement: brokenQty
+                        }
+                    }
+                });
             }
         });
 
