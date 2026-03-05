@@ -25,21 +25,51 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-const userNav = [
-  { label: "Overview", href: "/", icon: LayoutDashboard },
-  { label: "Instruments", href: "/instruments", icon: FlaskConical }, // Slightly changed icons distinct from glassware
-  { label: "Chemical Inventory", href: "/reagents", icon: FlaskConical },
-  { label: "Glassware Inventory", href: "/glassware", icon: Beaker },
-  { label: "My Bookings", href: "/my-bookings", icon: CalendarDays },
+const userNavGroups = [
+  {
+    title: "Dashboard",
+    items: [
+      { label: "Overview", href: "/", icon: LayoutDashboard },
+      { label: "My Bookings", href: "/my-bookings", icon: CalendarDays },
+    ],
+  },
+  {
+    title: "Inventory",
+    items: [
+      { label: "Chemicals", href: "/reagents", icon: FlaskConical },
+      { label: "Glassware", href: "/glassware", icon: Beaker },
+    ],
+  },
+  {
+    title: "Laboratory",
+    items: [
+      { label: "Instruments", href: "/instruments", icon: FlaskConical }, // Slightly changed icons distinct from glassware
+    ],
+  },
 ];
 
-const adminNav = [
-  { label: "Chemical Inventory", href: "/admin/reagents", icon: FlaskConical },
-  { label: "Lab Glassware", href: "/admin/glassware", icon: Beaker },
-  { label: "Active Loans", href: "/admin/glassware/loans", icon: ClipboardList },
-  { label: "All Bookings", href: "/admin/bookings", icon: ListChecks },
-  { label: "Instrument Settings", href: "/admin/instruments", icon: Settings },
-  { label: "Danger Zone", href: "/admin/danger", icon: ShieldAlert },
+const adminNavGroups = [
+  {
+    title: "Admin Tools",
+    items: [
+      { label: "All Bookings", href: "/admin/bookings", icon: ListChecks },
+      { label: "Instrument Settings", href: "/admin/instruments", icon: Settings },
+    ],
+  },
+  {
+    title: "Admin Inventory",
+    items: [
+      { label: "Chemical Stock", href: "/admin/reagents", icon: FlaskConical },
+      { label: "Glassware Stock", href: "/admin/glassware", icon: Beaker },
+      { label: "Active Loans", href: "/admin/glassware/loans", icon: ClipboardList },
+    ],
+  },
+  {
+    title: "System",
+    items: [
+      { label: "Danger Zone", href: "/admin/danger", icon: ShieldAlert },
+    ],
+  },
 ];
 
 export function Sidebar() {
@@ -59,6 +89,36 @@ export function Sidebar() {
     };
   }, []);
 
+  const renderNavGroup = (group: { title: string, items: any[] }, isTopLevel = false) => (
+    <div key={group.title} className={isTopLevel ? "mb-6" : "mb-6 mt-6"}>
+      <div className="px-3 mb-2">
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+          {group.title}
+        </h3>
+      </div>
+      <div className="space-y-1">
+        {group.items.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              id={item.href === "/book" ? "tour-book" : undefined}
+              onClick={() => setMobileOpen(false)}
+              className={`group flex items-center gap-3 px-3 py-2.5 rounded-r-lg text-sm font-medium transition-all duration-200 ${isActive
+                  ? "bg-gradient-to-r from-orange-500/20 to-orange-500/0 text-orange-300 shadow-[0_0_15px_rgba(249,115,22,0.1)] border-l-2 border-orange-500"
+                  : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:pl-4 border-l-2 border-transparent"
+                }`}
+            >
+              <item.icon className="h-4 w-4 transition-transform group-hover:scale-110" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   const navContent = (
     <>
       {/* Brand */}
@@ -70,53 +130,16 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* User Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {userNav.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              id={item.href === "/book" ? "tour-book" : undefined}
-              onClick={() => setMobileOpen(false)}
-              className={`group flex items-center gap-3 px-3 py-2.5 rounded-r-lg text-sm font-medium transition-all duration-200 ${isActive
-                ? "bg-gradient-to-r from-orange-500/20 to-orange-500/0 text-orange-300 shadow-[0_0_15px_rgba(249,115,22,0.1)] border-l-2 border-orange-500"
-                : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:pl-4 border-l-2 border-transparent"
-                }`}
-            >
-              <item.icon className="h-4 w-4 transition-transform group-hover:scale-110" />
-              {item.label}
-            </Link>
-          );
-        })}
+      {/* Navigation Container (Scrollable) */}
+      <nav className="flex-1 px-3 py-6 overflow-y-auto no-scrollbar">
+        {/* User Sections */}
+        {userNavGroups.map((group, idx) => renderNavGroup(group, idx === 0))}
 
-        {/* Admin Section */}
+        {/* Admin Sections */}
         {isAdmin && (
-          <>
-            <div className="pt-4 pb-2 px-3">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Admin
-              </p>
-            </div>
-            {adminNav.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={`group flex items-center gap-3 px-3 py-2.5 rounded-r-lg text-sm font-medium transition-all duration-200 ${isActive
-                    ? "bg-gradient-to-r from-orange-500/20 to-orange-500/0 text-orange-300 shadow-[0_0_15px_rgba(249,115,22,0.1)] border-l-2 border-orange-500"
-                    : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:pl-4 border-l-2 border-transparent"
-                    }`}
-                >
-                  <item.icon className="h-4 w-4 transition-transform group-hover:scale-110" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </>
+          <div className="mt-8 pt-6 border-t border-slate-700/50">
+            {adminNavGroups.map((group) => renderNavGroup(group))}
+          </div>
         )}
       </nav>
 

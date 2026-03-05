@@ -278,12 +278,12 @@ export default function UserGlasswareClient({ initialData }: { initialData: Glas
             {isCartOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-slate-900 border border-slate-700/50 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-                        <div className="p-6 border-b border-slate-700/50 flex justify-between items-center">
-                            <div>
+                        <div className="p-6 border-b border-slate-700/50 flex justify-between items-center gap-4">
+                            <div className="flex-1 min-w-0">
                                 <h2 className="text-xl font-bold text-white mb-1">Borrowing List</h2>
                                 <p className="text-slate-400 text-sm">Please verify quantities and add specific purposes if needed.</p>
                             </div>
-                            <button onClick={() => setIsCartOpen(false)} className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-lg">
+                            <button onClick={() => setIsCartOpen(false)} className="p-2 shrink-0 text-slate-400 hover:text-white bg-slate-800 rounded-lg">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
@@ -292,12 +292,12 @@ export default function UserGlasswareClient({ initialData }: { initialData: Glas
                             {cart.map((cartItem) => (
                                 <div key={cartItem.glassware.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
                                     <div className="flex sm:items-center justify-between flex-col sm:flex-row gap-4 mb-3">
-                                        <div>
-                                            <h4 className="font-bold text-white text-lg">{cartItem.glassware.name}</h4>
-                                            <p className="text-slate-400 text-sm">{cartItem.glassware.size} {cartItem.glassware.unit} • {cartItem.glassware.type}</p>
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-bold text-white text-lg break-words">{cartItem.glassware.name}</h4>
+                                            <p className="text-slate-400 text-sm break-words">{cartItem.glassware.size} {cartItem.glassware.unit} • {cartItem.glassware.type}</p>
                                         </div>
 
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-3 shrink-0">
                                             <button
                                                 onClick={() => updateCartQty(cartItem.glassware.id, -1)}
                                                 className="p-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
@@ -336,22 +336,22 @@ export default function UserGlasswareClient({ initialData }: { initialData: Glas
                             ))}
                         </div>
 
-                        <div className="p-6 border-t border-slate-700/50 bg-slate-800/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-                            <span className="text-slate-400 text-sm text-center sm:text-left">
+                        <div className="p-6 border-t border-slate-700/50 bg-slate-800/50 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
+                            <p className="text-slate-400 text-sm text-center sm:text-left flex-1 min-w-0">
                                 Items must be returned in the same condition. Report any breakage.
-                            </span>
-                            <div className="flex gap-3 w-full sm:w-auto">
+                            </p>
+                            <div className="flex gap-3 w-full sm:w-auto shrink-0 justify-end">
                                 <button
                                     type="button"
                                     onClick={() => setCart([])}
-                                    className="px-4 py-2 text-rose-400 hover:bg-rose-500/10 text-sm font-medium rounded-xl transition-colors shrink-0"
+                                    className="px-4 py-2 text-rose-400 hover:bg-rose-500/10 text-sm font-medium rounded-lg transition-colors shrink-0"
                                 >
                                     Clear All
                                 </button>
                                 <button
                                     onClick={handleCheckout}
                                     disabled={isSubmitting || cart.length === 0}
-                                    className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 disabled:opacity-50 shrink-0"
+                                    className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-all shadow-lg flex justify-center items-center gap-2 disabled:opacity-50 shrink-0"
                                 >
                                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                                     Confirm Borrowing
