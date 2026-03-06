@@ -1,4 +1,4 @@
-import { Beaker, Flame, Thermometer, Box, ArrowRight, Activity, CalendarPlus, Wind } from "lucide-react";
+import { Beaker, Flame, Thermometer, Box, ArrowRight, Activity, CalendarPlus, Wind, Snowflake } from "lucide-react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
@@ -146,6 +146,49 @@ export default async function InstrumentsPage() {
                         >
                             <CalendarPlus className="h-4 w-4" />
                             Book Glovebox
+                        </Link>
+                    </div>
+                </div>
+
+                {/* CPD Tousimis Card */}
+                <div className="group flex flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/50 transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-purple-500/10">
+                    <div className="p-6 flex-1">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="rounded-xl bg-purple-500/20 p-3 text-purple-400">
+                                <Snowflake className="h-6 w-6" />
+                            </div>
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full border bg-purple-500/10 text-purple-400 border-purple-500/20 flex items-center gap-1.5 shadow-[0_0_10px_rgba(168,85,247,0.2)]">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+                                </span>
+                                Available
+                            </span>
+                        </div>
+                        <h3 className="text-xl font-semibold text-white mb-2">CPD Tousimis</h3>
+                        <p className="text-sm text-slate-400">
+                            Critical Point Dryer for supercritical drying of delicate samples using liquid CO₂.
+                        </p>
+
+                        <div className="mt-6 space-y-3">
+                            <div className="flex items-center gap-3 text-sm text-slate-300">
+                                <Snowflake className="h-4 w-4 text-purple-500" />
+                                <span>Auto & Manual Modes</span>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm text-slate-300">
+                                <Activity className="h-4 w-4 text-purple-500" />
+                                <span>Acid-Free Samples Only</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-4 border-t border-slate-700/50 bg-slate-900/30">
+                        <Link
+                            href="/book/cpd"
+                            className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600/90 hover:bg-purple-500 px-4 py-2.5 text-sm font-bold text-white transition-all hover:shadow-[0_0_15px_rgba(168,85,247,0.3)] shadow-[0_0_10px_rgba(168,85,247,0.1)] active:scale-[0.98]"
+                        >
+                            <CalendarPlus className="h-4 w-4" />
+                            Book CPD
                         </Link>
                     </div>
                 </div>

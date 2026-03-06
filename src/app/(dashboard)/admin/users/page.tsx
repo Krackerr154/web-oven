@@ -201,41 +201,43 @@ export default async function AdminUsersPage() {
                         {user._count.bookings}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          {user.status === "PENDING" && (
-                            <UserActionButtons userId={user.id} />
-                          )}
-                          <Link
-                            href={`/admin/users/${user.id}`}
-                            className="text-xs text-orange-300 hover:text-orange-200"
-                          >
-                            Stats
-                          </Link>
-
-                          <div className="flex items-center">
+                        <div className="space-y-2">
+                          {/* Row 1: Primary action buttons */}
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {user.status === "PENDING" && (
+                              <UserActionButtons userId={user.id} />
+                            )}
+                            <Link
+                              href={`/admin/users/${user.id}`}
+                              className="text-xs text-orange-300 hover:text-orange-200 whitespace-nowrap"
+                            >
+                              Stats
+                            </Link>
                             <BanUserButton userId={user.id} instruments={instruments} activeBans={bansByUser[user.id] || []} />
                             <EditUserModal user={user} />
                             <DeleteUserButton userId={user.id} />
                           </div>
-                        </div>
-                        {(bansByUser[user.id] || []).length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {(bansByUser[user.id]).map((ban: any) => (
-                              <span key={ban.id} className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20">
-                                🚫 {ban.instrumentType.replace(/_/g, " ")}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {user.status === "APPROVED" && (
-                          <div className="mt-2 min-w-[140px]">
+
+                          {/* Row 2: Role management (compact) */}
+                          {user.status === "APPROVED" && (
                             <RoleManagementButtons
                               userId={user.id}
                               currentRole={user.role}
                               isContactPerson={user.isContactPerson}
                             />
-                          </div>
-                        )}
+                          )}
+
+                          {/* Row 3: Active bans */}
+                          {(bansByUser[user.id] || []).length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {(bansByUser[user.id]).map((ban: any) => (
+                                <span key={ban.id} className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20">
+                                  🚫 {ban.instrumentType.replace(/_/g, " ")}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

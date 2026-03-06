@@ -2,7 +2,7 @@
 
 import { useState, useEffect, ReactNode } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/dialog";
-import { BookOpen, CheckCircle2, ShieldAlert, Clock, AlertTriangle, FileText, Waves, Droplets, Thermometer } from "lucide-react";
+import { BookOpen, CheckCircle2, ShieldAlert, Clock, AlertTriangle, FileText, Waves, Droplets, Thermometer, Snowflake } from "lucide-react";
 
 // ─── Oven Guidelines ─────────────────────────────────────────────────────────
 
@@ -140,6 +140,56 @@ function GloveboxRules() {
     );
 }
 
+// ─── CPD Tousimis Guidelines ────────────────────────────────────────────────
+
+function CpdRules() {
+    return (
+        <div className="space-y-4 py-4">
+            <RuleRow icon={<FileText className="h-5 w-5 text-purple-400 shrink-0 mt-0.5" />}>
+                <h4 className="font-medium text-slate-200 text-sm">1. Form & Physical Logbook</h4>
+                <p className="text-sm text-slate-400 mt-1">
+                    Please fill out <strong>both</strong> this digital booking form and the physical logbook located next to the instrument. Do not skip either.
+                </p>
+            </RuleRow>
+
+            <RuleRow icon={<ShieldAlert className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />}>
+                <h4 className="font-medium text-slate-200 text-sm">2. Acid-Free Samples Only</h4>
+                <p className="text-sm text-slate-400 mt-1">
+                    Ensure your sample has been thoroughly washed and dried, completely <strong>free of any acid compounds</strong> (HF, HCl, H₂SO₄, HCOOH, CH₃COOH, etc.) before loading into the CPD.
+                </p>
+            </RuleRow>
+
+            <RuleRow icon={<Clock className="h-5 w-5 text-purple-400 shrink-0 mt-0.5" />}>
+                <h4 className="font-medium text-slate-200 text-sm">3. Booking Schedule</h4>
+                <p className="text-sm text-slate-400 mt-1">
+                    Booking must be made <strong>at least one week</strong> before usage. Approval is processed weekly, every <strong>Friday at 10:30 WIB</strong>. Disapproved bookings should be discussed with the admin.
+                </p>
+            </RuleRow>
+
+            <RuleRow icon={<Snowflake className="h-5 w-5 text-sky-400 shrink-0 mt-0.5" />}>
+                <h4 className="font-medium text-slate-200 text-sm">4. Post-Use Checklist</h4>
+                <p className="text-sm text-slate-400 mt-1">
+                    After usage, you must ensure: the <strong>chamber is clean and dry</strong>, the <strong>LCO₂ cylinder valve is closed</strong>, and the <strong>sample holder is cleaned with ethanol</strong> before returning.
+                </p>
+            </RuleRow>
+
+            <RuleRow icon={<AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />}>
+                <h4 className="font-medium text-slate-200 text-sm">5. Cancellations</h4>
+                <p className="text-sm text-slate-400 mt-1">
+                    If cancelling, send a message to the <strong>CPD Active Users</strong> group with format: <code className="text-purple-300 text-xs bg-slate-800 px-1 py-0.5 rounded">#cpd #cancelbooking [Name] cancels CPD on [start] to [end]</code>.
+                </p>
+            </RuleRow>
+
+            <RuleRow icon={<AlertTriangle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />}>
+                <h4 className="font-medium text-slate-200 text-sm">6. Misuse Policy</h4>
+                <p className="text-sm text-slate-400 mt-1">
+                    Any misuse of the CPD or violation of the booking system will be recorded and may affect future booking approvals.
+                </p>
+            </RuleRow>
+        </div>
+    );
+}
+
 // ─── Shared layout ────────────────────────────────────────────────────────────
 
 function RuleRow({ icon, children }: { icon: ReactNode; children: ReactNode }) {
@@ -153,12 +203,13 @@ function RuleRow({ icon, children }: { icon: ReactNode; children: ReactNode }) {
 
 // ─── Modal component ─────────────────────────────────────────────────────────
 
-type Variant = "oven" | "ultrasonic" | "glovebox";
+type Variant = "oven" | "ultrasonic" | "glovebox" | "cpd";
 
 const SESSION_KEY: Record<Variant, string> = {
     oven: "hideBookingRules",
     ultrasonic: "hideUltrasonicRules",
     glovebox: "hideGloveboxRules",
+    cpd: "hideCpdRules",
 };
 
 export function BookingRulesModal({ id, variant = "oven" }: { id?: string; variant?: Variant }) {
@@ -181,12 +232,14 @@ export function BookingRulesModal({ id, variant = "oven" }: { id?: string; varia
         setOpen(false);
     };
 
-    const accentColor = variant === "ultrasonic" ? "text-cyan-400" : variant === "glovebox" ? "text-emerald-400" : "text-blue-500";
+    const accentColor = variant === "ultrasonic" ? "text-cyan-400" : variant === "glovebox" ? "text-emerald-400" : variant === "cpd" ? "text-purple-400" : "text-blue-500";
     const btnColor = variant === "ultrasonic"
         ? "bg-cyan-600 hover:bg-cyan-500"
         : variant === "glovebox"
             ? "bg-emerald-600 hover:bg-emerald-500"
-            : "bg-blue-600 hover:bg-blue-500";
+            : variant === "cpd"
+                ? "bg-purple-600 hover:bg-purple-500"
+                : "bg-blue-600 hover:bg-blue-500";
 
     return (
         <>
@@ -198,7 +251,9 @@ export function BookingRulesModal({ id, variant = "oven" }: { id?: string; varia
                     ? "bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20"
                     : variant === "glovebox"
                         ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20"
-                        : "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20"
+                        : variant === "cpd"
+                            ? "bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20"
+                            : "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20"
                     } rounded-lg transition-colors shrink-0`}
             >
                 <BookOpen className="h-4 w-4" />
@@ -211,18 +266,20 @@ export function BookingRulesModal({ id, variant = "oven" }: { id?: string; varia
                     <DialogHeader>
                         <DialogTitle className={`flex items-center gap-2 text-xl`}>
                             <BookOpen className={`h-5 w-5 ${accentColor}`} />
-                            {variant === "ultrasonic" ? "Ultrasonic Bath Guidelines" : variant === "glovebox" ? "Glovebox Usage Guidelines" : "Instrument Usage Guidelines"}
+                            {variant === "ultrasonic" ? "Ultrasonic Bath Guidelines" : variant === "glovebox" ? "Glovebox Usage Guidelines" : variant === "cpd" ? "CPD Tousimis Guidelines" : "Instrument Usage Guidelines"}
                         </DialogTitle>
                         <DialogDescription>
                             {variant === "ultrasonic"
                                 ? "Please review the following rules before booking the Sonicator Branson. These guidelines ensure safe and fair usage for everyone."
                                 : variant === "glovebox"
                                     ? "Please review the strict rules for using the Acrylic Glovebox. Safety and cleanliness are mandatory."
-                                    : "Please review the following rules before proceeding with your booking. These guidelines ensure fair and safe usage for everyone."}
+                                    : variant === "cpd"
+                                        ? "Please review the CPD Tousimis usage rules. Ensure your samples are acid-free and follow the booking timeline."
+                                        : "Please review the following rules before proceeding with your booking. These guidelines ensure fair and safe usage for everyone."}
                         </DialogDescription>
                     </DialogHeader>
 
-                    {variant === "ultrasonic" ? <UltrasonicRules /> : variant === "glovebox" ? <GloveboxRules /> : <OvenRules />}
+                    {variant === "ultrasonic" ? <UltrasonicRules /> : variant === "glovebox" ? <GloveboxRules /> : variant === "cpd" ? <CpdRules /> : <OvenRules />}
 
                     <DialogFooter className="sm:justify-between items-center flex-col sm:flex-row gap-4 sm:gap-0 mt-4">
                         <label className="flex items-center gap-2 text-sm text-slate-400 cursor-pointer select-none self-start sm:self-center">
