@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { Search, ShieldAlert, RotateCcw, Loader2, AlertCircle, ArrowLeft } from "lucide-react";
+import { Search, ShieldAlert, RotateCcw, Loader2, AlertCircle, ArrowLeft, CheckSquare, Square, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
-import { approveBorrow, rejectBorrow, confirmReturnGlassware } from "@/app/actions/glassware";
+import { approveBorrow, rejectBorrow, confirmReturnGlassware, approveMultipleBorrow, confirmMultipleReturnGlassware } from "@/app/actions/glassware";
 import { formatDateWib } from "@/lib/utils";
 
 type ActiveLoan = {
@@ -47,6 +47,76 @@ export default function ActiveLoansClient({ loans }: { loans: ActiveLoan[] }) {
         setReturnModal({ isOpen: true, loan, isForce });
         setReturnedQty(loan.quantity);
         setBrokenQty(0);
+    };
+
+    // --- Batch Action State ---
+    const [selectedLoans, setSelectedLoans] = useState<Set<string>>(new Set());
+    const [isSubmittingBatch, setIsSubmittingBatch] = useState(false);
+
+    const toggleLoanSelection = (id: string) => {
+        const newSet = new Set(selectedLoans);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        setSelectedLoans(newSet);
+    };
+
+    const toggleSelectAll = (statusFilter?: string[]) => {
+        // If statusFilter provided, only select those that match, or ALL if already selected
+        let targetLoans = loans;
+        if (statusFilter) {
+            targetLoans = loans.filter(l => statusFilter.includes(l.status));
+        }
+
+        const currentSelectedOfTarget = targetLoans.filter(l => selectedLoans.has(l.id));
+        const newSet = new Set(selectedLoans);
+
+        if (currentSelectedOfTarget.length === targetLoans.length && targetLoans.length > 0) {
+            // Deselect all targets
+            targetLoans.forEach(l => newSet.delete(l.id));
+        } else {
+            // Select all targets
+            targetLoans.forEach(l => newSet.add(l.id));
+        }
+        setSelectedLoans(newSet);
+    };
+
+    const handleBatchAction = async (actionType: 'approve' | 'return') => {
+        if (selectedLoans.size === 0) return;
+        setIsSubmittingBatch(true);
+        const ids = Array.from(selectedLoans);
+
+        try {
+            if (actionType === 'approve') {
+                const res = await approveMultipleBorrow(ids);
+                if (res.success) {
+                    toast.success(`Successfully approved ${selectedLoans.size} requests!`);
+                    setSelectedLoans(new Set());
+                    router.refresh();
+                } else {
+                    toast.error(res.message || "Failed to approve.");
+                }
+            } else if (actionType === 'return') {
+                if (!window.confirm(`You are confirming the complete return of ${selectedLoans.size} items. Proceed? (0 broken/lost assumed)`)) {
+                    setIsSubmittingBatch(false);
+                    return;
+                }
+                const res = await confirmMultipleReturnGlassware(ids);
+                if (res.success) {
+                    toast.success(`Successfully returned ${selectedLoans.size} records!`);
+                    setSelectedLoans(new Set());
+                    router.refresh();
+                } else {
+                    toast.error(res.message || "Failed to confirm returns.");
+                }
+            }
+        } catch (error) {
+            toast.error("An unexpected error occurred.");
+        } finally {
+            setIsSubmittingBatch(false);
+        }
     };
 
     useEffect(() => {
@@ -241,6 +311,21 @@ export default function ActiveLoansClient({ loans }: { loans: ActiveLoan[] }) {
                         />
                     </div>
                 </div>
+                {/* Batch Selection Controls */}
+                <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 hide-scrollbar shrink-0">
+                    <button
+                        onClick={() => toggleSelectAll(["PENDING_BORROW"])}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                    >
+                        <Square className="h-4 w-4" /> Select Pendings
+                    </button>
+                    <button
+                        onClick={() => toggleSelectAll(["BORROWED", "PENDING_RETURN"])}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                    >
+                        <Square className="h-4 w-4" /> Select Returns
+                    </button>
+                </div>
             </div>
 
             {/* Table */}
@@ -249,6 +334,11 @@ export default function ActiveLoansClient({ loans }: { loans: ActiveLoan[] }) {
                     <table className="w-full text-left text-sm">
                         <thead className="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-wider">
                             <tr>
+                                <th className="px-6 py-4 font-medium border-b border-slate-700/50 w-12">
+                                    <button onClick={() => toggleSelectAll()} className="text-slate-500 hover:text-white transition-colors">
+                                        {selectedLoans.size === loans.length && loans.length > 0 ? <CheckSquare className="h-5 w-5 text-orange-400" /> : <Square className="h-5 w-5" />}
+                                    </button>
+                                </th>
                                 <th className="px-6 py-4 font-medium border-b border-slate-700/50">Date Borrowed</th>
                                 <th className="px-6 py-4 font-medium border-b border-slate-700/50">User</th>
                                 <th className="px-6 py-4 font-medium border-b border-slate-700/50">Glassware</th>
@@ -271,7 +361,12 @@ export default function ActiveLoansClient({ loans }: { loans: ActiveLoan[] }) {
                                 </tr>
                             ) : (
                                 filteredLoans.map((loan) => (
-                                    <tr key={loan.id} className="hover:bg-slate-800/30 transition-colors">
+                                    <tr key={loan.id} className={`transition-colors ${selectedLoans.has(loan.id) ? 'bg-slate-800/60' : 'hover:bg-slate-800/30'}`}>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <button onClick={() => toggleLoanSelection(loan.id)} className="text-slate-500 hover:text-white transition-colors">
+                                                {selectedLoans.has(loan.id) ? <CheckSquare className="h-5 w-5 text-orange-400" /> : <Square className="h-5 w-5" />}
+                                            </button>
+                                        </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="font-medium text-slate-200">{formatDateWib(loan.borrowedAt).split(" ")[0]}</div>
                                             <div className="text-xs text-slate-500 mt-1">{format(new Date(loan.borrowedAt), "HH:mm")}</div>
@@ -363,6 +458,51 @@ export default function ActiveLoansClient({ loans }: { loans: ActiveLoan[] }) {
                     </table>
                 </div>
             </div>
+
+            {/* Floating Batch Action Bar */}
+            {selectedLoans.size > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 sm:left-64 bg-slate-900 border-t border-slate-700/50 p-4 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.5)] z-40 transition-transform animate-slide-up">
+                    <div className="max-w-7xl mx-auto flex items-center justify-between px-4">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-orange-500/20 text-orange-400 p-3 rounded-xl border border-orange-500/30 hidden sm:block">
+                                <ShieldAlert className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h4 className="text-white font-bold text-sm sm:text-lg">{selectedLoans.size} Selected</h4>
+                                <p className="text-slate-400 text-xs sm:text-sm hidden sm:block">Select batch action to apply</p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2 sm:gap-3">
+                            {/* Show approve if any pending borrow selected */}
+                            {Array.from(selectedLoans).some(id => loans.find(l => l.id === id)?.status === "PENDING_BORROW") && (
+                                <button
+                                    onClick={() => handleBatchAction('approve')}
+                                    disabled={isSubmittingBatch}
+                                    className="bg-emerald-600/20 border border-emerald-500/30 hover:bg-emerald-600 hover:text-white text-emerald-400 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isSubmittingBatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                                    <span className="hidden sm:inline">Approve Borrows</span>
+                                    <span className="sm:hidden">Approve</span>
+                                </button>
+                            )}
+
+                            {/* Show return if any borrowed/pending_return selected */}
+                            {Array.from(selectedLoans).some(id => ["BORROWED", "PENDING_RETURN"].includes(loans.find(l => l.id === id)?.status || "")) && (
+                                <button
+                                    onClick={() => handleBatchAction('return')}
+                                    disabled={isSubmittingBatch}
+                                    className="bg-orange-600 hover:bg-orange-500 text-white px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-sm font-medium shadow-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isSubmittingBatch ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                                    <span className="hidden sm:inline">Confirm Returns</span>
+                                    <span className="sm:hidden">Return</span>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

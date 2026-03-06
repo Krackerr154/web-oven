@@ -171,22 +171,26 @@ export async function createBooking(data: {
 
     // ── Atomic transaction for all checks + creation ────────────────
     const result = await prisma.$transaction(async (tx) => {
-      // Rule: Max 1 active booking per user
-      const activeCount = await tx.booking.count({
-        where: { userId, status: "ACTIVE" },
-      });
-
-      if (activeCount >= 1) {
-        return { success: false, message: "You already have 1 active booking (maximum)" };
-      }
-
-      // Rule: Instrument must be available (not in maintenance)
+      // Fetch instrument first to determine type and availability
       const instrument = await tx.instrument.findUnique({ where: { id: instrumentId } });
       if (!instrument) {
         return { success: false, message: "Instrument not found" };
       }
       if (instrument.status === "MAINTENANCE") {
         return { success: false, message: `${instrument.name} is currently under maintenance` };
+      }
+
+      // Rule: Max 1 active booking per instrument type per user
+      const activeCount = await tx.booking.count({
+        where: {
+          userId,
+          status: "ACTIVE",
+          instrument: { type: instrument.type }
+        },
+      });
+
+      if (activeCount >= 1) {
+        return { success: false, message: `You already have 1 active booking for ${instrument.type.replace('_', ' ')}s (maximum)` };
       }
 
       // Rule: Usage temperature must not exceed instrument max
@@ -601,12 +605,14 @@ export async function createUltrasonicBooking(data: {
     if (banCheck) return banCheck;
 
     const result = await prisma.$transaction(async (tx) => {
-      const activeCount = await tx.booking.count({ where: { userId, status: "ACTIVE" } });
-      if (activeCount >= 1) return { success: false, message: "You already have 1 active booking (maximum)" };
-
       const instrument = await tx.instrument.findUnique({ where: { id: instrumentId } });
       if (!instrument) return { success: false, message: "Instrument not found" };
       if (instrument.status === "MAINTENANCE") return { success: false, message: `${instrument.name} is currently under maintenance` };
+
+      const activeCount = await tx.booking.count({
+        where: { userId, status: "ACTIVE", instrument: { type: instrument.type } }
+      });
+      if (activeCount >= 1) return { success: false, message: `You already have 1 active booking for ${instrument.type.replace('_', ' ')}s (maximum)` };
 
       const overlap = await tx.booking.findFirst({
         where: {
@@ -703,12 +709,14 @@ export async function createGloveboxBooking(data: {
     if (banCheck) return banCheck;
 
     const result = await prisma.$transaction(async (tx) => {
-      const activeCount = await tx.booking.count({ where: { userId, status: "ACTIVE" } });
-      if (activeCount >= 1) return { success: false, message: "You already have 1 active booking (maximum)" };
-
       const instrument = await tx.instrument.findUnique({ where: { id: instrumentId } });
       if (!instrument) return { success: false, message: "Instrument not found" };
       if (instrument.status === "MAINTENANCE") return { success: false, message: `${instrument.name} is currently under maintenance` };
+
+      const activeCount = await tx.booking.count({
+        where: { userId, status: "ACTIVE", instrument: { type: instrument.type } }
+      });
+      if (activeCount >= 1) return { success: false, message: `You already have 1 active booking for ${instrument.type.replace('_', ' ')}s (maximum)` };
 
       // Validate maxN2FlowRate if the instrument has one configured by admin
       if (instrument.maxN2FlowRate !== null && n2FlowRate !== undefined && n2FlowRate > instrument.maxN2FlowRate) {

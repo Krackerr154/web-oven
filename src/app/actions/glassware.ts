@@ -501,3 +501,123 @@ export async function rejectBorrow(loanId: string, reason?: string): Promise<{ s
         return { success: false, message: "Internal server error." };
     }
 }
+
+/**
+ * User Request to Return Multiple Glassware Items
+ */
+export async function requestMultipleReturnGlassware(loanIds: string[]): Promise<{ success: boolean; message?: string }> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return { success: false, message: "Unauthorized." };
+        }
+
+        if (!loanIds || loanIds.length === 0) {
+            return { success: false, message: "No items selected." };
+        }
+
+        const loans = await prisma.glasswareLoan.findMany({
+            where: { id: { in: loanIds } }
+        });
+
+        // Validation
+        const invalidLoans = loans.filter(loan => loan.userId !== session.user.id && session.user.role !== "ADMIN");
+        if (invalidLoans.length > 0) {
+            return { success: false, message: "Unauthorized. You did not borrow some of these items." };
+        }
+
+        const wrongStatusLoans = loans.filter(loan => loan.status !== "BORROWED");
+        if (wrongStatusLoans.length > 0) {
+            return { success: false, message: "Only actively borrowed items can be requested to return." };
+        }
+
+        await prisma.glasswareLoan.updateMany({
+            where: { id: { in: loanIds } },
+            data: { status: "PENDING_RETURN" }
+        });
+
+        revalidatePath("/glassware");
+        revalidatePath("/glassware/borrowed");
+        revalidatePath("/admin/glassware/loans");
+        return { success: true };
+    } catch (error) {
+        console.error("Error requesting multiple returns:", error);
+        return { success: false, message: "Internal server error." };
+    }
+}
+
+/**
+ * Admin Confirm Multiple Returns (Assumes 0 broken for all)
+ */
+export async function confirmMultipleReturnGlassware(loanIds: string[]): Promise<{ success: boolean; message?: string }> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user || session.user.role !== "ADMIN") {
+            return { success: false, message: "Unauthorized." };
+        }
+
+        if (!loanIds || loanIds.length === 0) return { success: false, message: "No items selected." };
+
+        const loans = await prisma.glasswareLoan.findMany({
+            where: { id: { in: loanIds } }
+        });
+
+        const wrongStatusLoans = loans.filter(loan => loan.status === "RETURNED");
+        if (wrongStatusLoans.length > 0) {
+            return { success: false, message: "Some items are already returned." };
+        }
+
+        await prisma.glasswareLoan.updateMany({
+            where: { id: { in: loanIds } },
+            data: {
+                status: "RETURNED",
+                returnedAt: new Date()
+            }
+        });
+
+        revalidatePath("/glassware");
+        revalidatePath("/glassware/borrowed");
+        revalidatePath("/admin/glassware/loans");
+        revalidatePath("/admin/glassware");
+        return { success: true };
+    } catch (error) {
+        console.error("Error confirming multiple returns:", error);
+        return { success: false, message: "Internal server error." };
+    }
+}
+
+/**
+ * Admin Approve Multiple Borrows
+ */
+export async function approveMultipleBorrow(loanIds: string[]): Promise<{ success: boolean; message?: string }> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user || session.user.role !== "ADMIN") {
+            return { success: false, message: "Unauthorized." };
+        }
+
+        if (!loanIds || loanIds.length === 0) return { success: false, message: "No items selected." };
+
+        const loans = await prisma.glasswareLoan.findMany({
+            where: { id: { in: loanIds } }
+        });
+
+        const wrongStatusLoans = loans.filter(loan => loan.status !== "PENDING_BORROW");
+        if (wrongStatusLoans.length > 0) {
+            return { success: false, message: "Only pending borrow requests can be approved." };
+        }
+
+        await prisma.glasswareLoan.updateMany({
+            where: { id: { in: loanIds } },
+            data: { status: "BORROWED" }
+        });
+
+        revalidatePath("/glassware");
+        revalidatePath("/glassware/borrowed");
+        revalidatePath("/admin/glassware/loans");
+        return { success: true };
+    } catch (error) {
+        console.error("Error approving multiple borrows:", error);
+        return { success: false, message: "Internal server error." };
+    }
+}

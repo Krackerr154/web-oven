@@ -20,7 +20,17 @@ function normalizeText(text: string): string {
 export async function fetchPubChemSynonyms(name: string): Promise<string> {
     try {
         const url = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(name.trim())}/synonyms/JSON`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000) }); // 5 second timeout
+
+        // PubChem strictly requires a valid User-Agent, and adding Next.js cache helps prevent rate limits
+        const res = await fetch(url, {
+            signal: AbortSignal.timeout(8000), // Increased to 8 seconds
+            headers: {
+                "Accept": "application/json",
+                "User-Agent": "APLab-Inventory-App/1.0 (mailto:admin@example.com)"
+            },
+            next: { revalidate: 86400 } // Cache results for 24 hours to aggressively avoid rate-limiting
+        });
+
         if (!res.ok) return ""; // Likely not found (404) or rate limited
 
         const data = await res.json();
@@ -28,8 +38,12 @@ export async function fetchPubChemSynonyms(name: string): Promise<string> {
 
         // Take the top 10 synonyms and join them
         return synonymsList.slice(0, 10).join(", ");
-    } catch (error) {
-        console.error(`PubChem fetch error for ${name}:`, error);
+    } catch (error: any) {
+        // Silently ignore timeout errors (AbortError/TimeoutError) as PubChem frequently rate-limits
+        if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+            return "";
+        }
+        console.error(`PubChem fetch error for ${name}:`, error.message || error);
         return "";
     }
 }

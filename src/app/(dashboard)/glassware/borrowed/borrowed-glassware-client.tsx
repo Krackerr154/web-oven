@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Beaker, Calendar, Clock, RotateCcw, Loader2, ArrowLeft, AlertCircle } from "lucide-react";
-import { requestReturnGlassware } from "@/app/actions/glassware";
+import { Beaker, Calendar, Clock, RotateCcw, Loader2, ArrowLeft, AlertCircle, CheckSquare, Square } from "lucide-react";
+import { requestReturnGlassware, requestMultipleReturnGlassware } from "@/app/actions/glassware";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
@@ -39,6 +39,50 @@ export default function BorrowedGlasswareClient({ loans }: { loans: LoanItem[] }
         setReturnModal({ isOpen: true, loan });
         setReturnedQty(loan.quantity);
         setBrokenQty(0);
+    };
+
+    // --- Batch Return State ---
+    const [selectedLoans, setSelectedLoans] = useState<Set<string>>(new Set());
+    const [isSubmittingBatch, setIsSubmittingBatch] = useState(false);
+
+    const toggleLoanSelection = (id: string, currentStatus: string) => {
+        if (currentStatus !== "BORROWED") return; // Only allow returning active loans
+
+        const newSet = new Set(selectedLoans);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        setSelectedLoans(newSet);
+    };
+
+    const toggleSelectAll = () => {
+        const returnableLoans = loans.filter(l => l.status === "BORROWED");
+        if (selectedLoans.size === returnableLoans.length) {
+            setSelectedLoans(new Set());
+        } else {
+            setSelectedLoans(new Set(returnableLoans.map(l => l.id)));
+        }
+    };
+
+    const handleBatchReturn = async () => {
+        if (selectedLoans.size === 0) return;
+        setIsSubmittingBatch(true);
+        try {
+            const res = await requestMultipleReturnGlassware(Array.from(selectedLoans));
+            if (res.success) {
+                toast.success(`Successfully requested return for ${selectedLoans.size} items!`);
+                setSelectedLoans(new Set());
+                router.refresh();
+            } else {
+                toast.error(res.message || "Failed to request return.");
+            }
+        } catch (error) {
+            toast.error("An unexpected error occurred.");
+        } finally {
+            setIsSubmittingBatch(false);
+        }
     };
 
     // Auto-calculate logic (optional, but requested by some for convenience, 
@@ -112,17 +156,32 @@ export default function BorrowedGlasswareClient({ loans }: { loans: LoanItem[] }
                 </div>
             )}
 
-            {/* Back Header */}
-            <div className="flex items-center gap-4 border-b border-slate-700/50 pb-4">
-                <Link
-                    href="/glassware"
-                    className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
-                >
-                    <ArrowLeft className="h-5 w-5" />
-                </Link>
-                <div className="text-sm font-medium text-slate-400">
-                    Back to Inventory
+            {/* Back Header & Select All */}
+            <div className="flex items-center justify-between border-b border-slate-700/50 pb-4">
+                <div className="flex items-center gap-4">
+                    <Link
+                        href="/glassware"
+                        className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                    >
+                        <ArrowLeft className="h-5 w-5" />
+                    </Link>
+                    <div className="text-sm font-medium text-slate-400">
+                        Back to Inventory
+                    </div>
                 </div>
+
+                {loans.filter(l => l.status === "BORROWED").length > 0 && (
+                    <button
+                        onClick={toggleSelectAll}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm font-medium transition-colors"
+                    >
+                        {selectedLoans.size === loans.filter(l => l.status === "BORROWED").length ? (
+                            <><CheckSquare className="h-4 w-4 text-emerald-400" /> Deselect All</>
+                        ) : (
+                            <><Square className="h-4 w-4" /> Select All Returnable</>
+                        )}
+                    </button>
+                )}
             </div>
 
             {/* Grid */}
@@ -174,10 +233,24 @@ export default function BorrowedGlasswareClient({ loans }: { loans: LoanItem[] }
                                                 <span className="text-xs font-mono text-slate-500">ID: {loan.glassware.customId}</span>
                                             )}
                                         </div>
-                                        <h3 className="font-semibold text-lg text-white group-hover:text-emerald-400 transition-colors">
-                                            {loan.glassware.name}
-                                        </h3>
-                                        <p className="text-sm text-slate-400 mt-1">
+                                        <div className="flex items-center gap-3">
+                                            {loan.status === "BORROWED" && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); toggleLoanSelection(loan.id, loan.status); }}
+                                                    className="shrink-0 transition-colors"
+                                                >
+                                                    {selectedLoans.has(loan.id) ? (
+                                                        <CheckSquare className="h-6 w-6 text-emerald-400" />
+                                                    ) : (
+                                                        <Square className="h-6 w-6 text-slate-500 hover:text-slate-400 transition-colors" />
+                                                    )}
+                                                </button>
+                                            )}
+                                            <h3 className="font-semibold text-lg text-white group-hover:text-emerald-400 transition-colors">
+                                                {loan.glassware.name}
+                                            </h3>
+                                        </div>
+                                        <p className="text-sm text-slate-400 mt-1 pl-9">
                                             {loan.glassware.size} {loan.glassware.unit} • {loan.glassware.type}
                                         </p>
                                     </div>
@@ -236,6 +309,32 @@ export default function BorrowedGlasswareClient({ loans }: { loans: LoanItem[] }
                             )}
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* Floating Batch Action Bar */}
+            {selectedLoans.size > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 sm:left-64 bg-slate-900 border-t border-slate-700/50 p-4 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.5)] z-40 transition-transform animate-slide-up">
+                    <div className="max-w-7xl mx-auto flex items-center justify-between px-4">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-emerald-500/20 text-emerald-400 p-3 rounded-xl border border-emerald-500/30">
+                                <RotateCcw className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h4 className="text-white font-bold text-lg">{selectedLoans.size} Item{selectedLoans.size !== 1 && 's'} Selected</h4>
+                                <p className="text-slate-400 text-sm hidden sm:block">Ready to be requested for return.</p>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleBatchReturn}
+                            disabled={isSubmittingBatch}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                        >
+                            {isSubmittingBatch ? <Loader2 className="h-5 w-5 animate-spin" /> : <RotateCcw className="h-5 w-5" />}
+                            Request Return ({selectedLoans.size})
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
