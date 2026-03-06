@@ -88,7 +88,7 @@ export function IdCardGenerator({ user }: IDCardProps) {
     return (
         <div className="w-full flex flex-col items-center border border-slate-700/50 bg-slate-800/20 rounded-xl p-4 sm:p-6 mb-4 mt-6">
             <h3 className="font-semibold text-white mb-1">Lab Member Card</h3>
-            <p className="text-xs text-slate-400 mb-6 text-center">Export your official Lab Oven identification for physical printing.</p>
+            <p className="text-xs text-slate-400 mb-6 text-center">Export your official AP-Lab identification for physical printing.</p>
 
             {/* Hidden Rendering Container */}
             <div className="absolute left-[-9999px] top-[-9999px]">

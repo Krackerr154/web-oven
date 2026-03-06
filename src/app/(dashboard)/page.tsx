@@ -97,18 +97,18 @@ export default async function DashboardPage() {
             </div>
           </Link>
         ) : (
-          <Link href="/profile" className="group relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/50 p-6 transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-purple-500/10">
+          <Link href="/glassware" className="group relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/50 p-6 transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-purple-500/10">
             <div className="absolute right-0 top-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-purple-500/10 blur-2xl transition-all group-hover:bg-purple-500/20" />
             <div className="relative flex items-center justify-between">
               <div className="rounded-xl bg-purple-500/20 p-3 text-purple-400">
-                <Users className="h-6 w-6" />
+                <Beaker className="h-6 w-6" />
               </div>
               <ArrowRight className="h-5 w-5 text-slate-500 transition-transform group-hover:translate-x-1 group-hover:text-white" />
             </div>
             <div className="mt-6">
-              <h3 className="text-xl font-semibold text-white">My Profile</h3>
+              <h3 className="text-xl font-semibold text-white">Lab Glassware</h3>
               <p className="mt-2 text-sm text-slate-400">
-                Update your account details, supervisor information, and preferences.
+                Browse and borrow lab glassware from the inventory.
               </p>
             </div>
           </Link>

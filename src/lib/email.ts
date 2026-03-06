@@ -21,15 +21,15 @@ export async function sendPasswordResetEmail(email: string, token: string) {
 
   try {
     const data = await resend.emails.send({
-      from: `Lab Oven <${fromEmail}>`,
+      from: `AP-Lab <${fromEmail}>`,
       to: email,
-      subject: 'Reset your password - Lab Oven Booking',
+      subject: 'Reset your password - AP-Lab',
       html: `
                 <div style="font-family: Arial, sans-serif; p-4 max-w-md mx-auto">
-                    <h2 style="color: #ea580c; font-weight: bold;">Password Reset Request</h2>
-                    <p>You recently requested to reset your password for your Lab Oven Booking account.</p>
+                    <h2 style="color: #3b82f6; font-weight: bold;">Password Reset Request</h2>
+                    <p>You recently requested to reset your password for your AP-Lab account.</p>
                     <p>Click the link below to reset it. This link is valid for 1 hour.</p>
-                    <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; background-color: #ea580c; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">
+                    <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">
                         Reset Password
                     </a>
                     <p style="font-size: 12px; color: #666;">
@@ -56,13 +56,13 @@ export async function sendVerificationOtpEmail(email: string, otp: string) {
 
   try {
     const data = await resend.emails.send({
-      from: `Lab Oven <${fromEmail}>`,
+      from: `AP-Lab <${fromEmail}>`,
       to: email,
-      subject: 'Verify your email - Lab Oven Booking',
+      subject: 'Verify your email - AP-Lab',
       html: `
                 <div style="font-family: Arial, sans-serif; p-4 max-w-md mx-auto text-center">
-                    <h2 style="color: #ea580c; font-weight: bold;">Verify Your Email</h2>
-                    <p>Thank you for registering at Lab Oven Booking.</p>
+                    <h2 style="color: #3b82f6; font-weight: bold;">Verify Your Email</h2>
+                    <p>Thank you for registering at AP-Lab.</p>
                     <p>Please use the following 6-digit code to verify your email address. This code is valid for 10 minutes.</p>
                     <div style="margin: 24px 0; padding: 16px; background-color: #f1f5f9; border-radius: 8px; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #0f172a;">
                         ${otp}

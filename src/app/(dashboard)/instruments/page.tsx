@@ -36,7 +36,7 @@ export default async function InstrumentsPage() {
                                 {activeOvensCount > 0 ? `${activeOvensCount} Available` : "Maintenance"}
                             </span>
                         </div>
-                        <h3 className="text-xl font-semibold text-white mb-2">Lab Ovens</h3>
+                        <h3 className="text-xl font-semibold text-white mb-2">Drying Ovens</h3>
                         <p className="text-sm text-slate-400">
                             High-temperature ovens for sample drying, curing, and thermal treatment. Both aqueous and non-aqueous modes available.
                         </p>
@@ -59,7 +59,7 @@ export default async function InstrumentsPage() {
                             className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-500 shadow-lg shadow-orange-500/20"
                         >
                             <CalendarPlus className="h-4 w-4" />
-                            Book Lab Oven
+                            Book Oven
                         </Link>
                     </div>
                 </div>
