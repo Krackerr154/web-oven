@@ -136,7 +136,8 @@ export function OvenStatusCard({ oven }: { oven: OvenData }) {
                         </h3>
                         <button
                             onClick={(e) => { e.stopPropagation(); setShowDetails(false); }}
-                            className="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                            aria-label="Close details"
+                            className="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                             title="Close Details"
                         >
                             <X className="h-3.5 w-3.5" />

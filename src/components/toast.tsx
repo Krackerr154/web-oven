@@ -130,7 +130,8 @@ function ToastItem({
       <p className={`text-sm ${config.text} flex-1`}>{toast.message}</p>
       <button
         onClick={onDismiss}
-        className="text-slate-500 hover:text-slate-300 shrink-0"
+        aria-label="Dismiss notification"
+        className="text-slate-500 hover:text-slate-300 shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
       >
         <X className="h-4 w-4" />
       </button>

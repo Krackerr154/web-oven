@@ -46,7 +46,8 @@ export function ProfileReminderBanner({ hasImage, hasNickname }: ProfileReminder
                     </Link>
                     <button
                         onClick={() => setDismissed(true)}
-                        className="p-2.5 text-orange-300 hover:bg-orange-500/10 hover:text-orange-200 rounded-lg transition-colors border border-transparent hover:border-orange-500/20"
+                        aria-label="Dismiss profile reminder"
+                        className="p-2.5 text-orange-300 hover:bg-orange-500/10 hover:text-orange-200 rounded-lg transition-colors border border-transparent hover:border-orange-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                         title="Dismiss for now"
                     >
                         <X className="h-5 w-5" />

@@ -32,7 +32,8 @@ export function DeleteUserButton({ userId }: { userId: string }) {
             <button
                 onClick={() => setShowConfirm(true)}
                 disabled={loading}
-                className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
+                aria-label="Delete User"
+                className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                 title="Delete User"
             >
                 {loading ? (
