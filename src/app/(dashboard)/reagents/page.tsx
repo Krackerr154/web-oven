@@ -4,7 +4,7 @@ import Link from "next/link";
 import ReagentSearchClient from "./reagent-search-client";
 
 export const metadata: Metadata = {
-    title: "Chemical Inventory | AP Lab",
+    title: "Chemical Inventory | AP-Lab",
     description: "Search the laboratory chemical inventory",
 };
 

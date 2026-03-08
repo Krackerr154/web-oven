@@ -65,7 +65,7 @@ const STEPS: TourStep[] = [
   // ── Part 1: Dashboard ──────────────────────────────────────────────────
   {
     section: "dashboard",
-    title: "Welcome to AP Lab Dashboard!",
+    title: "Welcome to AP-Lab Dashboard!",
     description:
       "This is your central hub for managing lab instruments, tracking bookings, and searching the reagent inventory. Let's take a quick tour!",
     route: "/",

@@ -26,7 +26,7 @@ export async function fetchPubChemSynonyms(name: string): Promise<string> {
             signal: AbortSignal.timeout(8000), // Increased to 8 seconds
             headers: {
                 "Accept": "application/json",
-                "User-Agent": "APLab-Inventory-App/1.0 (mailto:admin@example.com)"
+                "User-Agent": "AP-Lab-Inventory-App/1.0 (mailto:admin@example.com)"
             },
             next: { revalidate: 86400 } // Cache results for 24 hours to aggressively avoid rate-limiting
         });
