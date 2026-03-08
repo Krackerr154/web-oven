@@ -32,7 +32,7 @@ export default async function DashboardPage() {
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-white tracking-tight">AP Lab Dashboard</h1>
+        <h1 className="text-3xl font-bold text-white tracking-tight">AP-Lab Dashboard</h1>
         <p className="text-slate-400 mt-2 text-lg">
           Welcome back, {session?.user?.name}. What would you like to do today?
         </p>

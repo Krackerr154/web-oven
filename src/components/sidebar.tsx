@@ -122,7 +122,7 @@ export function Sidebar() {
       <div className="flex items-center gap-2 px-4 py-6 border-b border-slate-700">
         <TestTubes className="h-7 w-7 text-emerald-400" />
         <div>
-          <h1 className="text-lg font-bold text-white leading-tight">AP Lab</h1>
+          <h1 className="text-lg font-bold text-white leading-tight">AP-Lab</h1>
           <p className="text-xs text-slate-400">Dashboard</p>
         </div>
       </div>
@@ -191,7 +191,7 @@ export function Sidebar() {
         className="fixed top-4 left-4 z-50 lg:hidden bg-slate-800 text-white p-2 rounded-lg shadow-lg flex items-center gap-2"
       >
         {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        <span className="text-sm font-semibold pr-1">AP Lab Layout</span>
+        <span className="text-sm font-semibold pr-1">AP-Lab Layout</span>
       </button>
 
       {/* Mobile overlay */}

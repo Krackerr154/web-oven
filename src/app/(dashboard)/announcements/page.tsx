@@ -7,7 +7,7 @@ import { CreateAnnouncementModal } from "./_components/create-announcement-modal
 import { AnnouncementCard } from "./_components/announcement-card";
 
 export const metadata: Metadata = {
-    title: "Announcements | AP Lab",
+    title: "Announcements | AP-Lab",
     description: "Important updates and laboratory announcements",
 };
 
