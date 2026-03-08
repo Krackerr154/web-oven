@@ -5,9 +5,11 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Flame, Loader2 } from "lucide-react";
+import { useToast } from "@/components/toast";
 
 export default function LoginPage() {
   const router = useRouter();
+  const toast = useToast();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [lastAttemptedIdentifier, setLastAttemptedIdentifier] = useState("");
@@ -31,6 +33,7 @@ export default function LoginPage() {
 
     if (result?.error) {
       setError(result.error);
+      toast.error(result.error);
     } else {
       router.push("/");
       router.refresh();
@@ -39,11 +42,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-950 relative overflow-hidden">
-      {/* Decorative background element for desktop */}
       <div className="hidden sm:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-orange-500/10 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="w-full max-w-md relative z-10">
-        {/* Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center p-3 rounded-xl bg-orange-500/20 mb-4">
             <Flame className="h-8 w-8 text-orange-400" />
@@ -52,7 +53,6 @@ export default function LoginPage() {
           <p className="text-slate-400 mt-1">Sign in to your account</p>
         </div>
 
-        {/* Form */}
         <form
           onSubmit={handleSubmit}
           className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 space-y-4"
