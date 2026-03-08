@@ -1,0 +1,46 @@
+
+> web-oven@0.1.0 dev
+> next dev
+
+⚠ Port 3000 is in use by an unknown process, using available port 3001 instead.
+⚠ `eslint` configuration in next.config.ts is no longer supported. See more info here: https://nextjs.org/docs/app/api-reference/cli/next#next-lint-options
+⚠ Invalid next.config.ts options detected:
+⚠     Unrecognized key(s) in object: 'eslint'
+⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://192.168.0.2:3001
+
+✓ Starting...
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+✓ Ready in 1721ms
+ GET /api/auth/signin?callbackUrl=%2Ftest-toast 302 in 2.1s (compile: 2.0s, render: 42ms)
+○ Compiling /login ...
+ GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A3000%2Ftest-toast 200 in 3.5s (compile: 3.2s, render: 319ms)
+ GET /api/auth/session 200 in 57ms (compile: 45ms, render: 13ms)
+ GET /api/auth/signin?callbackUrl=%2Ftest-toast 302 in 51ms (compile: 36ms, render: 15ms)
+ GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A3000%2Ftest-toast 200 in 98ms (compile: 5ms, render: 94ms)
+ GET /api/auth/session 200 in 48ms (compile: 33ms, render: 15ms)
+ GET /api/auth/providers 200 in 14ms (compile: 4ms, render: 10ms)
+ GET /api/auth/csrf 200 in 15ms (compile: 5ms, render: 10ms)
+ POST /api/auth/callback/credentials 401 in 256ms (compile: 5ms, render: 251ms)
+ GET /login 200 in 217ms (compile: 79ms, render: 138ms)
+ GET /api/auth/session 200 in 48ms (compile: 37ms, render: 11ms)
+ GET /api/auth/providers 200 in 16ms (compile: 4ms, render: 12ms)
+ GET /api/auth/csrf 200 in 14ms (compile: 3ms, render: 10ms)
+ POST /api/auth/callback/credentials 401 in 24ms (compile: 3ms, render: 21ms)
+ GET /login 200 in 134ms (compile: 7ms, render: 127ms)
+ GET /api/auth/session 200 in 82ms (compile: 56ms, render: 26ms)
+ GET /api/auth/providers 200 in 25ms (compile: 7ms, render: 18ms)
+ GET /api/auth/csrf 200 in 21ms (compile: 8ms, render: 13ms)
+ POST /api/auth/callback/credentials 401 in 55ms (compile: 4ms, render: 50ms)
+ GET /login 200 in 72ms (compile: 3ms, render: 68ms)
+ GET /api/auth/session 200 in 43ms (compile: 27ms, render: 16ms)
+ GET /api/auth/providers 200 in 16ms (compile: 4ms, render: 13ms)
+ GET /api/auth/csrf 200 in 10ms (compile: 3ms, render: 7ms)
+ POST /api/auth/callback/credentials 401 in 36ms (compile: 5ms, render: 31ms)
+ GET /login 200 in 105ms (compile: 4ms, render: 100ms)
+ GET /api/auth/session 200 in 49ms (compile: 31ms, render: 18ms)
+ GET /api/auth/providers 200 in 16ms (compile: 4ms, render: 12ms)
+ GET /api/auth/csrf 200 in 12ms (compile: 3ms, render: 9ms)
+ POST /api/auth/callback/credentials 401 in 37ms (compile: 9ms, render: 28ms)
