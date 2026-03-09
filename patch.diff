@@ -1,0 +1,23 @@
+--- src/components/toast.tsx
++++ src/components/toast.tsx
+@@ -7,6 +7,7 @@
+   type ReactNode,
+ } from "react";
+ import { CheckCircle, XCircle, AlertTriangle, X, Info } from "lucide-react";
++import { cn } from "@/lib/utils";
+
+ // ─── Types ───────────────────────────────────────────────────────────
+
+@@ -131,8 +132,12 @@
+       <p className={`text-sm ${config.text} flex-1`}>{toast.message}</p>
+       <button
++        aria-label="Dismiss toast"
+         onClick={onDismiss}
+-        className="text-slate-500 hover:text-slate-300 shrink-0"
++        className={cn(
++          "text-slate-500 hover:text-slate-300 shrink-0 rounded-sm",
++          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
++        )}
+       >
+         <X className="h-4 w-4" />
+       </button>
