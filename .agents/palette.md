@@ -1,0 +1,3 @@
+## 2025-03-10 - Accessibility for Toast Notifications
+**Learning:** In a dark-theme environment like AP-Lab, standard icon-only buttons such as toast dismiss controls are easily overlooked. Without explicit `aria-label`s, screen readers don't convey their purpose. More importantly, interactive elements missing `focus-visible` styles against a dark background fail to provide clear keyboard navigation feedback.
+**Action:** Always ensure icon-only buttons receive an `aria-label` describing their action. Additionally, explicitly style focus rings using `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500` combined with rounded corners to ensure visibility and adherence to the dark slate and orange aesthetic.
