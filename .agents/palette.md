@@ -1,0 +1,3 @@
+## 2024-05-14 - Visually Hidden Hover Overlays Need Focus Opacity
+**Learning:** In the dark-theme UI of web-oven, visually hidden hover overlays (such as the avatar upload "Change" overlay) are often invisible to keyboard users when focused. Using `focus-visible:ring` is not enough if the container maintains `opacity-0`.
+**Action:** When implementing hidden hover overlays, ensure that `focus-visible:opacity-100` is applied alongside focus rings (`focus-visible:ring-2 focus-visible:ring-orange-500`) so that keyboard users receive the same visual feedback as mouse users when tabbing to the element. Also, if the container is circular, ensure the focus ring follows the shape using `rounded-full`.
