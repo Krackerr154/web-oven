@@ -98,7 +98,7 @@ const STEPS: TourStep[] = [
   // ── Part 2: Oven ───────────────────────────────────────────────────────
   {
     section: "oven",
-    title: "Lab Ovens",
+    title: "Drying Ovens",
     description:
       "The high-temperature ovens support sample drying, curing, and thermal treatment. Units are available in Aqueous and Non-Aqueous modes.",
     targetId: "tour-oven-card",
@@ -327,8 +327,8 @@ export function SpotlightTour({ hasSeenTour }: SpotlightTourProps) {
               <div
                 key={sec.id}
                 className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold transition-colors ${isActive
-                    ? `${sec.bgColor} ${sec.color} border-b-2 ${sec.borderColor}`
-                    : "text-slate-500"
+                  ? `${sec.bgColor} ${sec.color} border-b-2 ${sec.borderColor}`
+                  : "text-slate-500"
                   }`}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -397,8 +397,8 @@ export function SpotlightTour({ hasSeenTour }: SpotlightTourProps) {
             <button
               onClick={handleNext}
               className={`flex items-center gap-1.5 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${isLastStep
-                  ? "bg-emerald-600 hover:bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-                  : `bg-slate-700 hover:bg-slate-600`
+                ? "bg-emerald-600 hover:bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                : `bg-slate-700 hover:bg-slate-600`
                 }`}
             >
               {isLastStep ? (

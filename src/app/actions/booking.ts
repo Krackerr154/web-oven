@@ -529,7 +529,7 @@ export async function getMyActiveBookingsCount() {
   });
 }
 
-export async function getMyInstrumentBan(instrumentType: "OVEN" | "ULTRASONIC_BATH" | "GLOVEBOX") {
+export async function getMyInstrumentBan(instrumentType: "OVEN" | "ULTRASONIC_BATH" | "GLOVEBOX" | "CPD") {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return null;
 
@@ -547,6 +547,7 @@ export async function getMyInstrumentBan(instrumentType: "OVEN" | "ULTRASONIC_BA
     OVEN: "Oven",
     ULTRASONIC_BATH: "Ultrasonic Bath",
     GLOVEBOX: "Acrylic Glovebox",
+    CPD: "CPD Tousimis",
   };
 
   return {
@@ -761,6 +762,106 @@ export async function createGloveboxBooking(data: {
     return result;
   } catch (error) {
     console.error("Glovebox booking error:", error);
+    return { success: false, message: "An unexpected error occurred" };
+  }
+}
+
+// ── CPD Tousimis ─────────────────────────────────────────────────────────────
+
+const cpdSchema = z.object({
+  instrumentId: z.number().int().positive(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Invalid start date format"),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Invalid end date format"),
+  purpose: z.string().min(3, "Purpose / reason must be at least 3 characters"),
+  sample: z.string().min(1, "Please describe your sample"),
+  cpdMode: z.enum(["AUTO", "MANUAL"]),
+  cpdModeDetails: z.string().optional(),
+});
+
+export async function createCPDBooking(data: {
+  instrumentId: number;
+  startDate: string;
+  endDate: string;
+  purpose: string;
+  sample: string;
+  cpdMode: "AUTO" | "MANUAL";
+  cpdModeDetails?: string;
+}): Promise<BookingResult> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { success: false, message: "You must be logged in" };
+    if (session.user.status !== "APPROVED") return { success: false, message: "Your account is not approved" };
+
+    const parsed = cpdSchema.safeParse(data);
+    if (!parsed.success) return { success: false, message: parsed.error.issues[0].message };
+
+    const { instrumentId, purpose, sample, cpdMode, cpdModeDetails } = parsed.data;
+
+    const startDate = parseWibDateTimeLocal(data.startDate);
+    const endDate = parseWibDateTimeLocal(data.endDate);
+
+    if (!startDate || !endDate) return { success: false, message: "Invalid date format" };
+
+    // CPD max duration = 1 day
+    if (differenceInDays(endDate, startDate) > 1) {
+      return { success: false, message: "CPD booking cannot exceed 1 day" };
+    }
+
+    if (endDate <= startDate) return { success: false, message: "End date must be after start date" };
+    if (startDate < new Date()) return { success: false, message: "Start date cannot be in the past" };
+
+    const userId = session.user.id;
+
+    // Check instrument ban
+    const banCheck = await checkInstrumentBan(userId, instrumentId);
+    if (banCheck) return banCheck;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const instrument = await tx.instrument.findUnique({ where: { id: instrumentId } });
+      if (!instrument) return { success: false, message: "Instrument not found" };
+      if (instrument.status === "MAINTENANCE") return { success: false, message: `${instrument.name} is currently under maintenance` };
+
+      const activeCount = await tx.booking.count({
+        where: { userId, status: "ACTIVE", instrument: { type: instrument.type } }
+      });
+      if (activeCount >= 1) return { success: false, message: "You already have 1 active CPD booking (maximum)" };
+
+      const overlap = await tx.booking.findFirst({
+        where: {
+          instrumentId,
+          status: "ACTIVE",
+          deletedAt: null,
+          startDate: { lt: endDate },
+          endDate: { gt: startDate },
+        },
+      });
+      if (overlap) return { success: false, message: "This time slot overlaps with an existing booking" };
+
+      const createdBooking = await tx.booking.create({
+        data: {
+          userId, instrumentId, startDate, endDate, purpose,
+          sample,
+          cpdMode,
+          cpdModeDetails: cpdModeDetails || undefined,
+          status: "ACTIVE",
+        },
+      });
+
+      await logBookingEvent(tx, {
+        bookingId: createdBooking.id,
+        actorId: userId,
+        actorType: session.user.role === "ADMIN" ? "ADMIN" : "USER",
+        eventType: "CREATED",
+      });
+
+      return { success: true, message: "CPD booking created successfully!" };
+    });
+
+    revalidatePath("/my-bookings");
+    revalidatePath("/");
+    return result;
+  } catch (error) {
+    console.error("CPD booking error:", error);
     return { success: false, message: "An unexpected error occurred" };
   }
 }

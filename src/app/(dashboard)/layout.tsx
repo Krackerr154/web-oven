@@ -19,7 +19,7 @@ export default async function DashboardLayout({
     })
     : null;
   return (
-    <div className="min-h-screen bg-slate-950 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-950 relative overflow-x-hidden">
       {/* Decorative background element */}
       <div className="fixed top-0 left-1/4 w-[800px] h-[800px] bg-orange-500/5 rounded-full blur-[120px] pointer-events-none z-0" />
       <div className="fixed bottom-0 right-1/4 w-[600px] h-[600px] bg-amber-500/5 rounded-full blur-[100px] pointer-events-none z-0" />

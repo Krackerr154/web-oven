@@ -35,6 +35,7 @@ enum InstrumentType {
   OVEN
   ULTRASONIC_BATH
   GLOVEBOX
+  CPD
 
   @@map("ap_instrument_type")
 }
@@ -89,6 +90,13 @@ enum SonicatorMode {
   DEGAS
 
   @@map("ap_sonicator_mode")
+}
+
+enum CpdMode {
+  AUTO
+  MANUAL
+
+  @@map("ap_cpd_mode")
 }
 
 // ─── Models ──────────────────────────────────────────────────────────
@@ -156,6 +164,9 @@ model Booking {
   n2FlowRate       Float?        @map("n2_flow_rate")
   n2Duration       Int?          @map("n2_duration")
   specialNotes     String?       @map("special_notes")
+  sample           String?
+  cpdMode          CpdMode?      @map("cpd_mode")
+  cpdModeDetails   String?       @map("cpd_mode_details")
   status       BookingStatus @default(ACTIVE)
   cancelledAt  DateTime?     @map("cancelled_at")
   cancelledById String?      @map("cancelled_by_id")

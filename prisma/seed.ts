@@ -63,7 +63,19 @@ async function main() {
     },
   });
 
-  console.log(`  ✅ Instruments: ${oven1.name}, ${oven2.name}, ${bath.name}, ${glovebox.name}`);
+  const cpd = await prisma.instrument.upsert({
+    where: { id: 5 },
+    update: {},
+    create: {
+      id: 5,
+      name: "CPD Tousimis",
+      type: "CPD",
+      status: "AVAILABLE",
+      description: "Critical Point Dryer for supercritical drying of delicate samples using liquid CO₂.",
+    },
+  });
+
+  console.log(`  ✅ Instruments: ${oven1.name}, ${oven2.name}, ${bath.name}, ${glovebox.name}, ${cpd.name}`);
 
   // ── Bootstrap Admin User ────────────────────────────────────────────
   const adminEmail = process.env.ADMIN_EMAIL;
