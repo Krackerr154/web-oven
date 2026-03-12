@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Beaker, MapPin, Database, Loader2, Trash2 } from "lucide-react";
+import { Search, Beaker, MapPin, Database, Loader2, Trash2, Pencil } from "lucide-react";
 import { GlasswareItem, deleteGlassware } from "@/app/actions/glassware";
 import Link from "next/link";
 import Fuse from "fuse.js";
@@ -91,7 +91,7 @@ export default function AdminGlasswareClient({ initialData }: { initialData: Gla
                             <div>
                                 <div className="flex justify-between items-start mb-3">
                                     <div>
-                                        <h3 className="font-semibold text-lg text-white mb-1 group-hover:text-orange-400 transition-colors">
+                                        <h3 className="font-semibold text-lg text-white mb-1 group-hover:text-orange-400 transition-colors line-clamp-2" title={item.name}>
                                             {item.name}
                                         </h3>
                                         <div className="flex items-center gap-2">
@@ -151,10 +151,10 @@ export default function AdminGlasswareClient({ initialData }: { initialData: Gla
                             </div>
 
                             <div className="mt-6 pt-4 border-t border-slate-700/50 flex flex-col sm:flex-row justify-between items-center gap-3">
-                                <div className="flex flex-col gap-2 w-full">
-                                    <div className="flex items-center gap-1.5 text-xs text-slate-400 truncate">
+                                <div className="flex flex-col gap-2 w-full min-w-0">
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-400 min-w-0">
                                         <MapPin className="h-3.5 w-3.5 shrink-0" />
-                                        <span className="truncate">{item.location || "Unassigned"}</span>
+                                        <span className="truncate flex-1" title={item.location || "Unassigned"}>{item.location || "Unassigned"}</span>
                                     </div>
                                     {item.ownerId && (
                                         <div className="text-xs text-slate-400 truncate">
@@ -163,35 +163,44 @@ export default function AdminGlasswareClient({ initialData }: { initialData: Gla
                                     )}
                                 </div>
 
-                                <div className="flex gap-2 w-full sm:w-auto mt-3 sm:mt-0">
-                                    <button
-                                        type="button"
-                                        onClick={() => setViewingLoansFor(item)}
-                                        disabled={item.activeLoans.length === 0}
-                                        className="px-3 text-xs py-2 bg-blue-600/10 text-blue-400 hover:text-white hover:bg-blue-600 rounded-lg transition-colors flex-1 sm:flex-none border border-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        title="View active borrowers"
+                                {/* Action Buttons */}
+                                {!item.ownerId && (
+                                    <Link
+                                        href={`/admin/glassware/${item.id}/edit`}
+                                        className="px-3 py-2 bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 hover:border-slate-600 flex items-center justify-center shrink-0"
+                                        title="Edit Item"
                                     >
-                                        Borrowers ({item.activeLoans.length})
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleDelete(item.id, item.name)}
-                                        disabled={isDeleting === item.id}
-                                        className="p-2 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-lg transition-colors flex items-center justify-center shrink-0 border border-slate-700/50"
-                                        title="Delete Item"
-                                    >
-                                        {isDeleting === item.id ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <Trash2 className="h-4 w-4" />
-                                        )}
-                                    </button>
-                                </div>
+                                        <Pencil className="h-4 w-4" />
+                                    </Link>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setViewingLoansFor(item)}
+                                    disabled={item.activeLoans.length === 0}
+                                    className="px-3 text-xs py-2 bg-blue-600/10 text-blue-400 hover:text-white hover:bg-blue-600 rounded-lg transition-colors flex-1 sm:flex-none border border-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="View active borrowers"
+                                >
+                                    Borrowers ({item.activeLoans.length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleDelete(item.id, item.name)}
+                                    disabled={isDeleting === item.id}
+                                    className="p-2 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-lg transition-colors flex items-center justify-center shrink-0 border border-slate-700/50"
+                                    title="Delete Item"
+                                >
+                                    {isDeleting === item.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Trash2 className="h-4 w-4" />
+                                    )}
+                                </button>
                             </div>
                         </div>
                     ))}
                 </div>
             )}
+
             {/* Active Borrowers Modal */}
             {viewingLoansFor && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">

@@ -224,7 +224,118 @@ export async function addUserGlassware(data: {
 }
 
 /**
+ * Edit an existing user-owned glassware item (Owner only)
+ */
+export async function editUserGlassware(
+    id: string,
+    data: {
+        name: string;
+        type: string;
+        brand?: string;
+        size: string;
+        unit: string;
+        quantity: number;
+        condition?: string;
+        location?: string;
+        notes?: string;
+    }
+): Promise<{ success: boolean; message?: string }> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return { success: false, message: "Unauthorized." };
+        }
+
+        // Verify ownership
+        const existing = await prisma.glassware.findUnique({ where: { id } });
+        if (!existing) return { success: false, message: "Glassware not found." };
+        if (existing.ownerId !== session.user.id) {
+            return { success: false, message: "Unauthorized. You do not own this item." };
+        }
+
+        await prisma.glassware.update({
+            where: { id },
+            data: {
+                name: data.name,
+                type: data.type,
+                brand: data.brand || null,
+                size: data.size,
+                unit: data.unit,
+                quantity: data.quantity,
+                condition: data.condition || null,
+                location: data.location || null,
+                notes: data.notes || null,
+            }
+        });
+
+        revalidatePath("/glassware");
+        revalidatePath("/admin/glassware");
+        return { success: true };
+    } catch (error) {
+        console.error("Error editing user glassware:", error);
+        return { success: false, message: "Internal server error" };
+    }
+}
+
+/**
+ * Edit an existing lab-owned glassware item (Admin only)
+ */
+export async function editAdminGlassware(
+    id: string,
+    data: {
+        customId?: string;
+        name: string;
+        type: string;
+        brand?: string;
+        size: string;
+        unit: string;
+        quantity: number;
+        condition?: string;
+        location?: string;
+        notes?: string;
+    }
+): Promise<{ success: boolean; message?: string }> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user || session.user.role !== "ADMIN") {
+            return { success: false, message: "Unauthorized. Admin access required." };
+        }
+
+        // Verify it is lab-owned
+        const existing = await prisma.glassware.findUnique({ where: { id } });
+        if (!existing) return { success: false, message: "Glassware not found." };
+        if (existing.ownerId !== null) {
+            return { success: false, message: "Cannot edit user-owned glassware through this interface." };
+        }
+
+        await prisma.glassware.update({
+            where: { id },
+            data: {
+                customId: data.customId || null,
+                name: data.name,
+                type: data.type,
+                brand: data.brand || null,
+                size: data.size,
+                unit: data.unit,
+                quantity: data.quantity,
+                condition: data.condition || null,
+                location: data.location || null,
+                notes: data.notes || null,
+            }
+        });
+
+        revalidatePath("/admin/glassware");
+        revalidatePath("/glassware");
+        return { success: true };
+    } catch (error) {
+        console.error("Error editing admin glassware:", error);
+        return { success: false, message: "Internal server error" };
+    }
+}
+
+/**
  * Borrow Lab-Owned Glassware
+
  */
 export async function borrowGlassware(glasswareId: string, quantity: number, purpose: string): Promise<{ success: boolean; message?: string }> {
     try {

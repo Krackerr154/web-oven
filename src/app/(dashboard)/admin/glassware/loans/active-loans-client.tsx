@@ -386,16 +386,18 @@ export default function ActiveLoansClient({ loans }: { loans: ActiveLoan[] }) {
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="font-medium text-slate-200 flex items-center gap-2">
-                                                {loan.glassware.name}
+                                        <td className="px-6 py-4 max-w-[150px] sm:max-w-[250px] min-w-[140px]">
+                                            <div className="font-medium text-slate-200 flex flex-wrap items-center gap-2 min-w-0">
+                                                <span className="truncate flex-1" title={loan.glassware.name}>{loan.glassware.name}</span>
                                                 {loan.glassware.customId && (
-                                                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 border border-slate-700 text-slate-400 font-mono">
+                                                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 border border-slate-700 text-slate-400 font-mono shrink-0">
                                                         {loan.glassware.customId}
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="text-xs text-slate-500 mt-1">{loan.glassware.size} {loan.glassware.unit} • {loan.glassware.type}</div>
+                                            <div className="text-xs text-slate-500 mt-1 truncate" title={`${loan.glassware.size} ${loan.glassware.unit} • ${loan.glassware.type}`}>
+                                                {loan.glassware.size} {loan.glassware.unit} • {loan.glassware.type}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 max-w-[200px] truncate text-slate-400" title={loan.purpose || ""}>
                                             {loan.purpose || "-"}

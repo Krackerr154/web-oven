@@ -246,11 +246,11 @@ export default function BorrowedGlasswareClient({ loans }: { loans: LoanItem[] }
                                                     )}
                                                 </button>
                                             )}
-                                            <h3 className="font-semibold text-lg text-white group-hover:text-emerald-400 transition-colors">
+                                            <h3 className="font-semibold text-lg text-white group-hover:text-emerald-400 transition-colors line-clamp-2" title={loan.glassware.name}>
                                                 {loan.glassware.name}
                                             </h3>
                                         </div>
-                                        <p className="text-sm text-slate-400 mt-1 pl-9">
+                                        <p className="text-sm text-slate-400 mt-1 pl-9 truncate" title={`${loan.glassware.size} ${loan.glassware.unit} • ${loan.glassware.type}`}>
                                             {loan.glassware.size} {loan.glassware.unit} • {loan.glassware.type}
                                         </p>
                                     </div>

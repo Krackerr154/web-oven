@@ -7,9 +7,14 @@ export const metadata: Metadata = {
     description: "Search and borrow laboratory glassware",
 };
 
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+
 export default async function UserGlasswarePage() {
     // Fetch all glassware directly from the database
     const initialGlassware = await getAllGlassware();
+    const session = await getServerSession(authOptions);
+    const currentUserId = session?.user?.id;
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -24,7 +29,7 @@ export default async function UserGlasswarePage() {
                 </div>
             </div>
 
-            <UserGlasswareClient initialData={initialGlassware} />
+            <UserGlasswareClient initialData={initialGlassware} currentUserId={currentUserId} />
         </div>
     );
 }

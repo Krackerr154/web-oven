@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Beaker, MapPin, Database, Loader2, MessageCircle, ShoppingCart, Plus, Minus, X, LayoutGrid, List as ListIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Beaker, MapPin, Database, Loader2, MessageCircle, ShoppingCart, Plus, Minus, X, LayoutGrid, List as ListIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { GlasswareItem, borrowMultipleGlassware } from "@/app/actions/glassware";
 import Link from "next/link";
 import Fuse from "fuse.js";
@@ -16,7 +16,7 @@ type CartItem = {
 };
 
 // --- Main Client ---
-export default function UserGlasswareClient({ initialData }: { initialData: GlasswareItem[] }) {
+export default function UserGlasswareClient({ initialData, currentUserId }: { initialData: GlasswareItem[], currentUserId?: string }) {
     const router = useRouter();
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -279,10 +279,19 @@ export default function UserGlasswareClient({ initialData }: { initialData: Glas
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <h3 className="font-semibold text-lg text-white mb-1">
+                                                        <h3 className="font-semibold text-lg text-white mb-1 line-clamp-2" title={item.name}>
                                                             {item.name}
                                                         </h3>
                                                     </div>
+                                                    {!isLabOwned && item.ownerId === currentUserId && (
+                                                        <Link
+                                                            href={`/glassware/${item.id}/edit`}
+                                                            className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 hover:border-slate-600"
+                                                            title="Edit Private Item"
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Link>
+                                                    )}
                                                 </div>
 
                                                 {/* Stock Metrics */}
@@ -314,9 +323,11 @@ export default function UserGlasswareClient({ initialData }: { initialData: Glas
                                             </div>
 
                                             <div className="mt-6 pt-4 border-t border-slate-700/50 flex flex-col gap-3">
-                                                <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                                                    <MapPin className="h-3.5 w-3.5" />
-                                                    <span className="max-w-full truncate">{item.location || "Unassigned"}</span>
+                                                <div className="flex flex-col gap-2 w-full min-w-0">
+                                                    <div className="flex items-center gap-1.5 text-xs text-slate-400 min-w-0">
+                                                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                                                        <span className="truncate flex-1" title={item.location || "Unassigned"}>{item.location || "Unassigned"}</span>
+                                                    </div>
                                                 </div>
 
                                                 {/* Contextual Action Button */}
@@ -382,9 +393,11 @@ export default function UserGlasswareClient({ initialData }: { initialData: Glas
 
                                                 return (
                                                     <tr key={item.id} className="hover:bg-slate-800/30 transition-colors">
-                                                        <td className="px-4 py-3 font-medium text-slate-200">
-                                                            {item.name}
-                                                            {item.customId && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 font-mono hidden md:inline-block">{item.customId}</span>}
+                                                        <td className="px-4 py-3 font-medium text-slate-200 max-w-[150px] sm:max-w-[250px]">
+                                                            <div className="truncate" title={item.name}>
+                                                                {item.name}
+                                                            </div>
+                                                            {item.customId && <span className="mt-1 px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 font-mono hidden md:inline-block">{item.customId}</span>}
                                                         </td>
                                                         <td className="px-4 py-3 hidden sm:table-cell">{item.type}</td>
                                                         <td className="px-4 py-3 text-slate-400">{item.size} {item.unit}</td>
@@ -417,14 +430,25 @@ export default function UserGlasswareClient({ initialData }: { initialData: Glas
                                                                     {isOutOfStock ? "Empty" : "Add"} <Plus className="h-3 w-3 hidden sm:block" />
                                                                 </button>
                                                             ) : (
-                                                                <a
-                                                                    href={`https://wa.me/${item.owner?.phone?.replace(/\D/g, "")}?text=Hi%20${encodeURIComponent(item.owner?.name || "")},%20are%20you%20still%20using%20the%20${encodeURIComponent(item.name)}?`}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 rounded-lg text-sm font-medium transition-colors border border-[#25D366]/20 whitespace-nowrap"
-                                                                >
-                                                                    Contact <MessageCircle className="h-3 w-3 hidden sm:block" />
-                                                                </a>
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    {item.ownerId === currentUserId && (
+                                                                        <Link
+                                                                            href={`/glassware/${item.id}/edit`}
+                                                                            className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700"
+                                                                            title="Edit Item"
+                                                                        >
+                                                                            <Pencil className="h-4 w-4" />
+                                                                        </Link>
+                                                                    )}
+                                                                    <a
+                                                                        href={`https://wa.me/${item.owner?.phone?.replace(/\D/g, "")}?text=Hi%20${encodeURIComponent(item.owner?.name || "")},%20are%20you%20still%20using%20the%20${encodeURIComponent(item.name)}?`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 rounded-lg text-sm font-medium transition-colors border border-[#25D366]/20 whitespace-nowrap"
+                                                                    >
+                                                                        Contact <MessageCircle className="h-3 w-3 hidden sm:block" />
+                                                                    </a>
+                                                                </div>
                                                             )}
                                                         </td>
                                                     </tr>
