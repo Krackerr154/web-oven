@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     description: "Search and borrow laboratory glassware",
 };
 
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 
 export default async function UserGlasswarePage() {

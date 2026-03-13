@@ -295,7 +295,7 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
                                                 </div>
 
                                                 {/* Stock Metrics */}
-                                                {isLabOwned && (
+                                                {isLabOwned ? (
                                                     <div className="flex items-center justify-between py-2 border-y border-slate-800/60 my-3">
                                                         <div>
                                                             <div className="text-xs text-slate-500 font-medium mb-0.5">Available</div>
@@ -307,6 +307,13 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
                                                                 <div className="text-lg font-bold text-orange-400">{inCartQty}</div>
                                                             </div>
                                                         )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center justify-between py-2 border-y border-slate-800/60 my-3">
+                                                        <div>
+                                                            <div className="text-xs text-slate-500 font-medium mb-0.5">Quantity Owned</div>
+                                                            <div className="text-xl font-bold text-slate-300">{item.quantity}</div>
+                                                        </div>
                                                     </div>
                                                 )}
 
@@ -341,6 +348,14 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
                                                         {isOutOfStock ? "Out of Stock" : "Add to List"}
                                                         {!isOutOfStock && <Plus className="h-4 w-4" />}
                                                     </button>
+                                                ) : item.ownerId === currentUserId ? (
+                                                    <Link
+                                                        href={`/glassware/${item.id}/edit`}
+                                                        className="w-full flex justify-between items-center px-4 py-2 text-sm font-medium rounded-lg text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-all border border-amber-500/20"
+                                                    >
+                                                        Edit Your Item
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Link>
                                                 ) : (
                                                     <a
                                                         href={`https://wa.me/${item.owner?.phone?.replace(/\D/g, "")}?text=Hi%20${encodeURIComponent(item.owner?.name || "")},%20are%20you%20still%20using%20the%20${encodeURIComponent(item.name)}?`}
@@ -431,23 +446,24 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
                                                                 </button>
                                                             ) : (
                                                                 <div className="flex items-center justify-end gap-2">
-                                                                    {item.ownerId === currentUserId && (
+                                                                    {item.ownerId === currentUserId ? (
                                                                         <Link
                                                                             href={`/glassware/${item.id}/edit`}
-                                                                            className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700"
+                                                                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 rounded-lg text-sm font-medium transition-colors border border-amber-500/20 whitespace-nowrap"
                                                                             title="Edit Item"
                                                                         >
-                                                                            <Pencil className="h-4 w-4" />
+                                                                            Edit <Pencil className="h-3 w-3 hidden sm:block" />
                                                                         </Link>
+                                                                    ) : (
+                                                                        <a
+                                                                            href={`https://wa.me/${item.owner?.phone?.replace(/\D/g, "")}?text=Hi%20${encodeURIComponent(item.owner?.name || "")},%20are%20you%20still%20using%20the%20${encodeURIComponent(item.name)}?`}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 rounded-lg text-sm font-medium transition-colors border border-[#25D366]/20 whitespace-nowrap"
+                                                                        >
+                                                                            Contact <MessageCircle className="h-3 w-3 hidden sm:block" />
+                                                                        </a>
                                                                     )}
-                                                                    <a
-                                                                        href={`https://wa.me/${item.owner?.phone?.replace(/\D/g, "")}?text=Hi%20${encodeURIComponent(item.owner?.name || "")},%20are%20you%20still%20using%20the%20${encodeURIComponent(item.name)}?`}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 rounded-lg text-sm font-medium transition-colors border border-[#25D366]/20 whitespace-nowrap"
-                                                                    >
-                                                                        Contact <MessageCircle className="h-3 w-3 hidden sm:block" />
-                                                                    </a>
                                                                 </div>
                                                             )}
                                                         </td>
