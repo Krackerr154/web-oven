@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Beaker, MapPin, Database, Loader2, MessageCircle, ShoppingCart, Plus, Minus, X, LayoutGrid, List as ListIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
-import { GlasswareItem, borrowMultipleGlassware } from "@/app/actions/glassware";
+import { Search, Beaker, MapPin, Database, Loader2, MessageCircle, ShoppingCart, Plus, Minus, X, LayoutGrid, List as ListIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { GlasswareItem, borrowMultipleGlassware, deleteUserGlassware } from "@/app/actions/glassware";
 import Link from "next/link";
 import Fuse from "fuse.js";
 import toast from "react-hot-toast";
@@ -24,6 +24,7 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
     const [cart, setCart] = useState<CartItem[]>([]);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
     // View & Pagination & Sorting State
     const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -156,6 +157,27 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
         }
     };
 
+    const handleDelete = async (id: string, name: string) => {
+        if (!window.confirm(`Are you sure you want to permanently delete your item "${name}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        setIsDeleting(id);
+        try {
+            const res = await deleteUserGlassware(id);
+            if (res.success) {
+                toast.success("Item deleted successfully.");
+                router.refresh();
+            } else {
+                toast.error(res.message || "Failed to delete item.");
+            }
+        } catch (error) {
+            toast.error("An unexpected error occurred.");
+        } finally {
+            setIsDeleting(null);
+        }
+    };
+
     return (
         <>
             <div className="space-y-6 relative pb-24">
@@ -284,13 +306,28 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
                                                         </h3>
                                                     </div>
                                                     {!isLabOwned && item.ownerId === currentUserId && (
-                                                        <Link
-                                                            href={`/glassware/${item.id}/edit`}
-                                                            className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 hover:border-slate-600"
-                                                            title="Edit Private Item"
-                                                        >
-                                                            <Pencil className="h-4 w-4" />
-                                                        </Link>
+                                                        <div className="flex gap-1.5 shrink-0">
+                                                            <Link
+                                                                href={`/glassware/${item.id}/edit`}
+                                                                className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 hover:border-slate-600"
+                                                                title="Edit Private Item"
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Link>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDelete(item.id, item.name)}
+                                                                disabled={isDeleting === item.id}
+                                                                className="p-2 text-rose-400 hover:text-white hover:bg-rose-500/20 bg-slate-800 rounded-lg transition-colors border border-slate-700/50 hover:border-rose-500/50"
+                                                                title="Delete Item"
+                                                            >
+                                                                {isDeleting === item.id ? (
+                                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                                ) : (
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                )}
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
 
@@ -349,13 +386,15 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
                                                         {!isOutOfStock && <Plus className="h-4 w-4" />}
                                                     </button>
                                                 ) : item.ownerId === currentUserId ? (
-                                                    <Link
-                                                        href={`/glassware/${item.id}/edit`}
-                                                        className="w-full flex justify-between items-center px-4 py-2 text-sm font-medium rounded-lg text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-all border border-amber-500/20"
-                                                    >
-                                                        Edit Your Item
-                                                        <Pencil className="h-4 w-4" />
-                                                    </Link>
+                                                    <div className="flex gap-2 w-full">
+                                                        <Link
+                                                            href={`/glassware/${item.id}/edit`}
+                                                            className="flex-1 flex justify-center items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-all border border-amber-500/20"
+                                                        >
+                                                            Manage Item
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Link>
+                                                    </div>
                                                 ) : (
                                                     <a
                                                         href={`https://wa.me/${item.owner?.phone?.replace(/\D/g, "")}?text=Hi%20${encodeURIComponent(item.owner?.name || "")},%20are%20you%20still%20using%20the%20${encodeURIComponent(item.name)}?`}
@@ -447,13 +486,28 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
                                                             ) : (
                                                                 <div className="flex items-center justify-end gap-2">
                                                                     {item.ownerId === currentUserId ? (
-                                                                        <Link
-                                                                            href={`/glassware/${item.id}/edit`}
-                                                                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 rounded-lg text-sm font-medium transition-colors border border-amber-500/20 whitespace-nowrap"
-                                                                            title="Edit Item"
-                                                                        >
-                                                                            Edit <Pencil className="h-3 w-3 hidden sm:block" />
-                                                                        </Link>
+                                                                        <>
+                                                                            <Link
+                                                                                href={`/glassware/${item.id}/edit`}
+                                                                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 rounded-lg text-sm font-medium transition-colors border border-amber-500/20 whitespace-nowrap"
+                                                                                title="Edit Item"
+                                                                            >
+                                                                                Edit <Pencil className="h-3 w-3 hidden sm:block" />
+                                                                            </Link>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleDelete(item.id, item.name)}
+                                                                                disabled={isDeleting === item.id}
+                                                                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 rounded-lg text-sm font-medium transition-colors border border-rose-500/20 whitespace-nowrap"
+                                                                                title="Delete Item"
+                                                                            >
+                                                                                {isDeleting === item.id ? (
+                                                                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                                                                ) : (
+                                                                                    <>Delete <Trash2 className="h-3 w-3 hidden sm:block" /></>
+                                                                                )}
+                                                                            </button>
+                                                                        </>
                                                                     ) : (
                                                                         <a
                                                                             href={`https://wa.me/${item.owner?.phone?.replace(/\D/g, "")}?text=Hi%20${encodeURIComponent(item.owner?.name || "")},%20are%20you%20still%20using%20the%20${encodeURIComponent(item.name)}?`}

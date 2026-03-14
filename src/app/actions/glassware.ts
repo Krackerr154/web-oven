@@ -278,6 +278,36 @@ export async function editUserGlassware(
 }
 
 /**
+ * Delete an existing user-owned glassware item (Owner only)
+ */
+export async function deleteUserGlassware(id: string): Promise<{ success: boolean; message?: string }> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return { success: false, message: "Unauthorized." };
+        }
+
+        // Verify ownership before deleting
+        const existing = await prisma.glassware.findUnique({ where: { id } });
+        if (!existing) return { success: false, message: "Glassware not found." };
+        if (existing.ownerId !== session.user.id) {
+            return { success: false, message: "Unauthorized. You do not own this item." };
+        }
+
+        await prisma.glassware.delete({
+            where: { id }
+        });
+
+        revalidatePath("/glassware");
+        revalidatePath("/admin/glassware");
+        return { success: true };
+    } catch (error) {
+        console.error("Error deleting user glassware:", error);
+        return { success: false, message: "Internal server error while deleting" };
+    }
+}
+
+/**
  * Edit an existing lab-owned glassware item (Admin only)
  */
 export async function editAdminGlassware(
