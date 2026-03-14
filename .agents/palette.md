@@ -1,0 +1,3 @@
+## 2026-03-14 - Accessible Toast Dismiss Button
+**Learning:** Toast notifications often contain icon-only dismiss buttons that are overlooked for screen reader accessibility and keyboard navigation. In a dark-theme UI, adding explicit focus rings is crucial since default browser focus outlines are often hard to see against dark backgrounds.
+**Action:** Always ensure icon-only buttons in transient UI elements (like toasts and dialogs) have descriptive `aria-label` attributes and explicitly defined `focus-visible` styles (`focus-visible:ring-2 focus-visible:ring-orange-500` for this palette) for both accessibility and dark-mode visibility.
