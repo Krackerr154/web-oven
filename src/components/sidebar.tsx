@@ -23,6 +23,7 @@ import {
   ShieldAlert,
   ClipboardList,
   Megaphone,
+  FileText,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -46,6 +47,12 @@ const userNavGroups = [
     items: [
       { label: "Chemicals", href: "/reagents", icon: FlaskConical },
       { label: "Glassware", href: "/glassware", icon: Beaker },
+    ],
+  },
+  {
+    title: "Documents",
+    items: [
+      { label: "Forms", href: "/forms", icon: FileText },
     ],
   },
 ];
