@@ -40,11 +40,12 @@ export function UserActionButtons({ userId }: { userId: string }) {
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4">
         <button
           onClick={handleApprove}
           disabled={loading !== null}
           className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-50 transition-colors"
+          title="Approve User Registration"
         >
           {loading === "approve" ? (
             <Loader2 className="h-3 w-3 animate-spin" />
@@ -57,6 +58,7 @@ export function UserActionButtons({ userId }: { userId: string }) {
           onClick={() => setShowRejectConfirm(true)}
           disabled={loading !== null}
           className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors"
+          title="Reject User Registration"
         >
           {loading === "reject" ? (
             <Loader2 className="h-3 w-3 animate-spin" />

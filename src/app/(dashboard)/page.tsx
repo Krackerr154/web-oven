@@ -151,8 +151,8 @@ export default async function DashboardPage() {
 
                 {/* Top Section */}
                 <div className="flex items-start justify-between mb-5">
-                  <div className="flex gap-4">
-                    <div className={`p-3 rounded-xl transition-colors ${booking.instrument.type === 'OVEN' ? 'bg-orange-500/10 text-orange-400 group-hover:bg-orange-500/20' :
+                  <div className="flex gap-4 min-w-0">
+                    <div className={`shrink-0 p-3 rounded-xl transition-colors ${booking.instrument.type === 'OVEN' ? 'bg-orange-500/10 text-orange-400 group-hover:bg-orange-500/20' :
                       booking.instrument.type === 'ULTRASONIC_BATH' ? 'bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20' :
                         booking.instrument.type === 'GLOVEBOX' ? 'bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20' :
                           'bg-blue-500/10 text-blue-400 group-hover:bg-blue-500/20'
@@ -163,8 +163,8 @@ export default async function DashboardPage() {
                             <Beaker className="h-6 w-6" />
                       }
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-white tracking-wide text-lg">{booking.instrument.name}</h3>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-white tracking-wide text-lg truncate">{booking.instrument.name}</h3>
                       <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold tracking-wide text-emerald-400 bg-emerald-500/10 w-fit px-2 py-0.5 rounded-full border border-emerald-500/20 shadow-inner">
                         <span className="relative flex h-1.5 w-1.5">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>

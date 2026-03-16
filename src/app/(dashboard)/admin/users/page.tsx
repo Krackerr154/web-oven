@@ -201,9 +201,9 @@ export default async function AdminUsersPage() {
                         {user._count.bookings}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {/* Row 1: Primary action buttons */}
-                          <div className="flex items-center gap-1 flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap">
                             {user.status === "PENDING" && (
                               <UserActionButtons userId={user.id} />
                             )}

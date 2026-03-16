@@ -248,7 +248,7 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
                         className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700/50 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-all shadow-lg active:scale-[0.98]"
                     >
                         <Beaker className="h-4 w-4 hidden sm:block" />
-                        Private
+                        Add My Glassware
                     </Link>
                 </div>
             </div>
