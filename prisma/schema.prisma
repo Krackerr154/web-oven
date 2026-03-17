@@ -130,6 +130,7 @@ model User {
   glasswareLoans    GlasswareLoan[] @relation("glassware_borrower")
   announcements     Announcement[]
   reactions         Reaction[]
+  announcementComments AnnouncementComment[]
 
   @@map("ap_users")
 }
@@ -322,18 +323,19 @@ model EmailOtp {
 }
 
 model Announcement {
-  id          String     @id @default(uuid())
+  id          String                @id @default(uuid())
   title       String
-  content     String     @db.Text
-  isPinned    Boolean    @default(false) @map("is_pinned")
-  
-  authorId    String     @map("author_id")
-  author      User       @relation(fields: [authorId], references: [id])
-  
+  content     String                @db.Text
+  isPinned    Boolean               @default(false) @map("is_pinned")
+
+  authorId    String                @map("author_id")
+  author      User                  @relation(fields: [authorId], references: [id])
+
   reactions   Reaction[]
-  
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
+  comments    AnnouncementComment[]
+
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
 
   @@map("ap_announcements")
 }
@@ -341,10 +343,10 @@ model Announcement {
 model Reaction {
   id             String       @id @default(uuid())
   type           String       // e.g., "LIKE", "HEART", "CELEBRATE", etc.
-  
+
   announcementId String       @map("announcement_id")
   announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
-  
+
   userId         String       @map("user_id")
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -355,4 +357,22 @@ model Reaction {
   @@index([announcementId])
   @@index([userId])
   @@map("ap_reactions")
+}
+
+model AnnouncementComment {
+  id             String       @id @default(uuid())
+  content        String       @db.Text
+
+  announcementId String       @map("announcement_id")
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  authorId       String       @map("author_id")
+  author         User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  @@index([announcementId])
+  @@index([authorId])
+  @@map("ap_announcement_comments")
 }

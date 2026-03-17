@@ -12,6 +12,10 @@ const announcementSchema = z.object({
     isPinned: z.boolean().default(false),
 });
 
+const commentSchema = z.object({
+    content: z.string().min(1, "Comment cannot be empty").max(500, "Comment must be under 500 characters"),
+});
+
 export type ActionResponse = {
     success: boolean;
     message: string;
@@ -145,6 +149,81 @@ export async function toggleReaction(announcementId: string, type: string): Prom
         return { success: true, message: "Reaction updated" };
     } catch (error) {
         console.error("Toggle reaction error:", error);
+        return { success: false, message: "An unexpected error occurred" };
+    }
+}
+
+export async function createComment(announcementId: string, content: string): Promise<ActionResponse> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return { success: false, message: "You must be logged in to comment" };
+        }
+
+        if (session.user.status !== "APPROVED") {
+            return { success: false, message: "Your account is not approved" };
+        }
+
+        const parsed = commentSchema.safeParse({ content });
+        if (!parsed.success) {
+            return { success: false, message: parsed.error.issues[0].message };
+        }
+
+        // Check if announcement exists
+        const announcement = await prisma.announcement.findUnique({
+            where: { id: announcementId },
+        });
+
+        if (!announcement) {
+            return { success: false, message: "Announcement not found" };
+        }
+
+        await prisma.announcementComment.create({
+            data: {
+                content: parsed.data.content,
+                announcementId,
+                authorId: session.user.id,
+            },
+        });
+
+        revalidatePath("/announcements");
+
+        return { success: true, message: "Comment posted successfully" };
+    } catch (error) {
+        console.error("Create comment error:", error);
+        return { success: false, message: "An unexpected error occurred" };
+    }
+}
+
+export async function deleteComment(id: string): Promise<ActionResponse> {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return { success: false, message: "You must be logged in" };
+        }
+
+        const comment = await prisma.announcementComment.findUnique({
+            where: { id },
+        });
+
+        if (!comment) {
+            return { success: false, message: "Comment not found" };
+        }
+
+        // Only allow comment author or admin to delete
+        if (comment.authorId !== session.user.id && session.user.role !== "ADMIN") {
+            return { success: false, message: "You don't have permission to delete this comment" };
+        }
+
+        await prisma.announcementComment.delete({
+            where: { id },
+        });
+
+        revalidatePath("/announcements");
+
+        return { success: true, message: "Comment deleted successfully" };
+    } catch (error) {
+        console.error("Delete comment error:", error);
         return { success: false, message: "An unexpected error occurred" };
     }
 }
