@@ -396,14 +396,16 @@ export default function DateTimePicker({
                     </div>
                     <div className="flex items-center gap-1">
                         <button type="button" onClick={prevMonth} disabled={!canGoPrev}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                            aria-label="Previous month"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
                             <ChevronLeft className="h-4 w-4" />
                         </button>
                         <span className="text-sm font-medium text-slate-200 w-36 text-center">
                             {MONTHS[viewMonth - 1]} {viewYear}
                         </span>
                         <button type="button" onClick={nextMonth}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+                            aria-label="Next month"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
                             <ChevronRight className="h-4 w-4" />
                         </button>
                     </div>
