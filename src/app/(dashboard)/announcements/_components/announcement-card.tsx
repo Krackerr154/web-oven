@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { Pin } from "lucide-react";
 import { ReactionBar } from "./reaction-bar";
+import { CommentSection } from "./comment-section";
 import { DeleteAnnouncementButton } from "./delete-button";
 
 type AnnouncementWithDetails = {
@@ -18,6 +19,16 @@ type AnnouncementWithDetails = {
         id: string;
         type: string;
         userId: string;
+    }[];
+    comments: {
+        id: string;
+        content: string;
+        createdAt: Date;
+        author: {
+            id: string;
+            name: string;
+            image: string | null;
+        };
     }[];
 };
 
@@ -89,6 +100,13 @@ export function AnnouncementCard({
                 announcementId={announcement.id}
                 initialReactions={announcement.reactions}
                 currentUserId={currentUserId}
+            />
+
+            <CommentSection
+                announcementId={announcement.id}
+                initialComments={announcement.comments}
+                currentUserId={currentUserId}
+                isAdmin={isAdmin}
             />
         </div>
     );
