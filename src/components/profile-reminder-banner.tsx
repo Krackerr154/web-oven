@@ -39,14 +39,15 @@ export function ProfileReminderBanner({ hasImage, hasNickname }: ProfileReminder
                 <div className="flex items-center gap-3 self-end sm:self-auto shrink-0 w-full sm:w-auto">
                     <Link
                         href="/profile"
-                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium rounded-lg transition-all shadow-[0_0_15px_rgba(249,115,22,0.3)] hover:shadow-[0_0_20px_rgba(249,115,22,0.5)]"
+                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium rounded-lg transition-all shadow-[0_0_15px_rgba(249,115,22,0.3)] hover:shadow-[0_0_20px_rgba(249,115,22,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
                     >
                         Update Profile
                         <ChevronRight className="h-4 w-4" />
                     </Link>
                     <button
                         onClick={() => setDismissed(true)}
-                        className="p-2.5 text-orange-300 hover:bg-orange-500/10 hover:text-orange-200 rounded-lg transition-colors border border-transparent hover:border-orange-500/20"
+                        aria-label="Dismiss profile reminder"
+                        className="p-2.5 text-orange-300 hover:bg-orange-500/10 hover:text-orange-200 rounded-lg transition-colors border border-transparent hover:border-orange-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                         title="Dismiss for now"
                     >
                         <X className="h-5 w-5" />
