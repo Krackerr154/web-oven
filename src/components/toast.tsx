@@ -7,11 +7,14 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { CheckCircle, XCircle, AlertTriangle, X, Info } from "lucide-react";
+import { X } from "lucide-react";
+import {
+  toastTheme,
+  notificationTheme,
+  type ToastVariant,
+} from "@/config/notification-theme";
 
 // ─── Types ───────────────────────────────────────────────────────────
-
-type ToastVariant = "success" | "error" | "warning" | "info";
 
 type Toast = {
   id: number;
@@ -52,7 +55,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (message: string, variant: ToastVariant = "info") => {
       const id = ++nextId;
       setToasts((prev) => [...prev, { id, message, variant }]);
-      setTimeout(() => removeToast(id), 4000);
+      setTimeout(() => removeToast(id), notificationTheme.toast.duration);
     },
     [removeToast]
   );
@@ -70,7 +73,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
 
       {/* Toast container */}
-      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+      <div
+        className={`fixed ${notificationTheme.toast.position === "top-right" ? "top-4 right-4" : ""} z-[100] flex flex-col gap-2 ${notificationTheme.toast.maxWidth} w-full pointer-events-none`}
+      >
         {toasts.map((t) => (
           <ToastItem key={t.id} toast={t} onDismiss={() => removeToast(t.id)} />
         ))}
@@ -81,36 +86,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 // ─── Toast Item ──────────────────────────────────────────────────────
 
-const variantConfig: Record<
-  ToastVariant,
-  { icon: typeof CheckCircle; bg: string; border: string; text: string }
-> = {
-  success: {
-    icon: CheckCircle,
-    bg: "bg-emerald-500/10",
-    border: "border-emerald-500/30",
-    text: "text-emerald-300",
-  },
-  error: {
-    icon: XCircle,
-    bg: "bg-red-500/10",
-    border: "border-red-500/30",
-    text: "text-red-300",
-  },
-  warning: {
-    icon: AlertTriangle,
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/30",
-    text: "text-amber-300",
-  },
-  info: {
-    icon: Info,
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/30",
-    text: "text-blue-300",
-  },
-};
-
 function ToastItem({
   toast,
   onDismiss,
@@ -118,19 +93,20 @@ function ToastItem({
   toast: Toast;
   onDismiss: () => void;
 }) {
-  const config = variantConfig[toast.variant];
+  const config = toastTheme[toast.variant];
   const Icon = config.icon;
+  const theme = notificationTheme.toast;
 
   return (
     <div
-      className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl border ${config.bg} ${config.border} shadow-lg backdrop-blur-md animate-toast-in`}
+      className={`pointer-events-auto flex items-start gap-3 ${theme.padding} ${theme.rounded} border ${config.bg} ${config.border} ${theme.shadow} ${theme.backdrop} ${notificationTheme.animation.enter}`}
       role="alert"
     >
       <Icon className={`h-5 w-5 ${config.text} shrink-0 mt-0.5`} />
       <p className={`text-sm ${config.text} flex-1`}>{toast.message}</p>
       <button
         onClick={onDismiss}
-        className="text-slate-500 hover:text-slate-300 shrink-0"
+        className={`${theme.closeButtonColor} ${theme.closeButtonHoverColor} shrink-0`}
       >
         <X className="h-4 w-4" />
       </button>
