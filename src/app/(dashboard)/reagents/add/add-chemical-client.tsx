@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { addUserChemical, fetchPubChemSynonyms } from "@/app/actions/reagents";
 import { FlaskConical, Save, Loader2, ArrowLeft, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import toast from "react-hot-toast";
+import { useToast } from "@/components/toast";
 import { useDebounce } from "use-debounce";
 import CustomMonthPicker from "@/components/custom-month-picker";
 
 export default function AddUserChemicalClient() {
     const router = useRouter();
+    const toast = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         customId: "",

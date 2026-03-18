@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Beaker, Calendar, Clock, RotateCcw, Loader2, ArrowLeft, AlertCircle, CheckSquare, Square } from "lucide-react";
 import { requestReturnGlassware, requestMultipleReturnGlassware } from "@/app/actions/glassware";
 import Link from "next/link";
-import toast from "react-hot-toast";
+import { useToast } from "@/components/toast";
 import { useRouter } from "next/navigation";
 import { formatDateWib } from "@/lib/utils";
 
@@ -25,6 +25,7 @@ type LoanItem = {
 
 export default function BorrowedGlasswareClient({ loans }: { loans: LoanItem[] }) {
     const router = useRouter();
+    const toast = useToast();
     const [returningId, setReturningId] = useState<string | null>(null);
 
     // Modal state

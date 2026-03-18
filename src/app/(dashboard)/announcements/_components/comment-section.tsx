@@ -4,7 +4,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { MessageSquare, Trash2 } from "lucide-react";
 import { createComment, deleteComment } from "@/app/actions/announcement";
-import toast from "react-hot-toast";
+import { useToast } from "@/components/toast";
 
 type Comment = {
     id: string;
@@ -28,6 +28,7 @@ export function CommentSection({
     currentUserId: string;
     isAdmin: boolean;
 }) {
+    const toast = useToast();
     const [comments, setComments] = useState<Comment[]>(initialComments);
     const [newComment, setNewComment] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
