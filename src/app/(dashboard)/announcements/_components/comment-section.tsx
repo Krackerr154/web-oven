@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { MessageSquare, Trash2 } from "lucide-react";
 import { createComment, deleteComment } from "@/app/actions/announcement";
 import { useToast } from "@/components/toast";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 type Comment = {
     id: string;
@@ -33,6 +34,8 @@ export function CommentSection({
     const [newComment, setNewComment] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showComments, setShowComments] = useState(false);
+    const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -57,8 +60,7 @@ export function CommentSection({
     };
 
     const handleDelete = async (commentId: string) => {
-        if (!confirm("Are you sure you want to delete this comment?")) return;
-
+        setIsDeleting(true);
         try {
             const result = await deleteComment(commentId);
             if (result.success) {
@@ -69,6 +71,9 @@ export function CommentSection({
             }
         } catch (error) {
             toast.error("Failed to delete comment");
+        } finally {
+            setIsDeleting(false);
+            setCommentToDelete(null);
         }
     };
 
@@ -148,7 +153,7 @@ export function CommentSection({
 
                                         {(comment.author.id === currentUserId || isAdmin) && (
                                             <button
-                                                onClick={() => handleDelete(comment.id)}
+                                                onClick={() => setCommentToDelete(comment.id)}
                                                 className="text-slate-500 hover:text-red-400 transition-colors p-1"
                                                 title="Delete comment"
                                             >
@@ -166,6 +171,17 @@ export function CommentSection({
                     </div>
                 </div>
             )}
+
+            <ConfirmDialog
+                open={!!commentToDelete}
+                title="Delete Comment"
+                description="Are you sure you want to delete this comment?"
+                confirmLabel="Delete"
+                variant="danger"
+                loading={isDeleting}
+                onConfirm={() => commentToDelete && handleDelete(commentToDelete)}
+                onCancel={() => setCommentToDelete(null)}
+            />
         </div>
     );
 }

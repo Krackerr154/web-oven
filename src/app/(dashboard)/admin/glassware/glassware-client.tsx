@@ -6,6 +6,7 @@ import { GlasswareItem, deleteGlassware } from "@/app/actions/glassware";
 import Link from "next/link";
 import Fuse from "fuse.js";
 import { useToast } from "@/components/toast";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useRouter } from "next/navigation";
 
 export default function AdminGlasswareClient({ initialData }: { initialData: GlasswareItem[] }) {
@@ -14,6 +15,7 @@ export default function AdminGlasswareClient({ initialData }: { initialData: Gla
     const [searchTerm, setSearchTerm] = useState("");
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [viewingLoansFor, setViewingLoansFor] = useState<GlasswareItem | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string, name: string } | null>(null);
 
     // Setup Fuse.js for client-side quick filtering
     const fuse = useMemo(() => new Fuse(initialData, {
@@ -28,10 +30,6 @@ export default function AdminGlasswareClient({ initialData }: { initialData: Gla
     }, [searchTerm, initialData, fuse]);
 
     const handleDelete = async (id: string, name: string) => {
-        if (!window.confirm(`Are you sure you want to delete ${name}? This action cannot be undone.`)) {
-            return;
-        }
-
         setIsDeleting(id);
         try {
             const res = await deleteGlassware(id);
@@ -45,6 +43,7 @@ export default function AdminGlasswareClient({ initialData }: { initialData: Gla
             toast.error("An unexpected error occurred.");
         } finally {
             setIsDeleting(null);
+            setItemToDelete(null);
         }
     };
 
@@ -185,7 +184,7 @@ export default function AdminGlasswareClient({ initialData }: { initialData: Gla
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => handleDelete(item.id, item.name)}
+                                    onClick={() => setItemToDelete({ id: item.id, name: item.name })}
                                     disabled={isDeleting === item.id}
                                     className="p-2 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-lg transition-colors flex items-center justify-center shrink-0 border border-slate-700/50"
                                     title="Delete Item"
@@ -243,6 +242,17 @@ export default function AdminGlasswareClient({ initialData }: { initialData: Gla
                     </div>
                 </div>
             )}
+
+            <ConfirmDialog
+                open={!!itemToDelete}
+                title="Delete Glassware"
+                description={`Are you sure you want to delete ${itemToDelete?.name}? This action cannot be undone.`}
+                confirmLabel="Delete"
+                variant="danger"
+                loading={!!isDeleting}
+                onConfirm={() => itemToDelete && handleDelete(itemToDelete.id, itemToDelete.name)}
+                onCancel={() => setItemToDelete(null)}
+            />
         </div>
     );
 }

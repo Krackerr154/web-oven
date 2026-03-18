@@ -6,6 +6,7 @@ import { GlasswareItem, borrowMultipleGlassware, deleteUserGlassware } from "@/a
 import Link from "next/link";
 import Fuse from "fuse.js";
 import { useToast } from "@/components/toast";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useRouter } from "next/navigation";
 
 // --- Types ---
@@ -26,6 +27,7 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string, name: string } | null>(null);
 
     // View & Pagination & Sorting State
     const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -159,10 +161,6 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
     };
 
     const handleDelete = async (id: string, name: string) => {
-        if (!window.confirm(`Are you sure you want to permanently delete your item "${name}"? This action cannot be undone.`)) {
-            return;
-        }
-
         setIsDeleting(id);
         try {
             const res = await deleteUserGlassware(id);
@@ -176,6 +174,7 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
             toast.error("An unexpected error occurred.");
         } finally {
             setIsDeleting(null);
+            setItemToDelete(null);
         }
     };
 
@@ -317,7 +316,7 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
                                                             </Link>
                                                             <button
                                                                 type="button"
-                                                                onClick={() => handleDelete(item.id, item.name)}
+                                                                onClick={() => setItemToDelete({ id: item.id, name: item.name })}
                                                                 disabled={isDeleting === item.id}
                                                                 className="p-2 text-rose-400 hover:text-white hover:bg-rose-500/20 bg-slate-800 rounded-lg transition-colors border border-slate-700/50 hover:border-rose-500/50"
                                                                 title="Delete Item"
@@ -678,6 +677,17 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
                     </div>
                 )
             }
+
+            <ConfirmDialog
+                open={!!itemToDelete}
+                title="Delete Glassware"
+                description={`Are you sure you want to permanently delete your item "${itemToDelete?.name}"? This action cannot be undone.`}
+                confirmLabel="Delete"
+                variant="danger"
+                loading={!!isDeleting}
+                onConfirm={() => itemToDelete && handleDelete(itemToDelete.id, itemToDelete.name)}
+                onCancel={() => setItemToDelete(null)}
+            />
         </>
     );
 }

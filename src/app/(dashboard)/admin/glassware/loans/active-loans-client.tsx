@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useToast } from "@/components/toast";
 import { useRouter } from "next/navigation";
 import { approveBorrow, rejectBorrow, confirmReturnGlassware, approveMultipleBorrow, confirmMultipleReturnGlassware } from "@/app/actions/glassware";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { formatDateWib } from "@/lib/utils";
 
 type ActiveLoan = {
@@ -34,6 +35,10 @@ export default function ActiveLoansClient({ loans }: { loans: ActiveLoan[] }) {
     const toast = useToast();
     const [searchQuery, setSearchQuery] = useState("");
     const [returningId, setReturningId] = useState<string | null>(null);
+
+    const [batchReturnConfirmOpen, setBatchReturnConfirmOpen] = useState(false);
+    const [forceReturnConfirmOpen, setForceReturnConfirmOpen] = useState(false);
+    const [approveConfirmId, setApproveConfirmId] = useState<string | null>(null);
 
     // Modal state for Returns (Force Return or Confirm Inspection)
     const [returnModal, setReturnModal] = useState<{ isOpen: boolean; loan: ActiveLoan | null; isForce?: boolean }>({
@@ -84,8 +89,34 @@ export default function ActiveLoansClient({ loans }: { loans: ActiveLoan[] }) {
         setSelectedLoans(newSet);
     };
 
+    const executeBatchReturn = async () => {
+        setIsSubmittingBatch(true);
+        const ids = Array.from(selectedLoans);
+        try {
+            const res = await confirmMultipleReturnGlassware(ids);
+            if (res.success) {
+                toast.success(`Successfully returned ${selectedLoans.size} records!`);
+                setSelectedLoans(new Set());
+                router.refresh();
+            } else {
+                toast.error(res.message || "Failed to confirm returns.");
+            }
+        } catch (error) {
+            toast.error("An unexpected error occurred.");
+        } finally {
+            setIsSubmittingBatch(false);
+            setBatchReturnConfirmOpen(false);
+        }
+    };
+
     const handleBatchAction = async (actionType: 'approve' | 'return') => {
         if (selectedLoans.size === 0) return;
+
+        if (actionType === 'return') {
+            setBatchReturnConfirmOpen(true);
+            return;
+        }
+
         setIsSubmittingBatch(true);
         const ids = Array.from(selectedLoans);
 
@@ -98,19 +129,6 @@ export default function ActiveLoansClient({ loans }: { loans: ActiveLoan[] }) {
                     router.refresh();
                 } else {
                     toast.error(res.message || "Failed to approve.");
-                }
-            } else if (actionType === 'return') {
-                if (!window.confirm(`You are confirming the complete return of ${selectedLoans.size} items. Proceed? (0 broken/lost assumed)`)) {
-                    setIsSubmittingBatch(false);
-                    return;
-                }
-                const res = await confirmMultipleReturnGlassware(ids);
-                if (res.success) {
-                    toast.success(`Successfully returned ${selectedLoans.size} records!`);
-                    setSelectedLoans(new Set());
-                    router.refresh();
-                } else {
-                    toast.error(res.message || "Failed to confirm returns.");
                 }
             }
         } catch (error) {
@@ -138,11 +156,19 @@ export default function ActiveLoansClient({ loans }: { loans: ActiveLoan[] }) {
             return;
         }
 
-        if (returnModal.isForce && !window.confirm(`FORCE RETURN WARNING: You are about to forcefully return this item on behalf of ${returnModal.loan.user.name || returnModal.loan.user.email}. Are you sure?`)) {
+        if (returnModal.isForce && !forceReturnConfirmOpen) {
+            setForceReturnConfirmOpen(true);
             return;
         }
 
+        executeSubmitReturn();
+    };
+
+    const executeSubmitReturn = async () => {
+        if (!returnModal.loan) return;
+
         setReturningId(returnModal.loan.id);
+        setForceReturnConfirmOpen(false);
         try {
             const res = await confirmReturnGlassware(returnModal.loan.id, returnedQty, brokenQty);
             if (res.success) {
@@ -160,8 +186,16 @@ export default function ActiveLoansClient({ loans }: { loans: ActiveLoan[] }) {
     };
 
     const handleApprove = async (id: string) => {
-        if (!window.confirm("Approve this borrow request and mark item as actively borrowed?")) return;
-        setReturningId(id);
+        setApproveConfirmId(id);
+    };
+
+    const executeApprove = async () => {
+        if (!approveConfirmId) return;
+        setReturningId(approveConfirmId);
+
+        const id = approveConfirmId;
+        setApproveConfirmId(null);
+
         const res = await approveBorrow(id);
         if (res.success) {
             toast.success("Borrow request approved!");
@@ -506,6 +540,39 @@ export default function ActiveLoansClient({ loans }: { loans: ActiveLoan[] }) {
                     </div>
                 </div>
             )}
+
+            <ConfirmDialog
+                open={batchReturnConfirmOpen}
+                title="Confirm Returns"
+                description={`You are confirming the complete return of ${selectedLoans.size} items. Proceed? (0 broken/lost assumed)`}
+                confirmLabel="Confirm"
+                variant="danger"
+                loading={isSubmittingBatch}
+                onConfirm={executeBatchReturn}
+                onCancel={() => setBatchReturnConfirmOpen(false)}
+            />
+
+            <ConfirmDialog
+                open={forceReturnConfirmOpen}
+                title="Force Return Warning"
+                description={`You are about to forcefully return this item on behalf of ${returnModal.loan?.user?.name || returnModal.loan?.user?.email}. Are you sure?`}
+                confirmLabel="Force Return"
+                variant="danger"
+                loading={returningId !== null}
+                onConfirm={executeSubmitReturn}
+                onCancel={() => setForceReturnConfirmOpen(false)}
+            />
+
+            <ConfirmDialog
+                open={!!approveConfirmId}
+                title="Approve Request"
+                description="Approve this borrow request and mark item as actively borrowed?"
+                confirmLabel="Approve"
+                variant="warning"
+                loading={returningId !== null}
+                onConfirm={executeApprove}
+                onCancel={() => setApproveConfirmId(null)}
+            />
         </div>
     );
 }
