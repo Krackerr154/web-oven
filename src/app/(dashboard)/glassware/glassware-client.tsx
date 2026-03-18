@@ -5,7 +5,7 @@ import { Search, Beaker, MapPin, Database, Loader2, MessageCircle, ShoppingCart,
 import { GlasswareItem, borrowMultipleGlassware, deleteUserGlassware } from "@/app/actions/glassware";
 import Link from "next/link";
 import Fuse from "fuse.js";
-import toast from "react-hot-toast";
+import { useToast } from "@/components/toast";
 import { useRouter } from "next/navigation";
 
 // --- Types ---
@@ -18,6 +18,7 @@ type CartItem = {
 // --- Main Client ---
 export default function UserGlasswareClient({ initialData, currentUserId }: { initialData: GlasswareItem[], currentUserId?: string }) {
     const router = useRouter();
+    const toast = useToast();
     const [searchTerm, setSearchTerm] = useState("");
 
     // Cart State
@@ -106,7 +107,7 @@ export default function UserGlasswareClient({ initialData, currentUserId }: { in
             }
             return [...prev, { glassware: item, quantity: 1, purpose: "" }];
         });
-        toast.success(`Added ${item.name} to list`, { icon: '🛒', duration: 1500 });
+        toast.success(`Added ${item.name} to list`);
     };
 
     const updateCartQty = (id: string, delta: number) => {

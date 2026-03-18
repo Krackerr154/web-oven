@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { editUserGlassware } from "@/app/actions/glassware";
 import { Beaker, Save, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import toast from "react-hot-toast";
+import { useToast } from "@/components/toast";
 import { GlasswareItem } from "@/app/actions/glassware"; // Ensure types are exported from the action or define them appropriately
 
 export default function EditUserGlasswareClient({ initialData }: { initialData: any }) {
     const router = useRouter();
+    const toast = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         name: initialData.name || "",

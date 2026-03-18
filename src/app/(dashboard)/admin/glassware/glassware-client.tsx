@@ -5,11 +5,12 @@ import { Search, Beaker, MapPin, Database, Loader2, Trash2, Pencil } from "lucid
 import { GlasswareItem, deleteGlassware } from "@/app/actions/glassware";
 import Link from "next/link";
 import Fuse from "fuse.js";
-import toast from "react-hot-toast";
+import { useToast } from "@/components/toast";
 import { useRouter } from "next/navigation";
 
 export default function AdminGlasswareClient({ initialData }: { initialData: GlasswareItem[] }) {
     const router = useRouter();
+    const toast = useToast();
     const [searchTerm, setSearchTerm] = useState("");
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [viewingLoansFor, setViewingLoansFor] = useState<GlasswareItem | null>(null);

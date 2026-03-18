@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { addGlassware } from "@/app/actions/glassware";
 import { Beaker, Save, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import toast from "react-hot-toast";
+import { useToast } from "@/components/toast";
 
 export default function AddAdminGlasswareClient() {
     const router = useRouter();
+    const toast = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         customId: "",

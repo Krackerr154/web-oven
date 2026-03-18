@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Search, ShieldAlert, RotateCcw, Loader2, AlertCircle, ArrowLeft, CheckSquare, Square, CheckCircle } from "lucide-react";
 import Link from "next/link";
-import toast from "react-hot-toast";
+import { useToast } from "@/components/toast";
 import { useRouter } from "next/navigation";
 import { approveBorrow, rejectBorrow, confirmReturnGlassware, approveMultipleBorrow, confirmMultipleReturnGlassware } from "@/app/actions/glassware";
 import { formatDateWib } from "@/lib/utils";
@@ -31,6 +31,7 @@ type ActiveLoan = {
 
 export default function ActiveLoansClient({ loans }: { loans: ActiveLoan[] }) {
     const router = useRouter();
+    const toast = useToast();
     const [searchQuery, setSearchQuery] = useState("");
     const [returningId, setReturningId] = useState<string | null>(null);
 
