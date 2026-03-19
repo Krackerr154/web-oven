@@ -64,7 +64,7 @@ export default async function getCroppedImg(
     // draw rotated image
     ctx.drawImage(image, 0, 0);
 
-    // croppedArea format required to be 600x800 for 3:4 aspect ratio backend
+    // croppedArea format required to be square (1:1 aspect ratio) - WhatsApp standard
     const croppedCanvas = document.createElement("canvas");
     const croppedCtx = croppedCanvas.getContext("2d");
 
@@ -72,11 +72,12 @@ export default async function getCroppedImg(
         return null;
     }
 
-    // Final scale 600 x 800
-    croppedCanvas.width = 600;
-    croppedCanvas.height = 800;
+    // Final scale 640 x 640 (square - WhatsApp standard)
+    const outputSize = 640;
+    croppedCanvas.width = outputSize;
+    croppedCanvas.height = outputSize;
 
-    // Draw the cropped image onto the new canvas at 600x800 resolution
+    // Draw the cropped image onto the new canvas at square resolution
     croppedCtx.drawImage(
         canvas,
         pixelCrop.x,
@@ -85,10 +86,10 @@ export default async function getCroppedImg(
         pixelCrop.height,
         0,
         0,
-        600,
-        800
+        outputSize,
+        outputSize
     );
 
-    // We want a highly compressed JPEG
+    // We want a highly compressed JPEG (WhatsApp uses ~0.85-0.9 quality)
     return croppedCanvas.toDataURL("image/jpeg", 0.85);
 }

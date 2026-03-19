@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { Shield, Mail, Phone, Clock, Edit2, X, Check, Camera, Loader2, FileText, Users, Crop } from "lucide-react";
+import { useState, useRef, useCallback, DragEvent } from "react";
+import { Shield, Mail, Phone, Clock, Edit2, X, Check, Camera, Loader2, FileText, Users, Crop, Upload, Trash2 } from "lucide-react";
 import { formatDateTimeWib } from "@/lib/utils";
-import { updateProfile, updateAvatar } from "@/app/actions/profile";
+import { updateProfile, updateAvatar, deleteAvatar } from "@/app/actions/profile";
 import { useToast } from "@/components/toast";
 import Image from "next/image";
 import { IdCardGenerator } from "./id-card-generator";
@@ -24,11 +24,18 @@ type ProfileUser = {
     createdAt: Date;
 };
 
+// WhatsApp-style validation constants
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MIN_DIMENSION = 192; // Minimum width/height in pixels
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
+
 export function ProfileEditor({ user }: { user: ProfileUser }) {
     const toast = useToast();
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(false);
     const [avatarLoading, setAvatarLoading] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
 
     // Form states
     const [name, setName] = useState(user.name);
@@ -38,6 +45,7 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
 
     // Cropper states
     const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+    const [previewImageSrc, setPreviewImageSrc] = useState<string | null>(null);
     const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
     const [rotation, setRotation] = useState(0);
@@ -67,20 +75,96 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
         setIsEditing(false);
     }
 
-    async function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
-        if (!file) return;
+    // Validate image file (WhatsApp-style validation)
+    function validateImageFile(file: File): string | null {
+        // Check file type
+        if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+            return `Invalid file type. Please upload ${ALLOWED_EXTENSIONS.join(', ')} files only.`;
+        }
 
-        if (!file.type.startsWith("image/")) {
-            toast.error("Please upload a valid image file");
+        // Check file size
+        if (file.size > MAX_FILE_SIZE) {
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            return `File size (${sizeMB}MB) exceeds maximum allowed size of 5MB.`;
+        }
+
+        return null;
+    }
+
+    // Check image dimensions
+    async function validateImageDimensions(dataUrl: string): Promise<string | null> {
+        return new Promise((resolve) => {
+            const img = new window.Image();
+            img.onload = () => {
+                if (img.width < MIN_DIMENSION || img.height < MIN_DIMENSION) {
+                    resolve(`Image is too small. Minimum dimension is ${MIN_DIMENSION}x${MIN_DIMENSION} pixels.`);
+                } else {
+                    resolve(null);
+                }
+            };
+            img.onerror = () => resolve("Failed to load image.");
+            img.src = dataUrl;
+        });
+    }
+
+    async function processImageFile(file: File) {
+        // Validate file
+        const fileError = validateImageFile(file);
+        if (fileError) {
+            toast.error(fileError);
             return;
         }
 
         const reader = new FileReader();
-        reader.onloadend = () => {
-            setCropImageSrc(reader.result as string);
+        reader.onloadend = async () => {
+            const dataUrl = reader.result as string;
+
+            // Validate dimensions
+            const dimensionError = await validateImageDimensions(dataUrl);
+            if (dimensionError) {
+                toast.error(dimensionError);
+                return;
+            }
+
+            setPreviewImageSrc(dataUrl);
+            setCropImageSrc(dataUrl);
         };
         reader.readAsDataURL(file);
+    }
+
+    async function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        await processImageFile(file);
+    }
+
+    // Drag and drop handlers
+    function handleDragEnter(e: DragEvent<HTMLDivElement>) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    }
+
+    function handleDragLeave(e: DragEvent<HTMLDivElement>) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    }
+
+    function handleDragOver(e: DragEvent<HTMLDivElement>) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    async function handleDrop(e: DragEvent<HTMLDivElement>) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+
+        const file = e.dataTransfer.files?.[0];
+        if (file) {
+            await processImageFile(file);
+        }
     }
 
     const onCropComplete = useCallback((_croppedArea: any, croppedAreaPixels: any) => {
@@ -118,7 +202,31 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
 
     function closeCropper() {
         setCropImageSrc(null);
+        setPreviewImageSrc(null);
+        setCrop({ x: 0, y: 0 });
+        setZoom(1);
+        setRotation(0);
         if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+
+    async function handleDeleteAvatar() {
+        if (!window.confirm("Are you sure you want to remove your profile picture?")) {
+            return;
+        }
+
+        setAvatarLoading(true);
+        try {
+            const result = await deleteAvatar();
+            if (result.success) {
+                toast.success(result.message);
+            } else {
+                toast.error(result.message);
+            }
+        } catch (e) {
+            console.error("Failed to delete avatar", e);
+            toast.error("Failed to delete avatar");
+        }
+        setAvatarLoading(false);
     }
 
     return (
@@ -137,8 +245,14 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                 )}
 
                 {/* Avatar Display & Upload */}
-                <div className="relative group mb-4">
-                    <div className="h-20 w-20 rounded-full bg-orange-500/20 border-2 border-orange-500/30 overflow-hidden flex items-center justify-center relative shadow-lg">
+                <div
+                    className="relative group mb-4"
+                    onDragEnter={handleDragEnter}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                >
+                    <div className={`h-20 w-20 rounded-full bg-orange-500/20 border-2 ${isDragging ? 'border-orange-400 border-dashed scale-105' : 'border-orange-500/30'} overflow-hidden flex items-center justify-center relative shadow-lg transition-all duration-200`}>
                         {avatarLoading ? (
                             <Loader2 className="h-6 w-6 text-orange-400 animate-spin" />
                         ) : user.image ? (
@@ -154,18 +268,42 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
                             className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-center items-center text-white cursor-pointer"
+                            aria-label="Change profile picture"
                         >
-                            <Camera className="h-5 w-5 mb-1" />
-                            <span className="text-[9px] font-medium uppercase tracking-wider">Change</span>
+                            {isDragging ? (
+                                <>
+                                    <Upload className="h-5 w-5 mb-1" />
+                                    <span className="text-[9px] font-medium uppercase tracking-wider">Drop Here</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Camera className="h-5 w-5 mb-1" />
+                                    <span className="text-[9px] font-medium uppercase tracking-wider">Change</span>
+                                </>
+                            )}
                         </button>
                     </div>
+
+                    {/* Delete Avatar Button - Only show if user has an avatar */}
+                    {user.image && !avatarLoading && (
+                        <button
+                            type="button"
+                            onClick={handleDeleteAvatar}
+                            className="absolute -bottom-1 -right-1 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-colors border-2 border-slate-900"
+                            aria-label="Remove profile picture"
+                            title="Remove profile picture"
+                        >
+                            <Trash2 className="h-3 w-3" />
+                        </button>
+                    )}
                 </div>
                 <input
                     type="file"
-                    accept="image/*"
+                    accept={ALLOWED_EXTENSIONS.join(',')}
                     className="hidden"
                     ref={fileInputRef}
                     onChange={handleImagePick}
+                    aria-label="Upload profile picture"
                 />
 
                 <h2 className="text-lg font-semibold text-white">
@@ -183,15 +321,25 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
 
                 {/* Cropper Modal */}
                 {cropImageSrc && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 sm:p-6 backdrop-blur-sm animate-fade-in text-left">
+                    <div
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 sm:p-6 backdrop-blur-sm animate-fade-in text-left"
+                        onKeyDown={(e) => {
+                            if (e.key === 'Escape') closeCropper();
+                            if (e.key === 'Enter' && !avatarLoading) handleCropSave();
+                        }}
+                    >
                         <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
                             <div className="p-4 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/50 shrink-0">
-                                <h3 className="text-white font-semibold flex items-center gap-2">
-                                    <Crop className="h-4 w-4 text-orange-400" /> Position & Crop
-                                </h3>
+                                <div>
+                                    <h3 className="text-white font-semibold flex items-center gap-2">
+                                        <Crop className="h-4 w-4 text-orange-400" /> Adjust your photo
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mt-0.5">Drag to reposition • Pinch to zoom</p>
+                                </div>
                                 <button
                                     onClick={closeCropper}
                                     className="text-slate-400 hover:text-white transition-colors p-1 rounded-full hover:bg-slate-700"
+                                    aria-label="Close cropper"
                                 >
                                     <X className="h-5 w-5" />
                                 </button>
@@ -203,23 +351,20 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                                     crop={crop}
                                     zoom={zoom}
                                     rotation={rotation}
-                                    aspect={3 / 4}
+                                    aspect={1}
                                     onCropChange={setCrop}
                                     onRotationChange={setRotation}
                                     onCropComplete={onCropComplete}
                                     onZoomChange={setZoom}
-                                    cropShape="rect"
+                                    cropShape="round"
                                     showGrid={false}
                                     style={{
                                         containerStyle: { background: "rgb(2 6 23)" }
                                     }}
                                 />
                                 {/* Circular overlay hint */}
-                                <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-4">
-                                    <div className="border-2 border-dashed border-white/50 w-[70%] max-w-[300px] aspect-square rounded-full flex items-center justify-center drop-shadow-xl relative z-10">
-                                        <div className="bg-black/20 absolute inset-0 rounded-full w-full h-full backdrop-blur-[1px] opacity-10" />
-                                        <span className="text-white/60 text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-black/40 rounded shadow-lg backdrop-blur-md relative z-20">Avatar Safe Zone</span>
-                                    </div>
+                                <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full text-white/80 text-[10px] font-medium uppercase tracking-wider pointer-events-none z-10">
+                                    Profile Photo Preview
                                 </div>
                             </div>
 
@@ -237,6 +382,7 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                                         step={0.1}
                                         onChange={(e) => setZoom(Number(e.target.value))}
                                         className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                                        aria-label="Adjust zoom level"
                                     />
                                 </div>
                                 <div>
@@ -252,20 +398,28 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                                         step={1}
                                         onChange={(e) => setRotation(Number(e.target.value))}
                                         className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                                        aria-label="Adjust rotation angle"
                                     />
+                                </div>
+
+                                {/* Info about file size */}
+                                <div className="text-xs text-slate-500 bg-slate-900/50 rounded-lg px-3 py-2">
+                                    <p>💡 Your photo will be compressed and optimized automatically</p>
                                 </div>
 
                                 <div className="flex gap-3 pt-2">
                                     <button
                                         onClick={closeCropper}
                                         className="flex-1 px-4 py-3 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium transition-colors"
+                                        aria-label="Cancel and close"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         onClick={handleCropSave}
                                         disabled={avatarLoading}
-                                        className="flex-1 px-4 py-3 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium transition-colors flex items-center justify-center gap-2"
+                                        className="flex-1 px-4 py-3 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        aria-label="Save profile photo"
                                     >
                                         {avatarLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                                         Save Photo
