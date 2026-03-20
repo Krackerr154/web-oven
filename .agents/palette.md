@@ -1,0 +1,3 @@
+## 2026-03-20 - Accessible Toast Dismiss Button
+**Learning:** Custom toast components in dark-theme interfaces require explicit accessibility consideration. Interactive elements like dismiss buttons often lack clear visual boundaries, making semantic attributes (`aria-label`, `type="button"`) and explicit, high-contrast focus rings (`focus-visible:ring-orange-500`) crucial for keyboard and screen reader users to interact with transient notifications effectively.
+**Action:** Always ensure transient and custom notification components include explicit accessible names and prominent focus indicators on their interactive elements.
