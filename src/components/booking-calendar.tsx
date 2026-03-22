@@ -152,8 +152,9 @@ export default function BookingCalendar({
               {tooltip.data.ovenName}
             </p>
             <button
+              aria-label="Close tooltip"
               onClick={closeTooltip}
-              className="text-slate-400 hover:text-white"
+              className="text-slate-400 hover:text-white rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
             >
               <X className="h-3.5 w-3.5" />
             </button>

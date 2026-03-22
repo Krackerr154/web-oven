@@ -233,8 +233,9 @@ export function SpotlightTour({ hasSeenTour }: SpotlightTourProps) {
             </h3>
           </div>
           <button
+            aria-label="Skip Tour"
             onClick={finishTour}
-            className="text-slate-400 hover:text-white transition-colors shrink-0 ml-2"
+            className="text-slate-400 hover:text-white transition-colors shrink-0 ml-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
             title="Skip Tour"
           >
             <X className="h-4 w-4" />
