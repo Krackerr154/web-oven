@@ -129,8 +129,9 @@ function ToastItem({
       <Icon className={`h-5 w-5 ${config.text} shrink-0 mt-0.5`} />
       <p className={`text-sm ${config.text} flex-1`}>{toast.message}</p>
       <button
+        aria-label="Close notification"
         onClick={onDismiss}
-        className="text-slate-500 hover:text-slate-300 shrink-0"
+        className="text-slate-500 hover:text-slate-300 shrink-0 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
       >
         <X className="h-4 w-4" />
       </button>
