@@ -1,0 +1,3 @@
+## 2026-03-26 - Toast Accessibility Focus Ring
+**Learning:** Toast notifications in the dark theme with translucent/dim backgrounds often obscure standard browser focus rings. The close icon-only button inside the toast component lacks distinct keyboard focus states, making it difficult for keyboard users to dismiss the notification.
+**Action:** Ensure any small icon-only control inside overlaid elements like Toasts explicitly includes an `aria-label` and sets `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded-md` so the focus state is distinct against the dark slate background.
