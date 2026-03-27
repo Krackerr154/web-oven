@@ -1,0 +1,3 @@
+## 2024-03-27 - Keyboard Accessible Visually Hidden Overlays
+**Learning:** In the dark-theme UI, visually hidden hover overlays (e.g., elements with `opacity-0` that appear on hover via `group-hover:opacity-100`) must include `focus-visible:opacity-100` alongside standard focus rings (`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500`) to ensure they are accessible and actually visible to keyboard users when focused. A focus ring alone on an `opacity-0` element does not make it visible.
+**Action:** When adding hover overlays to the app, always test keyboard focus and ensure `focus-visible:opacity-100` is applied alongside the application's standard orange focus ring.
