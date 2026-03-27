@@ -1,4 +1,4 @@
-VPS NAT (4c/4GB)
+VPS NAT (4c/8GB)
 Wireguard IP : 10.66.66.2
 
 VPS Main (1C/1GB)

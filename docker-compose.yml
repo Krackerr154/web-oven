@@ -31,6 +31,46 @@ services:
       - RESEND_EMAIL_FROM=${RESEND_EMAIL_FROM}
       - TZ=Asia/Jakarta
       - PGTZ=Asia/Jakarta
+      - XRD_COMPUTE_URL=http://xrd-compute:8000
+      - REDIS_URL=redis://xrd-redis:6379
+      - MINIO_ENDPOINT=xrd-minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - MINIO_BUCKET=xrd-files
+      - MINIO_USE_SSL=false
+    networks:
+      - x01_net
+
+  xrd-redis:
+    image: redis:7-alpine
+    container_name: xrd-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - ./data/redis:/data
+    networks:
+      - x01_net
+
+  xrd-minio:
+    image: minio/minio:latest
+    container_name: xrd-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - ./data/minio:/data
+    networks:
+      - x01_net
+
+  xrd-compute:
+    build: ./services/xrd-compute
+    container_name: xrd-compute
+    restart: unless-stopped
+    environment:
+      - WORKERS=3
     networks:
       - x01_net
 
