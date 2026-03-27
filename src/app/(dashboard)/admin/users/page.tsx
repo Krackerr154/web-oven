@@ -84,9 +84,11 @@ export default async function AdminUsersPage() {
                     <p className="text-xs text-slate-500">Role</p>
                     <span className={`text-xs px-2.5 py-1 rounded-full font-medium border ${user.role === "ADMIN"
                       ? "bg-purple-500/10 border-purple-500/20 text-purple-300"
-                      : "bg-slate-500/10 border-slate-500/20 text-slate-300"
+                      : user.role === "CPD_ADMIN"
+                        ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-300"
+                        : "bg-slate-500/10 border-slate-500/20 text-slate-300"
                       }`}>
-                      {user.role}
+                      {user.role === "CPD_ADMIN" ? "CPD Admin" : user.role}
                     </span>
                     {user.isContactPerson && (
                       <div className="flex items-center gap-1 mt-1 text-amber-400">
@@ -177,9 +179,11 @@ export default async function AdminUsersPage() {
                       <td className="px-4 py-3">
                         <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium border ${user.role === "ADMIN"
                           ? "bg-purple-500/10 border-purple-500/20 text-purple-300"
-                          : "bg-slate-500/10 border-slate-500/20 text-slate-300"
+                          : user.role === "CPD_ADMIN"
+                            ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-300"
+                            : "bg-slate-500/10 border-slate-500/20 text-slate-300"
                           }`}>
-                          {user.role}
+                          {user.role === "CPD_ADMIN" ? "CPD Admin" : user.role}
                         </span>
                         {user.isContactPerson && (
                           <div className="flex items-center gap-1 mt-1 text-amber-400">

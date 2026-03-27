@@ -223,6 +223,7 @@ export function AddUserModal() {
                   className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
                 >
                   <option value="USER">User</option>
+                  <option value="CPD_ADMIN">CPD Admin</option>
                   <option value="ADMIN">Admin</option>
                 </select>
               </div>

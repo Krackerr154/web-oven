@@ -29,6 +29,7 @@ export default async function MyBookingsPage() {
   });
 
   const statusStyles: Record<string, string> = {
+    PENDING_APPROVAL: "bg-amber-500/20 text-amber-300",
     ACTIVE: "bg-blue-500/20 text-blue-300",
     COMPLETED: "bg-emerald-500/20 text-emerald-300",
     CANCELLED: "bg-slate-500/20 text-slate-300",

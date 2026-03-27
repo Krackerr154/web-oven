@@ -56,8 +56,14 @@ export default async function MyBookingDetailPage({ params }: Props) {
                     : booking.instrument.type}
               </p>
             </div>
-            <span className="text-xs px-2 py-1 rounded-full font-medium bg-blue-500/20 text-blue-300">
-              {booking.status.replace("_", " ")}
+            <span className={`text-xs px-2 py-1 rounded-full font-medium ${{
+              PENDING_APPROVAL: "bg-amber-500/20 text-amber-300",
+              ACTIVE: "bg-blue-500/20 text-blue-300",
+              COMPLETED: "bg-emerald-500/20 text-emerald-300",
+              CANCELLED: "bg-slate-500/20 text-slate-300",
+              AUTO_CANCELLED: "bg-amber-500/20 text-amber-300",
+            }[booking.status] ?? "bg-slate-500/20 text-slate-300"}`}>
+              {booking.status.replace(/_/g, " ")}
             </span>
           </div>
 

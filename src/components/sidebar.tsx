@@ -24,6 +24,7 @@ import {
   ClipboardList,
   Megaphone,
   FileText,
+  Microscope,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -76,10 +77,20 @@ const adminNavGroups = [
   },
 ];
 
+const cpdAdminNavGroups = [
+  {
+    title: "CPD Management",
+    items: [
+      { label: "CPD Bookings", href: "/cpd-admin", icon: Microscope },
+    ],
+  },
+];
+
 export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
+  const isCPDAdmin = session?.user?.role === "CPD_ADMIN" || session?.user?.role === "ADMIN";
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -143,6 +154,13 @@ export function Sidebar() {
         {isAdmin && (
           <div className="mt-8 pt-6 border-t border-slate-700/50">
             {adminNavGroups.map((group) => renderNavGroup(group))}
+          </div>
+        )}
+
+        {/* CPD Admin Sections */}
+        {isCPDAdmin && (
+          <div className="mt-8 pt-6 border-t border-slate-700/50">
+            {cpdAdminNavGroups.map((group) => renderNavGroup(group))}
           </div>
         )}
       </nav>

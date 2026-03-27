@@ -9,6 +9,7 @@ import { differenceInDays } from "date-fns";
 import { parseWibDateTimeLocal } from "@/lib/utils";
 import type { Prisma } from "@/generated/prisma/client";
 import { hash } from "bcryptjs";
+import { sendCPDBookingDecisionEmail } from "@/lib/email";
 
 type ActionResult = {
   success: boolean;
@@ -205,7 +206,7 @@ export async function rejectUser(userId: string): Promise<ActionResult> {
   }
 }
 
-export async function setUserRole(userId: string, role: "ADMIN" | "USER"): Promise<ActionResult> {
+export async function setUserRole(userId: string, role: "ADMIN" | "CPD_ADMIN" | "USER"): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
 
@@ -217,11 +218,12 @@ export async function setUserRole(userId: string, role: "ADMIN" | "USER"): Promi
 
     await prisma.user.update({
       where: { id: userId },
-      data: { role, isContactPerson: role === "USER" ? false : undefined }, // Remove contact tag if demoted
+      data: { role, isContactPerson: role === "USER" ? false : undefined },
     });
 
     revalidatePath("/admin/users");
-    return { success: true, message: `User role changed to ${role}` };
+    const roleLabel = role === "CPD_ADMIN" ? "CPD Admin" : role === "ADMIN" ? "Admin" : "User";
+    return { success: true, message: `User role changed to ${roleLabel}` };
   } catch (error) {
     console.error("Set role err:", error);
     return { success: false, message: "Failed to change user role" };
@@ -1192,4 +1194,145 @@ export async function getUserInstrumentBans(userId: string) {
     },
     orderBy: { createdAt: "desc" },
   });
+}
+
+// ── CPD Admin Actions ─────────────────────────────────────────────────────────
+
+async function requireCPDAdmin(): Promise<ActionResult | null> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return { success: false, message: "Not authenticated" };
+  if (session.user.role !== "CPD_ADMIN" && session.user.role !== "ADMIN") {
+    return { success: false, message: "CPD Admin access required" };
+  }
+  return null;
+}
+
+async function getCPDAdminId() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return null;
+  if (session.user.role !== "CPD_ADMIN" && session.user.role !== "ADMIN") return null;
+  return session.user.id;
+}
+
+export async function getPendingCPDBookings() {
+  const guard = await requireCPDAdmin();
+  if (guard) return [];
+
+  return await prisma.booking.findMany({
+    where: { status: "PENDING_APPROVAL", deletedAt: null, instrument: { type: "CPD" } },
+    include: {
+      user: { select: { id: true, name: true, email: true, nim: true } },
+      instrument: { select: { id: true, name: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export async function approveCPDBooking(bookingId: string): Promise<ActionResult> {
+  const adminId = await getCPDAdminId();
+  if (!adminId) return { success: false, message: "CPD Admin access required" };
+
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        user: { select: { email: true, name: true } },
+        instrument: { select: { name: true } },
+      },
+    });
+    if (!booking) return { success: false, message: "Booking not found" };
+    if (booking.status !== "PENDING_APPROVAL") {
+      return { success: false, message: "Booking is not pending approval" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: { status: "ACTIVE" },
+      });
+      await tx.bookingEvent.create({
+        data: {
+          bookingId,
+          actorId: adminId,
+          actorType: "ADMIN",
+          eventType: "APPROVED",
+        },
+      });
+    });
+
+    sendCPDBookingDecisionEmail(
+      booking.user.email,
+      true,
+      {
+        instrumentName: booking.instrument.name,
+        startDate: booking.startDate.toISOString(),
+        endDate: booking.endDate.toISOString(),
+        purpose: booking.purpose,
+      }
+    ).catch(console.error);
+
+    revalidatePath("/cpd-admin");
+    revalidatePath("/my-bookings");
+    return { success: true, message: "CPD booking approved" };
+  } catch {
+    return { success: false, message: "Failed to approve booking" };
+  }
+}
+
+export async function rejectCPDBooking(bookingId: string, reason: string): Promise<ActionResult> {
+  const adminId = await getCPDAdminId();
+  if (!adminId) return { success: false, message: "CPD Admin access required" };
+
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        user: { select: { email: true, name: true } },
+        instrument: { select: { name: true } },
+      },
+    });
+    if (!booking) return { success: false, message: "Booking not found" };
+    if (booking.status !== "PENDING_APPROVAL") {
+      return { success: false, message: "Booking is not pending approval" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: "CANCELLED",
+          cancelledAt: new Date(),
+          cancelledById: adminId,
+          cancelReason: reason || "Rejected by CPD Admin",
+        },
+      });
+      await tx.bookingEvent.create({
+        data: {
+          bookingId,
+          actorId: adminId,
+          actorType: "ADMIN",
+          eventType: "REJECTED",
+          note: reason || undefined,
+        },
+      });
+    });
+
+    sendCPDBookingDecisionEmail(
+      booking.user.email,
+      false,
+      {
+        instrumentName: booking.instrument.name,
+        startDate: booking.startDate.toISOString(),
+        endDate: booking.endDate.toISOString(),
+        purpose: booking.purpose,
+      },
+      reason
+    ).catch(console.error);
+
+    revalidatePath("/cpd-admin");
+    revalidatePath("/my-bookings");
+    return { success: true, message: "CPD booking rejected" };
+  } catch {
+    return { success: false, message: "Failed to reject booking" };
+  }
 }

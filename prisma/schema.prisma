@@ -11,6 +11,7 @@ datasource db {
 
 enum Role {
   ADMIN
+  CPD_ADMIN
   USER
 
   @@map("ap_role")
@@ -48,6 +49,7 @@ enum InstrumentStatus {
 }
 
 enum BookingStatus {
+  PENDING_APPROVAL
   ACTIVE
   COMPLETED
   CANCELLED
@@ -58,6 +60,8 @@ enum BookingStatus {
 
 enum BookingEventType {
   CREATED
+  APPROVED
+  REJECTED
   EDITED
   CANCELLED
   AUTO_CANCELLED

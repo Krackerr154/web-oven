@@ -8,6 +8,7 @@ import { differenceInDays } from "date-fns";
 import { parseWibDateTimeLocal } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@/generated/prisma/client";
+import { sendCPDBookingRequestEmail } from "@/lib/email";
 
 const bookingSchema = z.object({
   instrumentId: z.number().int().positive(),
@@ -822,14 +823,14 @@ export async function createCPDBooking(data: {
       if (instrument.status === "MAINTENANCE") return { success: false, message: `${instrument.name} is currently under maintenance` };
 
       const activeCount = await tx.booking.count({
-        where: { userId, status: "ACTIVE", instrument: { type: instrument.type } }
+        where: { userId, status: { in: ["ACTIVE", "PENDING_APPROVAL"] }, instrument: { type: instrument.type } }
       });
       if (activeCount >= 1) return { success: false, message: "You already have 1 active CPD booking (maximum)" };
 
       const overlap = await tx.booking.findFirst({
         where: {
           instrumentId,
-          status: "ACTIVE",
+          status: { in: ["ACTIVE", "PENDING_APPROVAL"] },
           deletedAt: null,
           startDate: { lt: endDate },
           endDate: { gt: startDate },
@@ -843,7 +844,7 @@ export async function createCPDBooking(data: {
           sample,
           cpdMode,
           cpdModeDetails: cpdModeDetails || undefined,
-          status: "ACTIVE",
+          status: "PENDING_APPROVAL",
         },
       });
 
@@ -854,11 +855,39 @@ export async function createCPDBooking(data: {
         eventType: "CREATED",
       });
 
-      return { success: true, message: "CPD booking created successfully!" };
+      return { success: true, message: "CPD booking request submitted! Awaiting admin approval.", bookingId: createdBooking.id };
     });
 
     revalidatePath("/my-bookings");
+    revalidatePath("/cpd-admin");
     revalidatePath("/");
+
+    // Notify all CPD admins by email (fire-and-forget)
+    if (result.success && (result as any).bookingId) {
+      prisma.user.findMany({
+        where: { role: "CPD_ADMIN", status: "APPROVED" },
+        select: { email: true },
+      }).then(async (admins) => {
+        if (admins.length === 0) return;
+        const instrument = await prisma.instrument.findUnique({ where: { id: data.instrumentId }, select: { name: true } });
+        sendCPDBookingRequestEmail(
+          admins.map((a) => a.email),
+          {
+            id: (result as any).bookingId,
+            userName: session.user.name ?? "Unknown",
+            userEmail: session.user.email ?? "",
+            instrumentName: instrument?.name ?? "CPD Tousimis",
+            startDate: data.startDate,
+            endDate: data.endDate,
+            purpose: data.purpose,
+            sample: data.sample,
+            cpdMode: data.cpdMode,
+            cpdModeDetails: data.cpdModeDetails,
+          }
+        ).catch(console.error);
+      }).catch(console.error);
+    }
+
     return result;
   } catch (error) {
     console.error("CPD booking error:", error);

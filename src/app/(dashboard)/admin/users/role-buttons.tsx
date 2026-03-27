@@ -12,16 +12,15 @@ export function RoleManagementButtons({
     isContactPerson,
 }: {
     userId: string;
-    currentRole: "ADMIN" | "USER";
+    currentRole: "ADMIN" | "CPD_ADMIN" | "USER";
     isContactPerson: boolean;
 }) {
     const router = useRouter();
     const toast = useToast();
     const [loading, setLoading] = useState<string | null>(null);
 
-    async function handleRoleToggle() {
+    async function handleSetRole(newRole: "ADMIN" | "CPD_ADMIN" | "USER") {
         setLoading("role");
-        const newRole = currentRole === "ADMIN" ? "USER" : "ADMIN";
         const result = await setUserRole(userId, newRole);
         setLoading(null);
 
@@ -50,21 +49,38 @@ export function RoleManagementButtons({
 
     return (
         <div className="flex flex-col gap-1.5 mt-2">
-            <button
-                onClick={handleRoleToggle}
-                disabled={loading !== null}
-                className={`flex items-center justify-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${currentRole === "ADMIN"
-                    ? "bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700/50"
-                    : "bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20"
-                    }`}
-            >
-                {loading === "role" ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                    <ShieldAlert className="h-3 w-3" />
-                )}
-                {currentRole === "ADMIN" ? "Demote to User" : "Promote to Admin"}
-            </button>
+            {currentRole !== "ADMIN" && (
+                <button
+                    onClick={() => handleSetRole("ADMIN")}
+                    disabled={loading !== null}
+                    className="flex items-center justify-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20"
+                >
+                    {loading === "role" ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldAlert className="h-3 w-3" />}
+                    Promote to Admin
+                </button>
+            )}
+
+            {currentRole !== "CPD_ADMIN" && (
+                <button
+                    onClick={() => handleSetRole("CPD_ADMIN")}
+                    disabled={loading !== null}
+                    className="flex items-center justify-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20"
+                >
+                    {loading === "role" ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldAlert className="h-3 w-3" />}
+                    Set as CPD Admin
+                </button>
+            )}
+
+            {currentRole !== "USER" && (
+                <button
+                    onClick={() => handleSetRole("USER")}
+                    disabled={loading !== null}
+                    className="flex items-center justify-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700/50"
+                >
+                    {loading === "role" ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldAlert className="h-3 w-3" />}
+                    Demote to User
+                </button>
+            )}
 
             {currentRole === "ADMIN" && (
                 <button

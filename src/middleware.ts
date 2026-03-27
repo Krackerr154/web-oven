@@ -11,6 +11,11 @@ export default withAuth(
       return NextResponse.redirect(new URL("/", req.url));
     }
 
+    // CPD Admin routes require CPD_ADMIN or ADMIN role
+    if (pathname.startsWith("/cpd-admin") && token?.role !== "CPD_ADMIN" && token?.role !== "ADMIN") {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+
     return NextResponse.next();
   },
   {
