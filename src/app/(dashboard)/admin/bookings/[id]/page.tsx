@@ -148,6 +148,15 @@ export default async function AdminBookingDetailPage({ params }: Props) {
                 purpose: booking.purpose,
                 usageTemp: booking.usageTemp,
                 flap: booking.flap,
+                sonicatorModes: booking.sonicatorModes,
+                equipmentBrought: booking.equipmentBrought,
+                chemicalsBrought: booking.chemicalsBrought,
+                n2FlowRate: booking.n2FlowRate,
+                n2Duration: booking.n2Duration,
+                specialNotes: booking.specialNotes,
+                sample: booking.sample,
+                cpdMode: booking.cpdMode,
+                cpdModeDetails: booking.cpdModeDetails,
                 status: booking.status,
               }}
               instrumentType={booking.instrument.type}

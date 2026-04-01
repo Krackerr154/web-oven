@@ -17,7 +17,7 @@ interface PageProps {
 export default async function EditAdminGlasswarePage({ params }: PageProps) {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== "ADMIN") {
+    if (!session?.user || !session.user.roles.includes("ADMIN")) {
         redirect("/signin");
     }
 

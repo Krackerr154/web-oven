@@ -39,13 +39,27 @@ const bookingEditSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "End date must use valid WIB date-time format"),
   purpose: z.string().min(3, "Purpose must be at least 3 characters"),
+  // Oven fields
   usageTemp: z.coerce.number().int().min(1, "Usage temperature is required").optional().nullable(),
   flap: z.coerce.number().int().min(0, "Flap must be 0-100%").max(100, "Flap must be 0-100%").optional().nullable(),
+  // Ultrasonic Bath fields
+  sonicatorModes: z.array(z.enum(["SONIC", "HEAT", "DEGAS"])).optional(),
+  bathTemp: z.coerce.number().int().min(1).max(60).optional().nullable(),
+  // Glovebox fields
+  equipmentBrought: z.string().optional().nullable(),
+  chemicalsBrought: z.string().optional().nullable(),
+  n2FlowRate: z.coerce.number().min(0).optional().nullable(),
+  n2Duration: z.coerce.number().int().min(0).optional().nullable(),
+  specialNotes: z.string().optional().nullable(),
+  // CPD fields
+  sample: z.string().optional().nullable(),
+  cpdMode: z.enum(["AUTO", "MANUAL"]).optional().nullable(),
+  cpdModeDetails: z.string().optional().nullable(),
 });
 
 async function requireAdmin(): Promise<ActionResult | null> {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  if (!session?.user?.id || !session.user.roles.includes("ADMIN")) {
     return { success: false, message: "Admin access required" };
   }
   return null;
@@ -53,7 +67,7 @@ async function requireAdmin(): Promise<ActionResult | null> {
 
 async function getAdminId() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id || session.user.role !== "ADMIN") return null;
+  if (!session?.user?.id || !session.user.roles.includes("ADMIN")) return null;
   return session.user.id;
 }
 
@@ -107,12 +121,17 @@ const createUserSchema = z.object({
   nim: z.string().min(3, "NIM or Student ID is required"),
   supervisors: z.array(z.string().min(2, "Supervisor name must be at least 2 characters")).min(1, "At least one supervisor is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  role: z.enum(["USER", "ADMIN"]),
+  roles: z.array(z.enum(["USER", "ADMIN", "CPD_ADMIN"])).default(["USER"]),
 });
 
 const updateUserSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  phone: z.string().min(8, "Phone must be at least 8 characters"),
+  nickname: z.string().max(50).optional().nullable(),
   nim: z.string().min(3, "NIM or Student ID is required"),
   supervisors: z.array(z.string().min(2, "Supervisor name must be at least 2 characters")).min(1, "At least one supervisor is required"),
+  newPassword: z.string().min(8, "Password must be at least 8 characters").optional().or(z.literal("")),
 });
 
 export async function createUser(data: Record<string, any>): Promise<ActionResult> {
@@ -127,7 +146,7 @@ export async function createUser(data: Record<string, any>): Promise<ActionResul
       nim: data.nim,
       supervisors: data.supervisors,
       password: data.password,
-      role: data.role,
+      roles: data.roles || ["USER"],
     };
 
     const parsed = createUserSchema.parse(raw);
@@ -159,7 +178,7 @@ export async function createUser(data: Record<string, any>): Promise<ActionResul
         nim: parsed.nim,
         supervisors: parsed.supervisors,
         passwordHash,
-        role: parsed.role,
+        roles: parsed.roles,
         status: "APPROVED", // Auto-approve admin created users
       },
     });
@@ -206,27 +225,26 @@ export async function rejectUser(userId: string): Promise<ActionResult> {
   }
 }
 
-export async function setUserRole(userId: string, role: "ADMIN" | "CPD_ADMIN" | "USER"): Promise<ActionResult> {
+export async function setUserRoles(userId: string, roles: ("ADMIN" | "CPD_ADMIN" | "USER")[]): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
 
   try {
     const session = await getServerSession(authOptions);
     if (session?.user?.id === userId) {
-      return { success: false, message: "You cannot change your own role" };
+      return { success: false, message: "You cannot change your own roles" };
     }
 
     await prisma.user.update({
       where: { id: userId },
-      data: { role, isContactPerson: role === "USER" ? false : undefined },
+      data: { roles, isContactPerson: roles.includes("USER") && roles.length === 1 ? false : undefined },
     });
 
     revalidatePath("/admin/users");
-    const roleLabel = role === "CPD_ADMIN" ? "CPD Admin" : role === "ADMIN" ? "Admin" : "User";
-    return { success: true, message: `User role changed to ${roleLabel}` };
+    return { success: true, message: `User roles updated` };
   } catch (error) {
     console.error("Set role err:", error);
-    return { success: false, message: "Failed to change user role" };
+    return { success: false, message: "Failed to change user roles" };
   }
 }
 
@@ -236,7 +254,7 @@ export async function setContactPerson(userId: string): Promise<ActionResult> {
 
   try {
     const target = await prisma.user.findUnique({ where: { id: userId } });
-    if (!target || target.role !== "ADMIN") {
+    if (!target || !target.roles.includes("ADMIN")) {
       return { success: false, message: "Only Admins can be the Contact Person" };
     }
 
@@ -259,31 +277,63 @@ export async function setContactPerson(userId: string): Promise<ActionResult> {
   }
 }
 
-export async function updateUserDetails(userId: string, data: { nim: string; supervisors: string[] }): Promise<ActionResult> {
+export async function updateUserDetails(userId: string, data: {
+  name: string;
+  email: string;
+  phone: string;
+  nickname?: string | null;
+  nim: string;
+  supervisors: string[];
+  newPassword?: string;
+}): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
 
   try {
     const parsed = updateUserSchema.parse(data);
 
-    // Check if NIM is already taken by ANOTHER user
-    const existingNimUser = await prisma.user.findFirst({
-      where: {
-        nim: parsed.nim,
-        id: { not: userId }, // Exclude the current user being edited
-      },
+    // Check email uniqueness (excluding this user)
+    const existingEmail = await prisma.user.findFirst({
+      where: { email: parsed.email, id: { not: userId } },
     });
+    if (existingEmail) {
+      return { success: false, message: "Email is already in use by another user" };
+    }
 
-    if (existingNimUser) {
+    // Check phone uniqueness (excluding this user)
+    const existingPhone = await prisma.user.findFirst({
+      where: { phone: parsed.phone, id: { not: userId } },
+    });
+    if (existingPhone) {
+      return { success: false, message: "Phone number is already in use by another user" };
+    }
+
+    // Check NIM uniqueness (excluding this user)
+    const existingNim = await prisma.user.findFirst({
+      where: { nim: parsed.nim, id: { not: userId } },
+    });
+    if (existingNim) {
       return { success: false, message: "NIM is already in use by another user" };
+    }
+
+    // Build update payload
+    const updateData: any = {
+      name: parsed.name,
+      email: parsed.email,
+      phone: parsed.phone,
+      nickname: parsed.nickname || null,
+      nim: parsed.nim,
+      supervisors: parsed.supervisors,
+    };
+
+    // Hash new password if provided
+    if (parsed.newPassword && parsed.newPassword.length >= 8) {
+      updateData.passwordHash = await hash(parsed.newPassword, 12);
     }
 
     await prisma.user.update({
       where: { id: userId },
-      data: {
-        nim: parsed.nim,
-        supervisors: parsed.supervisors,
-      },
+      data: updateData,
     });
 
     revalidatePath("/admin/users");
@@ -370,11 +420,12 @@ export async function getAllUsers() {
     select: {
       id: true,
       name: true,
+      nickname: true,
       email: true,
       phone: true,
       nim: true,
       supervisors: true,
-      role: true,
+      roles: true,
       status: true,
       isContactPerson: true,
       createdAt: true,
@@ -521,6 +572,16 @@ export async function updateBookingByAdmin(data: {
   purpose: string;
   usageTemp?: number | null;
   flap?: number | null;
+  sonicatorModes?: ("SONIC" | "HEAT" | "DEGAS")[];
+  bathTemp?: number | null;
+  equipmentBrought?: string | null;
+  chemicalsBrought?: string | null;
+  n2FlowRate?: number | null;
+  n2Duration?: number | null;
+  specialNotes?: string | null;
+  sample?: string | null;
+  cpdMode?: "AUTO" | "MANUAL" | null;
+  cpdModeDetails?: string | null;
 }): Promise<ActionResult> {
   const guard = await requireAdmin();
   if (guard) return guard;
@@ -536,6 +597,16 @@ export async function updateBookingByAdmin(data: {
       purpose: data.purpose,
       usageTemp: data.usageTemp,
       flap: data.flap,
+      sonicatorModes: data.sonicatorModes,
+      bathTemp: data.bathTemp,
+      equipmentBrought: data.equipmentBrought,
+      chemicalsBrought: data.chemicalsBrought,
+      n2FlowRate: data.n2FlowRate,
+      n2Duration: data.n2Duration,
+      specialNotes: data.specialNotes,
+      sample: data.sample,
+      cpdMode: data.cpdMode,
+      cpdModeDetails: data.cpdModeDetails,
     });
 
     const startDate = parseWibDateTimeLocal(parsed.startDate);
@@ -543,10 +614,6 @@ export async function updateBookingByAdmin(data: {
 
     if (!startDate || !endDate) {
       return { success: false, message: "Invalid booking date format (expected WIB local date-time)" };
-    }
-
-    if (differenceInDays(endDate, startDate) > 7) {
-      return { success: false, message: "Booking cannot exceed 7 days" };
     }
 
     if (endDate <= startDate) {
@@ -567,18 +634,70 @@ export async function updateBookingByAdmin(data: {
       return { success: false, message: "Booking not found" };
     }
 
-    if (booking.instrument.type === "OVEN" && parsed.usageTemp != null && parsed.usageTemp > booking.instrument.maxTemp) {
-      return {
-        success: false,
-        message: `Usage temperature (${parsed.usageTemp}°C) exceeds instrument maximum (${booking.instrument.maxTemp}°C)`,
-      };
+    const instrumentType = booking.instrument.type;
+    const maxDays = instrumentType === "OVEN" ? 7 : 1;
+
+    if (differenceInDays(endDate, startDate) > maxDays) {
+      return { success: false, message: `Booking cannot exceed ${maxDays} day(s)` };
     }
 
+    // ── Instrument-specific validation & field preparation ──────────
+    let instrumentFields: Record<string, any> = {};
+    let beforeSnapshot: Record<string, any> = {};
+    let afterSnapshot: Record<string, any> = {};
+
+    if (instrumentType === "OVEN") {
+      if (parsed.usageTemp != null && parsed.usageTemp > booking.instrument.maxTemp) {
+        return { success: false, message: `Usage temperature (${parsed.usageTemp}°C) exceeds instrument maximum (${booking.instrument.maxTemp}°C)` };
+      }
+      instrumentFields = { usageTemp: parsed.usageTemp, flap: parsed.flap };
+      beforeSnapshot = { usageTemp: booking.usageTemp, flap: booking.flap };
+      afterSnapshot = { ...instrumentFields };
+
+    } else if (instrumentType === "ULTRASONIC_BATH") {
+      instrumentFields = {
+        sonicatorModes: parsed.sonicatorModes ?? booking.sonicatorModes,
+        usageTemp: parsed.bathTemp ?? booking.usageTemp,
+      };
+      beforeSnapshot = { sonicatorModes: booking.sonicatorModes, usageTemp: booking.usageTemp };
+      afterSnapshot = { ...instrumentFields };
+
+    } else if (instrumentType === "GLOVEBOX") {
+      if (booking.instrument.maxN2FlowRate !== null && parsed.n2FlowRate != null && parsed.n2FlowRate > booking.instrument.maxN2FlowRate) {
+        return { success: false, message: `Nitrogen flow rate exceeds the maximum allowed (${booking.instrument.maxN2FlowRate} LPM)` };
+      }
+      instrumentFields = {
+        equipmentBrought: parsed.equipmentBrought ?? booking.equipmentBrought,
+        chemicalsBrought: parsed.chemicalsBrought ?? booking.chemicalsBrought,
+        n2FlowRate: parsed.n2FlowRate ?? booking.n2FlowRate,
+        n2Duration: parsed.n2Duration ?? booking.n2Duration,
+        specialNotes: parsed.specialNotes ?? booking.specialNotes,
+      };
+      beforeSnapshot = {
+        equipmentBrought: booking.equipmentBrought,
+        chemicalsBrought: booking.chemicalsBrought,
+        n2FlowRate: booking.n2FlowRate,
+        n2Duration: booking.n2Duration,
+        specialNotes: booking.specialNotes,
+      };
+      afterSnapshot = { ...instrumentFields };
+
+    } else if (instrumentType === "CPD") {
+      instrumentFields = {
+        sample: parsed.sample ?? booking.sample,
+        cpdMode: parsed.cpdMode ?? booking.cpdMode,
+        cpdModeDetails: parsed.cpdModeDetails ?? booking.cpdModeDetails,
+      };
+      beforeSnapshot = { sample: booking.sample, cpdMode: booking.cpdMode, cpdModeDetails: booking.cpdModeDetails };
+      afterSnapshot = { ...instrumentFields };
+    }
+
+    const overlapStatuses = instrumentType === "CPD" ? ["ACTIVE", "PENDING_APPROVAL"] : ["ACTIVE"];
     const overlap = await prisma.booking.findFirst({
       where: {
         id: { not: parsed.bookingId },
         instrumentId: booking.instrumentId,
-        status: "ACTIVE",
+        status: { in: overlapStatuses as any },
         deletedAt: null,
         startDate: { lt: endDate },
         endDate: { gt: startDate },
@@ -599,8 +718,7 @@ export async function updateBookingByAdmin(data: {
           startDate,
           endDate,
           purpose: parsed.purpose,
-          usageTemp: parsed.usageTemp,
-          flap: parsed.flap,
+          ...instrumentFields,
         },
       });
 
@@ -615,15 +733,13 @@ export async function updateBookingByAdmin(data: {
             startDate: booking.startDate.toISOString(),
             endDate: booking.endDate.toISOString(),
             purpose: booking.purpose,
-            usageTemp: booking.usageTemp,
-            flap: booking.flap,
+            ...beforeSnapshot,
           },
           after: {
             startDate: startDate.toISOString(),
             endDate: endDate.toISOString(),
             purpose: parsed.purpose,
-            usageTemp: parsed.usageTemp,
-            flap: parsed.flap,
+            ...afterSnapshot,
           },
         },
       });
@@ -793,7 +909,7 @@ export async function getUserBookingStats(userId: string) {
         name: true,
         email: true,
         phone: true,
-        role: true,
+        roles: true,
         status: true,
         createdAt: true,
       },
@@ -845,6 +961,8 @@ export async function getUserBookingStats(userId: string) {
     COMPLETED: 0,
     REMOVED: 0,
     COMMENTED: 0,
+    APPROVED: 0,
+    REJECTED: 0,
   };
 
   for (const event of events) {
@@ -1201,7 +1319,7 @@ export async function getUserInstrumentBans(userId: string) {
 async function requireCPDAdmin(): Promise<ActionResult | null> {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return { success: false, message: "Not authenticated" };
-  if (session.user.role !== "CPD_ADMIN" && session.user.role !== "ADMIN") {
+  if (!session.user.roles.includes("CPD_ADMIN") && !session.user.roles.includes("ADMIN")) {
     return { success: false, message: "CPD Admin access required" };
   }
   return null;
@@ -1210,7 +1328,7 @@ async function requireCPDAdmin(): Promise<ActionResult | null> {
 async function getCPDAdminId() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return null;
-  if (session.user.role !== "CPD_ADMIN" && session.user.role !== "ADMIN") return null;
+  if (!session.user.roles.includes("CPD_ADMIN") && !session.user.roles.includes("ADMIN")) return null;
   return session.user.id;
 }
 

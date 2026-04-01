@@ -1,0 +1,2 @@
+src/app/(dashboard)/admin/bookings/[id]/page.tsx(151,17): error TS2322: Type 'BookingStatus' is not assignable to type '"CANCELLED" | "AUTO_CANCELLED" | "COMPLETED" | "ACTIVE"'.
+  Type '"PENDING_APPROVAL"' is not assignable to type '"CANCELLED" | "AUTO_CANCELLED" | "COMPLETED" | "ACTIVE"'.

@@ -22,7 +22,7 @@ export default async function MyBookingDetailPage({ params }: Props) {
   if (!booking) notFound();
 
   const contactAdmin = await prisma.user.findFirst({
-    where: { role: "ADMIN", isContactPerson: true },
+    where: { roles: { has: "ADMIN" }, isContactPerson: true },
     select: { phone: true },
   });
 

@@ -20,7 +20,16 @@ type Props = {
     purpose: string;
     usageTemp: number | null;
     flap: number | null;
-    status: "ACTIVE" | "COMPLETED" | "CANCELLED" | "AUTO_CANCELLED";
+    sonicatorModes: string[];
+    equipmentBrought: string | null;
+    chemicalsBrought: string | null;
+    n2FlowRate: number | null;
+    n2Duration: number | null;
+    specialNotes: string | null;
+    sample: string | null;
+    cpdMode: string | null;
+    cpdModeDetails: string | null;
+    status: "ACTIVE" | "COMPLETED" | "CANCELLED" | "AUTO_CANCELLED" | "PENDING_APPROVAL";
   };
   instrumentType: string;
 };
@@ -49,6 +58,9 @@ export function BookingManagementForm({ booking, instrumentType }: Props) {
   const [confirm, setConfirm] = useState<ConfirmState>(initialConfirm);
   const [comment, setComment] = useState("");
 
+  // Ultrasonic Bath mode state
+  const [sonicatorModes, setSonicatorModes] = useState<string[]>(booking.sonicatorModes ?? []);
+
   function openConfirm(
     title: string,
     description: string,
@@ -73,16 +85,39 @@ export function BookingManagementForm({ booking, instrumentType }: Props) {
     });
   }
 
+  function toggleMode(mode: string) {
+    setSonicatorModes((prev) =>
+      prev.includes(mode) ? prev.filter((m) => m !== mode) : [...prev, mode]
+    );
+  }
+
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
-      const data = {
+      const data: any = {
         bookingId: formData.get("bookingId") as string,
         startDate: formData.get("startDate") as string,
         endDate: formData.get("endDate") as string,
         purpose: formData.get("purpose") as string,
-        usageTemp: formData.get("usageTemp") ? Number(formData.get("usageTemp")) : null,
-        flap: formData.get("flap") ? Number(formData.get("flap")) : null,
       };
+
+      if (instrumentType === "OVEN") {
+        data.usageTemp = formData.get("usageTemp") ? Number(formData.get("usageTemp")) : null;
+        data.flap = formData.get("flap") ? Number(formData.get("flap")) : null;
+      } else if (instrumentType === "ULTRASONIC_BATH") {
+        data.sonicatorModes = sonicatorModes;
+        data.bathTemp = formData.get("bathTemp") ? Number(formData.get("bathTemp")) : null;
+      } else if (instrumentType === "GLOVEBOX") {
+        data.equipmentBrought = formData.get("equipmentBrought") as string;
+        data.chemicalsBrought = formData.get("chemicalsBrought") as string;
+        data.n2FlowRate = formData.get("n2FlowRate") ? Number(formData.get("n2FlowRate")) : null;
+        data.n2Duration = formData.get("n2Duration") ? Number(formData.get("n2Duration")) : null;
+        data.specialNotes = formData.get("specialNotes") as string;
+      } else if (instrumentType === "CPD") {
+        data.sample = formData.get("sample") as string;
+        data.cpdMode = formData.get("cpdMode") as string;
+        data.cpdModeDetails = formData.get("cpdModeDetails") as string;
+      }
+
       const result = await updateBookingByAdmin(data);
       if (result.success) {
         toast.success(result.message);
@@ -123,6 +158,7 @@ export function BookingManagementForm({ booking, instrumentType }: Props) {
             </div>
           </div>
 
+          {/* ── Oven-specific fields ── */}
           {instrumentType === "OVEN" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -149,6 +185,135 @@ export function BookingManagementForm({ booking, instrumentType }: Props) {
             </div>
           )}
 
+          {/* ── Ultrasonic Bath fields ── */}
+          {instrumentType === "ULTRASONIC_BATH" && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1.5">Modes</label>
+                <div className="flex flex-wrap gap-2">
+                  {(["SONIC", "HEAT", "DEGAS"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => toggleMode(mode)}
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${sonicatorModes.includes(mode)
+                          ? "bg-orange-500/20 border-orange-500/40 text-orange-300"
+                          : "bg-slate-800 border-slate-700 text-slate-400 hover:text-orange-300"
+                        }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {sonicatorModes.includes("HEAT") && (
+                <div>
+                  <label className="text-xs text-slate-400">Bath Temp (°C)</label>
+                  <input
+                    name="bathTemp"
+                    type="number"
+                    defaultValue={booking.usageTemp ?? ""}
+                    min={1}
+                    max={60}
+                    className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Glovebox fields ── */}
+          {instrumentType === "GLOVEBOX" && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400">Equipment Brought</label>
+                <input
+                  name="equipmentBrought"
+                  type="text"
+                  defaultValue={booking.equipmentBrought ?? ""}
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400">Chemicals Brought</label>
+                <input
+                  name="chemicalsBrought"
+                  type="text"
+                  defaultValue={booking.chemicalsBrought ?? ""}
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-400">N₂ Flow (LPM)</label>
+                  <input
+                    name="n2FlowRate"
+                    type="number"
+                    step={0.1}
+                    min={0}
+                    defaultValue={booking.n2FlowRate ?? ""}
+                    className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400">N₂ Duration (min)</label>
+                  <input
+                    name="n2Duration"
+                    type="number"
+                    min={0}
+                    defaultValue={booking.n2Duration ?? ""}
+                    className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400">Special Notes</label>
+                <textarea
+                  name="specialNotes"
+                  rows={2}
+                  defaultValue={booking.specialNotes ?? ""}
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white resize-none"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ── CPD fields ── */}
+          {instrumentType === "CPD" && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400">Sample</label>
+                <textarea
+                  name="sample"
+                  rows={2}
+                  defaultValue={booking.sample ?? ""}
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white resize-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400">CPD Mode</label>
+                <select
+                  name="cpdMode"
+                  defaultValue={booking.cpdMode ?? "AUTO"}
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white"
+                >
+                  <option value="AUTO">Auto</option>
+                  <option value="MANUAL">Manual</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400">Mode Details</label>
+                <textarea
+                  name="cpdModeDetails"
+                  rows={2}
+                  defaultValue={booking.cpdModeDetails ?? ""}
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-sm text-white resize-none"
+                  placeholder="Optional: describe manual configuration..."
+                />
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="text-xs text-slate-400">Purpose</label>
             <textarea
@@ -170,7 +335,7 @@ export function BookingManagementForm({ booking, instrumentType }: Props) {
         </form>
 
         <div className="pt-3 border-t border-slate-700/60 flex flex-wrap gap-2">
-          {booking.status === "ACTIVE" && (
+          {(booking.status === "ACTIVE" || booking.status === "PENDING_APPROVAL") && (
             <button
               onClick={() =>
                 openConfirm(

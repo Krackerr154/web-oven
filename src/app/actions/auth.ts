@@ -91,7 +91,7 @@ export async function registerUser(data: Record<string, any>): Promise<RegisterR
         nim,
         supervisors,
         passwordHash,
-        role: "USER",
+        roles: ["USER"],
         status: "PENDING",
       },
     });

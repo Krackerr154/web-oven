@@ -186,6 +186,7 @@ export async function createBooking(data: {
         where: {
           userId,
           status: "ACTIVE",
+          deletedAt: null,
           instrument: { type: instrument.type }
         },
       });
@@ -237,7 +238,7 @@ export async function createBooking(data: {
       await logBookingEvent(tx, {
         bookingId: createdBooking.id,
         actorId: userId,
-        actorType: session.user.role === "ADMIN" ? "ADMIN" : "USER",
+        actorType: session.user.roles.includes("ADMIN") ? "ADMIN" : "USER",
         eventType: "CREATED",
       });
 
@@ -256,8 +257,22 @@ export async function updateBooking(data: {
   startDate: string;
   endDate: string;
   purpose: string;
-  usageTemp: number;
-  flap: number;
+  // Oven fields
+  usageTemp?: number;
+  flap?: number;
+  // Ultrasonic Bath fields
+  sonicatorModes?: ("SONIC" | "HEAT" | "DEGAS")[];
+  bathTemp?: number;
+  // Glovebox fields
+  equipmentBrought?: string;
+  chemicalsBrought?: string;
+  n2FlowRate?: number;
+  n2Duration?: number;
+  specialNotes?: string;
+  // CPD fields
+  sample?: string;
+  cpdMode?: "AUTO" | "MANUAL";
+  cpdModeDetails?: string;
 }): Promise<BookingResult> {
   try {
     const session = await getServerSession(authOptions);
@@ -280,8 +295,8 @@ export async function updateBooking(data: {
       return { success: false, message: "Booking not found" };
     }
 
-    if (booking.status !== "ACTIVE") {
-      return { success: false, message: "Only active bookings can be edited" };
+    if (booking.status !== "ACTIVE" && booking.status !== "PENDING_APPROVAL") {
+      return { success: false, message: "Only active or pending bookings can be edited" };
     }
 
     // Rule: modifications only allowed within 15 minutes of creation
@@ -293,30 +308,27 @@ export async function updateBooking(data: {
       };
     }
 
-    const parsed = bookingSchema.safeParse({
-      instrumentId: booking.instrumentId, // Re-validate with the existing instrument
-      startDate: data.startDate,
-      endDate: data.endDate,
-      purpose: data.purpose,
-      usageTemp: data.usageTemp,
-      flap: data.flap,
-    });
-
-    if (!parsed.success) {
-      return { success: false, message: parsed.error.issues[0].message };
+    // ── Common date validation ──────────────────────────────────────
+    const dateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+    if (!dateRegex.test(data.startDate) || !dateRegex.test(data.endDate)) {
+      return { success: false, message: "Invalid date format" };
+    }
+    if (!data.purpose || data.purpose.trim().length < 3) {
+      return { success: false, message: "Purpose must be at least 3 characters" };
     }
 
-    const { purpose, usageTemp, flap } = parsed.data;
-    const startDate = parseWibDateTimeLocal(parsed.data.startDate);
-    const endDate = parseWibDateTimeLocal(parsed.data.endDate);
+    const startDate = parseWibDateTimeLocal(data.startDate);
+    const endDate = parseWibDateTimeLocal(data.endDate);
 
     if (!startDate || !endDate) {
       return { success: false, message: "Invalid booking date format" };
     }
 
-    // ── Rule: Max 7 days duration ───────────────────────────────────
-    if (differenceInDays(endDate, startDate) > 7) {
-      return { success: false, message: "Booking cannot exceed 7 days" };
+    const instrumentType = booking.instrument.type;
+    const maxDays = instrumentType === "OVEN" ? 7 : 1;
+
+    if (differenceInDays(endDate, startDate) > maxDays) {
+      return { success: false, message: `Booking cannot exceed ${maxDays} day(s)` };
     }
 
     if (endDate <= startDate) {
@@ -327,6 +339,76 @@ export async function updateBooking(data: {
       return { success: false, message: "Start date cannot be moved into the past" };
     }
 
+    // ── Instrument-specific field validation ──────────────────────────
+    let instrumentFields: Record<string, any> = {};
+    let beforeSnapshot: Record<string, any> = {};
+    let afterSnapshot: Record<string, any> = {};
+
+    if (instrumentType === "OVEN") {
+      if (data.usageTemp == null || data.usageTemp < 1) {
+        return { success: false, message: "Usage temperature is required" };
+      }
+      if (data.usageTemp > booking.instrument.maxTemp) {
+        return { success: false, message: `Usage temperature (${data.usageTemp}°C) exceeds instrument maximum (${booking.instrument.maxTemp}°C)` };
+      }
+      instrumentFields = { usageTemp: data.usageTemp, flap: data.flap ?? 0 };
+      beforeSnapshot = { usageTemp: booking.usageTemp, flap: booking.flap };
+      afterSnapshot = { usageTemp: data.usageTemp, flap: data.flap ?? 0 };
+
+    } else if (instrumentType === "ULTRASONIC_BATH") {
+      if (!data.sonicatorModes || data.sonicatorModes.length === 0) {
+        return { success: false, message: "Select at least one mode" };
+      }
+      instrumentFields = {
+        sonicatorModes: data.sonicatorModes,
+        usageTemp: data.bathTemp ?? null,
+      };
+      beforeSnapshot = { sonicatorModes: booking.sonicatorModes, usageTemp: booking.usageTemp };
+      afterSnapshot = { sonicatorModes: data.sonicatorModes, usageTemp: data.bathTemp ?? null };
+
+    } else if (instrumentType === "GLOVEBOX") {
+      if (!data.equipmentBrought || data.equipmentBrought.trim().length < 1) {
+        return { success: false, message: "Please specify equipment brought inside" };
+      }
+      if (!data.chemicalsBrought || data.chemicalsBrought.trim().length < 1) {
+        return { success: false, message: "Please specify chemicals brought inside" };
+      }
+      // Validate N2 flow rate against instrument max
+      if (booking.instrument.maxN2FlowRate !== null && data.n2FlowRate !== undefined && data.n2FlowRate > booking.instrument.maxN2FlowRate) {
+        return { success: false, message: `Nitrogen flow rate exceeds the maximum allowed (${booking.instrument.maxN2FlowRate} LPM)` };
+      }
+      instrumentFields = {
+        equipmentBrought: data.equipmentBrought,
+        chemicalsBrought: data.chemicalsBrought,
+        n2FlowRate: data.n2FlowRate ?? null,
+        n2Duration: data.n2Duration ?? null,
+        specialNotes: data.specialNotes || null,
+      };
+      beforeSnapshot = {
+        equipmentBrought: booking.equipmentBrought,
+        chemicalsBrought: booking.chemicalsBrought,
+        n2FlowRate: booking.n2FlowRate,
+        n2Duration: booking.n2Duration,
+        specialNotes: booking.specialNotes,
+      };
+      afterSnapshot = { ...instrumentFields };
+
+    } else if (instrumentType === "CPD") {
+      if (!data.sample || data.sample.trim().length < 1) {
+        return { success: false, message: "Please describe your sample" };
+      }
+      if (!data.cpdMode) {
+        return { success: false, message: "Please select a CPD mode" };
+      }
+      instrumentFields = {
+        sample: data.sample,
+        cpdMode: data.cpdMode,
+        cpdModeDetails: data.cpdModeDetails || null,
+      };
+      beforeSnapshot = { sample: booking.sample, cpdMode: booking.cpdMode, cpdModeDetails: booking.cpdModeDetails };
+      afterSnapshot = { ...instrumentFields };
+    }
+
     // ── Atomic transaction for checks + update ────────────────
     const result = await prisma.$transaction(async (tx) => {
       // Rule: Instrument must be available (not in maintenance)
@@ -334,20 +416,13 @@ export async function updateBooking(data: {
         return { success: false, message: `${booking.instrument.name} is currently under maintenance` };
       }
 
-      // Rule: Usage temperature must not exceed instrument max
-      if (usageTemp !== undefined && usageTemp > booking.instrument.maxTemp) {
-        return {
-          success: false,
-          message: `Usage temperature (${usageTemp}°C) exceeds instrument maximum (${booking.instrument.maxTemp}°C)`,
-        };
-      }
-
       // Rule: No overlapping active bookings on the same instrument
+      const overlapStatuses = instrumentType === "CPD" ? ["ACTIVE", "PENDING_APPROVAL"] : ["ACTIVE"];
       const overlap = await tx.booking.findFirst({
         where: {
-          id: { not: data.bookingId }, // Exclude self
+          id: { not: data.bookingId },
           instrumentId: booking.instrumentId,
-          status: "ACTIVE",
+          status: { in: overlapStatuses as any },
           deletedAt: null,
           startDate: { lt: endDate },
           endDate: { gt: startDate },
@@ -367,9 +442,8 @@ export async function updateBooking(data: {
         data: {
           startDate,
           endDate,
-          purpose,
-          usageTemp,
-          flap,
+          purpose: data.purpose,
+          ...instrumentFields,
         },
       });
 
@@ -384,15 +458,13 @@ export async function updateBooking(data: {
             startDate: booking.startDate.toISOString(),
             endDate: booking.endDate.toISOString(),
             purpose: booking.purpose,
-            usageTemp: booking.usageTemp,
-            flap: booking.flap,
+            ...beforeSnapshot,
           },
           after: {
             startDate: startDate.toISOString(),
             endDate: endDate.toISOString(),
-            purpose,
-            usageTemp,
-            flap,
+            purpose: data.purpose,
+            ...afterSnapshot,
           }
         }
       });
@@ -431,7 +503,7 @@ export async function cancelBooking(bookingId: string): Promise<BookingResult> {
     }
 
     // Users can only cancel their own bookings; admins can cancel any
-    if (booking.userId !== session.user.id && session.user.role !== "ADMIN") {
+    if (booking.userId !== session.user.id && !session.user.roles.includes("ADMIN")) {
       return { success: false, message: "You can only cancel your own bookings" };
     }
 
@@ -439,7 +511,7 @@ export async function cancelBooking(bookingId: string): Promise<BookingResult> {
       return { success: false, message: "Only active bookings can be cancelled" };
     }
 
-    const isAdmin = session.user.role === "ADMIN";
+    const isAdmin = session.user.roles.includes("ADMIN");
     if (!isAdmin) {
       const cancelDeadline = new Date(booking.createdAt.getTime() + CANCEL_WINDOW_MINUTES * 60 * 1000);
       if (new Date() > cancelDeadline) {
@@ -612,7 +684,7 @@ export async function createUltrasonicBooking(data: {
       if (instrument.status === "MAINTENANCE") return { success: false, message: `${instrument.name} is currently under maintenance` };
 
       const activeCount = await tx.booking.count({
-        where: { userId, status: "ACTIVE", instrument: { type: instrument.type } }
+        where: { userId, status: "ACTIVE", deletedAt: null, instrument: { type: instrument.type } }
       });
       if (activeCount >= 1) return { success: false, message: `You already have 1 active booking for ${instrument.type.replace('_', ' ')}s (maximum)` };
 
@@ -639,7 +711,7 @@ export async function createUltrasonicBooking(data: {
       await logBookingEvent(tx, {
         bookingId: createdBooking.id,
         actorId: userId,
-        actorType: session.user.role === "ADMIN" ? "ADMIN" : "USER",
+        actorType: session.user.roles.includes("ADMIN") ? "ADMIN" : "USER",
         eventType: "CREATED",
       });
 
@@ -716,7 +788,7 @@ export async function createGloveboxBooking(data: {
       if (instrument.status === "MAINTENANCE") return { success: false, message: `${instrument.name} is currently under maintenance` };
 
       const activeCount = await tx.booking.count({
-        where: { userId, status: "ACTIVE", instrument: { type: instrument.type } }
+        where: { userId, status: "ACTIVE", deletedAt: null, instrument: { type: instrument.type } }
       });
       if (activeCount >= 1) return { success: false, message: `You already have 1 active booking for ${instrument.type.replace('_', ' ')}s (maximum)` };
 
@@ -751,7 +823,7 @@ export async function createGloveboxBooking(data: {
       await logBookingEvent(tx, {
         bookingId: createdBooking.id,
         actorId: userId,
-        actorType: session.user.role === "ADMIN" ? "ADMIN" : "USER",
+        actorType: session.user.roles.includes("ADMIN") ? "ADMIN" : "USER",
         eventType: "CREATED",
       });
 
@@ -823,14 +895,19 @@ export async function createCPDBooking(data: {
       if (instrument.status === "MAINTENANCE") return { success: false, message: `${instrument.name} is currently under maintenance` };
 
       const activeCount = await tx.booking.count({
-        where: { userId, status: { in: ["ACTIVE", "PENDING_APPROVAL"] }, instrument: { type: instrument.type } }
+        where: {
+          userId,
+          OR: [{ status: "ACTIVE" }, { status: "PENDING_APPROVAL" }],
+          deletedAt: null,
+          instrument: { type: instrument.type }
+        }
       });
       if (activeCount >= 1) return { success: false, message: "You already have 1 active CPD booking (maximum)" };
 
       const overlap = await tx.booking.findFirst({
         where: {
           instrumentId,
-          status: { in: ["ACTIVE", "PENDING_APPROVAL"] },
+          OR: [{ status: "ACTIVE" }, { status: "PENDING_APPROVAL" }],
           deletedAt: null,
           startDate: { lt: endDate },
           endDate: { gt: startDate },
@@ -851,7 +928,7 @@ export async function createCPDBooking(data: {
       await logBookingEvent(tx, {
         bookingId: createdBooking.id,
         actorId: userId,
-        actorType: session.user.role === "ADMIN" ? "ADMIN" : "USER",
+        actorType: session.user.roles.includes("ADMIN") ? "ADMIN" : "USER",
         eventType: "CREATED",
       });
 
@@ -865,7 +942,7 @@ export async function createCPDBooking(data: {
     // Notify all CPD admins by email (fire-and-forget)
     if (result.success && (result as any).bookingId) {
       prisma.user.findMany({
-        where: { role: "CPD_ADMIN", status: "APPROVED" },
+        where: { roles: { has: "CPD_ADMIN" }, status: "APPROVED" },
         select: { email: true },
       }).then(async (admins) => {
         if (admins.length === 0) return;

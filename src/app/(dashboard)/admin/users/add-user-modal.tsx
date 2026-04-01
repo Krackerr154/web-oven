@@ -59,7 +59,7 @@ export function AddUserModal() {
       nim: formData.get("nim") as string,
       supervisors: supervisors.filter(s => s.trim() !== ""),
       password: formData.get("password") as string,
-      role: formData.get("role") as string,
+      roles: formData.getAll("roles") as string[],
     };
     const result = await createUser(data);
 
@@ -213,19 +213,23 @@ export function AddUserModal() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                  Role
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Roles
                 </label>
-                <select
-                  name="role"
-                  required
-                  defaultValue="USER"
-                  className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
-                >
-                  <option value="USER">User</option>
-                  <option value="CPD_ADMIN">CPD Admin</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-3 text-slate-300 bg-slate-900/50 p-2 rounded-lg border border-slate-700/50 cursor-not-allowed opacity-80">
+                    <input type="checkbox" name="roles" value="USER" defaultChecked className="h-4 w-4 bg-slate-900 border-slate-600 rounded focus:ring-orange-500/50 text-orange-500 disabled:opacity-50" />
+                    <span className="text-sm">User (Default base role)</span>
+                  </label>
+                  <label className="flex items-center gap-3 text-slate-300 bg-slate-900/50 p-2 rounded-lg border border-slate-700/50 hover:bg-slate-800 transition-colors cursor-pointer">
+                    <input type="checkbox" name="roles" value="CPD_ADMIN" className="h-4 w-4 bg-slate-900 border-slate-600 rounded focus:ring-cyan-500/50 text-cyan-500" />
+                    <span className="text-sm">CPD Admin</span>
+                  </label>
+                  <label className="flex items-center gap-3 text-slate-300 bg-slate-900/50 p-2 rounded-lg border border-slate-700/50 hover:bg-slate-800 transition-colors cursor-pointer">
+                    <input type="checkbox" name="roles" value="ADMIN" className="h-4 w-4 bg-slate-900 border-slate-600 rounded focus:ring-purple-500/50 text-purple-500" />
+                    <span className="text-sm">Admin</span>
+                  </label>
+                </div>
               </div>
 
               <div>

@@ -32,7 +32,7 @@ export async function createAnnouncement(data: {
             return { success: false, message: "You must be logged in" };
         }
 
-        if (session.user.role !== "ADMIN") {
+        if (!session.user.roles.includes("ADMIN")) {
             return { success: false, message: "Only administrators can create announcements" };
         }
 
@@ -69,7 +69,7 @@ export async function deleteAnnouncement(id: string): Promise<ActionResponse> {
             return { success: false, message: "You must be logged in" };
         }
 
-        if (session.user.role !== "ADMIN") {
+        if (!session.user.roles.includes("ADMIN")) {
             return { success: false, message: "Only administrators can delete announcements" };
         }
 
@@ -211,7 +211,7 @@ export async function deleteComment(id: string): Promise<ActionResponse> {
         }
 
         // Only allow comment author or admin to delete
-        if (comment.authorId !== session.user.id && session.user.role !== "ADMIN") {
+        if (comment.authorId !== session.user.id && !session.user.roles.includes("ADMIN")) {
             return { success: false, message: "You don't have permission to delete this comment" };
         }
 

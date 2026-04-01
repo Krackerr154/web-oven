@@ -68,3 +68,21 @@ export async function updateAvatar(base64Image: string) {
         return { success: false, message: "Failed to update avatar" };
     }
 }
+
+export async function removeAvatar() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { success: false, message: "Unauthorized" };
+
+    try {
+        await prisma.user.update({
+            where: { id: session.user.id },
+            data: { image: null },
+        });
+
+        revalidatePath("/profile");
+        return { success: true, message: "Photo removed successfully" };
+    } catch (error) {
+        console.error("Remove avatar error:", error);
+        return { success: false, message: "Failed to remove photo" };
+    }
+}

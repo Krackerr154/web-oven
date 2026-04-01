@@ -55,7 +55,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           // Intentionally omitting 'image' to prevent massive Base64 strings from entering the JWT cookie payload!
-          role: user.role,
+          roles: user.roles,
           status: user.status,
         };
       },
@@ -70,7 +70,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = user.role;
+        token.roles = user.roles;
         token.status = user.status;
         token.userId = user.id;
         // Intentionally do NOT store user.image in JWT due to Base64 size limits!
@@ -81,7 +81,8 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.userId as string;
-        session.user.role = token.role as string;
+        // Fallback for existing sessions that still have 'role'
+        session.user.roles = (token.roles as string[]) || (token.role ? [token.role as string] : ["USER"]);
         session.user.status = token.status as string;
 
         if (token.userId) {

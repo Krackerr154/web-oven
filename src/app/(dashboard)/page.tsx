@@ -24,7 +24,7 @@ export default async function DashboardPage() {
   const currentUser = session?.user?.id
     ? await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { image: true, nickname: true, hasSeenTour: true, role: true }
+      select: { image: true, nickname: true, hasSeenTour: true, roles: true }
     })
     : null;
 
@@ -80,7 +80,7 @@ export default async function DashboardPage() {
           </div>
         </Link>
 
-        {currentUser?.role === "ADMIN" ? (
+        {currentUser?.roles.includes("ADMIN") ? (
           <Link href="/admin/glassware" className="group relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/50 p-6 transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-purple-500/10">
             <div className="absolute right-0 top-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-purple-500/10 blur-2xl transition-all group-hover:bg-purple-500/20" />
             <div className="relative flex items-center justify-between">

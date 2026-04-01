@@ -3,7 +3,7 @@ export const createImage = (url: string): Promise<HTMLImageElement> =>
         const image = new Image();
         image.addEventListener("load", () => resolve(image));
         image.addEventListener("error", (error) => reject(error));
-        image.setAttribute("crossOrigin", "anonymous"); // needed to avoid cross-origin issues on CodeSandbox
+        image.setAttribute("crossOrigin", "anonymous");
         image.src = url;
     });
 
@@ -26,7 +26,8 @@ export function rotateSize(width: number, height: number, rotation: number) {
 }
 
 /**
- * This function was adapted from the one in the ReadMe of https://github.com/DominicTobias/react-image-crop
+ * Crops the image, applies rotation, and outputs a 600×800 JPEG.
+ * When zoom < 1× (crop extends beyond image), empty areas are filled white.
  */
 export default async function getCroppedImg(
     imageSrc: string,
@@ -64,7 +65,7 @@ export default async function getCroppedImg(
     // draw rotated image
     ctx.drawImage(image, 0, 0);
 
-    // croppedArea format required to be 600x800 for 3:4 aspect ratio backend
+    // Final output canvas at 600×800 (3:4 aspect ratio)
     const croppedCanvas = document.createElement("canvas");
     const croppedCtx = croppedCanvas.getContext("2d");
 
@@ -72,11 +73,14 @@ export default async function getCroppedImg(
         return null;
     }
 
-    // Final scale 600 x 800
     croppedCanvas.width = 600;
     croppedCanvas.height = 800;
 
-    // Draw the cropped image onto the new canvas at 600x800 resolution
+    // Fill with white background first (handles zoom-out empty areas)
+    croppedCtx.fillStyle = "#FFFFFF";
+    croppedCtx.fillRect(0, 0, 600, 800);
+
+    // Draw the cropped image onto the new canvas at 600×800 resolution
     croppedCtx.drawImage(
         canvas,
         pixelCrop.x,
@@ -89,6 +93,6 @@ export default async function getCroppedImg(
         800
     );
 
-    // We want a highly compressed JPEG
+    // Compressed JPEG output
     return croppedCanvas.toDataURL("image/jpeg", 0.85);
 }

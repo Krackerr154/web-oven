@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls E:/Project_G-Labs/web-oven/*.md)",
+      "Bash(cat:*)",
+      "Bash(ls /e/Project_G-Labs/web-oven/src/app/\\\\\\(dashboard\\\\\\)/my-bookings/)"
+    ]
+  }
+}

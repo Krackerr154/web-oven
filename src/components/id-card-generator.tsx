@@ -1,32 +1,46 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Image from "next/image";
 import { Download, Loader2 } from "lucide-react";
 import { useToast } from "@/components/toast";
-
-// Import modules dynamically to prevent SSR issues with canvas/window
-import { toJpeg } from "html-to-image";
-import jsPDF from "jspdf";
+import { toPng } from "html-to-image";
 
 type IDCardProps = {
     user: {
         name: string;
         nim: string | null;
-        role: string;
+        roles: string[];
         image: string | null;
         nickname?: string | null;
         supervisors: string[];
     };
 };
 
+/** Dynamic font size for name based on character count */
+function getNameFontSize(name: string): string {
+    const len = name.length;
+    if (len <= 15) return "20px";
+    if (len <= 25) return "17px";
+    if (len <= 35) return "14px";
+    return "12px";
+}
+
+/** Dynamic font size for supervisors based on count */
+function getSupervisorFontSize(count: number): string {
+    if (count <= 1) return "13px";
+    if (count <= 2) return "12px";
+    return "11px";
+}
+
 export function IdCardGenerator({ user }: IDCardProps) {
     const cardRef = useRef<HTMLDivElement>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const toast = useToast();
 
-    // The dimensions of a standard CR80 ID Card are 3.375" x 2.125" (86mm x 54mm) for landscape.
-    // Using a high multiplier (4x) for HTML scale to ensure crisp rasterization.
+    // Limit display to 3 supervisors, show "+N more" for extras
+    const maxSupervisors = 3;
+    const visibleSupervisors = user.supervisors.slice(0, maxSupervisors);
+    const remainingSupervisors = user.supervisors.length - maxSupervisors;
 
     async function handleDownload() {
         if (!cardRef.current) return;
@@ -34,56 +48,41 @@ export function IdCardGenerator({ user }: IDCardProps) {
         try {
             setIsGenerating(true);
 
-            // Wait a brief moment to ensure all fonts and DOM styles are completely painted
-            await new Promise(resolve => setTimeout(resolve, 300));
+            // Wait for fonts to be fully loaded before rendering
+            await document.fonts.ready;
+            // Brief additional delay for DOM paint
+            await new Promise(resolve => setTimeout(resolve, 200));
 
-            const imgData = await toJpeg(cardRef.current, {
-                quality: 1.0,
-                pixelRatio: 4, // High DPI scaling
-                backgroundColor: '#ffffff' // Ensure base background
+            const imgData = await toPng(cardRef.current, {
+                pixelRatio: 4, // High DPI for crisp output
+                backgroundColor: '#ffffff',
             });
 
-            // ID dimensions in millimeters (Landscape)
-            const pdf = new jsPDF({
-                orientation: "landscape",
-                unit: "mm",
-                format: [60, 105]
-            });
-
-            // The card element is designed at 420px x 240px (1:1 aspect ratio to 105x60 at 4x)
-            pdf.addImage(imgData, "JPEG", 0, 0, 105, 60);
-
-            // Generate proper filename with User Name and Date
+            // Generate proper filename
             const now = new Date();
             const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
             const safeName = user.name.replace(/[^a-zA-Z0-9]/g, '_');
-            const filename = `Lab_Member_Card_${safeName}_${dateStr}.pdf`;
+            const filename = `Lab_Member_Card_${safeName}_${dateStr}.png`;
 
-            // Force browser to respect filename by using manual anchor trick with blob
-            const pdfBlob = pdf.output('blob');
-            const blobUrl = URL.createObjectURL(pdfBlob);
-
+            // Download via anchor click
             const a = document.createElement('a');
-            a.href = blobUrl;
+            a.href = imgData;
             a.download = filename;
             document.body.appendChild(a);
             a.click();
-
-            // Cleanup
             document.body.removeChild(a);
-            URL.revokeObjectURL(blobUrl);
 
-            toast.success("ID Card generated successfully!");
+            toast.success("ID Card downloaded!");
 
         } catch (error) {
-            console.error("PDF Generation Error:", error);
+            console.error("PNG Generation Error:", error);
             toast.error("Failed to generate ID card. Please try again.");
         } finally {
             setIsGenerating(false);
         }
     }
 
-    if (!user.image) return null; // Only allow PDF generation if Avatar is present
+    if (!user.image) return null;
 
     return (
         <div className="w-full flex flex-col items-center border border-slate-700/50 bg-slate-800/20 rounded-xl p-4 sm:p-6 mb-4 mt-6">
@@ -94,52 +93,97 @@ export function IdCardGenerator({ user }: IDCardProps) {
             <div className="absolute left-[-9999px] top-[-9999px]">
                 <div
                     ref={cardRef}
-                    className="relative bg-white overflow-hidden flex flex-row items-center"
                     style={{
-                        width: '420px',  // 105mm * 4 ratio
-                        height: '240px', // 60mm * 4 ratio
+                        width: '420px',   // 105mm × 4
+                        height: '240px',  // 60mm × 4
                         boxSizing: 'border-box',
-                        boxShadow: '0 0 0 2px #000 inset', // Black border for printing
-                        fontFamily: 'system-ui, -apple-system, sans-serif'
+                        fontFamily: 'system-ui, -apple-system, sans-serif',
+                        background: '#ffffff',
+                        border: '3px solid #1e293b',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'row',
+                        alignItems: 'center',
                     }}
                 >
-                    <div className="flex w-full h-full px-5 py-5 items-center gap-6">
-                        {/* Photo Column (Left) - Exactly 3x4 Proportions */}
-                        <div className="flex flex-col items-center justify-center shrink-0 w-[120px]">
-                            {/* 3x4 aspect ratio box (120px width x 160px height) */}
-                            <div className="w-[120px] h-[160px] border-2 border-slate-900 rounded-sm overflow-hidden bg-slate-100 relative shadow-sm">
+                    <div style={{ display: 'flex', width: '100%', height: '100%', padding: '16px 20px', alignItems: 'center', gap: '20px' }}>
+                        {/* Photo Column (Left) — 3:4 Proportions */}
+                        <div style={{ flexShrink: 0, width: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{
+                                width: '120px',
+                                height: '160px',
+                                border: '2px solid #0f172a',
+                                borderRadius: '4px',
+                                overflow: 'hidden',
+                                background: '#f1f5f9',
+                            }}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
-                                    src={user.image}
+                                    src={user.image!}
                                     alt="User Photo"
-                                    className="w-full h-full object-cover"
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                                 />
                             </div>
                         </div>
 
                         {/* Information Column (Right) */}
-                        <div className="flex-1 flex flex-col justify-center max-w-full">
-                            <h2 className="text-[#0f172a] font-black text-[20px] uppercase tracking-tight leading-tight mb-4">
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+                            <h2 style={{
+                                color: '#0f172a',
+                                fontWeight: 900,
+                                fontSize: getNameFontSize(user.name),
+                                textTransform: 'uppercase',
+                                letterSpacing: '-0.02em',
+                                lineHeight: 1.2,
+                                marginBottom: '12px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                wordBreak: 'break-word',
+                                margin: '0 0 12px 0',
+                            }}>
                                 {user.name}
                             </h2>
 
-                            <div className="flex flex-col gap-3">
-                                <div className="flex flex-col">
-                                    <span className="text-[#64748b] text-[10px] uppercase font-bold tracking-widest">Student Identity Number</span>
-                                    <span className="text-[14px] font-mono font-bold text-[#1e293b]">{user.nim || 'N/A'}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ color: '#64748b', fontSize: '10px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.08em' }}>Student Identity Number</span>
+                                    <span style={{ fontSize: '14px', fontFamily: 'monospace', fontWeight: 700, color: '#1e293b' }}>{user.nim || 'N/A'}</span>
                                 </div>
 
-                                <div className="flex flex-col">
-                                    <span className="text-[#64748b] text-[10px] uppercase font-bold tracking-widest">Supervisor{user.supervisors && user.supervisors.length > 1 ? 's' : ''}</span>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ color: '#64748b', fontSize: '10px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.08em' }}>
+                                        Supervisor{user.supervisors && user.supervisors.length > 1 ? 's' : ''}
+                                    </span>
                                     {user.supervisors && user.supervisors.length > 0 ? (
-                                        <div className="flex flex-col gap-0.5 mt-0.5">
-                                            {user.supervisors.map((supervisor, idx) => (
-                                                <span key={idx} className="text-[13px] font-bold text-[#334155] leading-tight break-words">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '2px' }}>
+                                            {visibleSupervisors.map((supervisor, idx) => (
+                                                <span
+                                                    key={idx}
+                                                    style={{
+                                                        fontSize: getSupervisorFontSize(user.supervisors.length),
+                                                        fontWeight: 700,
+                                                        color: '#334155',
+                                                        lineHeight: 1.3,
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap',
+                                                    }}
+                                                >
                                                     {supervisor}
                                                 </span>
                                             ))}
+                                            {remainingSupervisors > 0 && (
+                                                <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>
+                                                    +{remainingSupervisors} more
+                                                </span>
+                                            )}
                                         </div>
                                     ) : (
-                                        <span className="text-[13px] font-bold text-[#334155] leading-tight">N/A</span>
+                                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155', lineHeight: 1.3 }}>N/A</span>
                                     )}
                                 </div>
                             </div>
@@ -159,16 +203,8 @@ export function IdCardGenerator({ user }: IDCardProps) {
                 ) : (
                     <Download className="h-4 w-4 text-orange-400 group-hover:-translate-y-0.5 transition-transform" />
                 )}
-                {isGenerating ? "Rendering PDF..." : "Download Lab Card"}
+                {isGenerating ? "Rendering..." : "Download Lab Card"}
             </button>
         </div>
     );
-}
-
-function FlameIconSVG() {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
-        </svg>
-    )
 }

@@ -82,14 +82,18 @@ export default async function AdminUsersPage() {
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Role</p>
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium border ${user.role === "ADMIN"
-                      ? "bg-purple-500/10 border-purple-500/20 text-purple-300"
-                      : user.role === "CPD_ADMIN"
-                        ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-300"
-                        : "bg-slate-500/10 border-slate-500/20 text-slate-300"
-                      }`}>
-                      {user.role === "CPD_ADMIN" ? "CPD Admin" : user.role}
-                    </span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {user.roles.map((role: string) => (
+                        <span key={role} className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${role === "ADMIN"
+                          ? "bg-purple-500/10 border-purple-500/20 text-purple-300"
+                          : role === "CPD_ADMIN"
+                            ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-300"
+                            : "bg-slate-500/10 border-slate-500/20 text-slate-300"
+                          }`}>
+                          {role === "CPD_ADMIN" ? "CPD Admin" : role}
+                        </span>
+                      ))}
+                    </div>
                     {user.isContactPerson && (
                       <div className="flex items-center gap-1 mt-1 text-amber-400">
                         <Star className="h-3 w-3 fill-current" />
@@ -116,7 +120,7 @@ export default async function AdminUsersPage() {
                 {user.status === "APPROVED" && (
                   <RoleManagementButtons
                     userId={user.id}
-                    currentRole={user.role}
+                    currentRoles={user.roles}
                     isContactPerson={user.isContactPerson}
                   />
                 )}
@@ -177,14 +181,18 @@ export default async function AdminUsersPage() {
                       <td className="px-4 py-3 text-sm text-slate-300">{user.email}</td>
                       <td className="px-4 py-3 text-sm text-slate-300">{user.phone}</td>
                       <td className="px-4 py-3">
-                        <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium border ${user.role === "ADMIN"
-                          ? "bg-purple-500/10 border-purple-500/20 text-purple-300"
-                          : user.role === "CPD_ADMIN"
-                            ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-300"
-                            : "bg-slate-500/10 border-slate-500/20 text-slate-300"
-                          }`}>
-                          {user.role === "CPD_ADMIN" ? "CPD Admin" : user.role}
-                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {user.roles.map((role: string) => (
+                            <span key={role} className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${role === "ADMIN"
+                              ? "bg-purple-500/10 border-purple-500/20 text-purple-300"
+                              : role === "CPD_ADMIN"
+                                ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-300"
+                                : "bg-slate-500/10 border-slate-500/20 text-slate-300"
+                              }`}>
+                              {role === "CPD_ADMIN" ? "CPD Admin" : role}
+                            </span>
+                          ))}
+                        </div>
                         {user.isContactPerson && (
                           <div className="flex items-center gap-1 mt-1 text-amber-400">
                             <Star className="h-3 w-3 fill-current" />
@@ -226,7 +234,7 @@ export default async function AdminUsersPage() {
                           {user.status === "APPROVED" && (
                             <RoleManagementButtons
                               userId={user.id}
-                              currentRole={user.role}
+                              currentRoles={user.roles}
                               isContactPerson={user.isContactPerson}
                             />
                           )}

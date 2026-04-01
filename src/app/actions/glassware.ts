@@ -129,7 +129,7 @@ export async function addGlassware(data: {
 }): Promise<{ success: boolean; message?: string }> {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== "ADMIN") {
+        if (!session?.user || !session.user.roles.includes("ADMIN")) {
             return { success: false, message: "Unauthorized. Admin access required." };
         }
 
@@ -162,7 +162,7 @@ export async function addGlassware(data: {
 export async function deleteGlassware(id: string): Promise<{ success: boolean; message?: string }> {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== "ADMIN") {
+        if (!session?.user || !session.user.roles.includes("ADMIN")) {
             return { success: false, message: "Unauthorized. Admin access required." };
         }
 
@@ -327,7 +327,7 @@ export async function editAdminGlassware(
 ): Promise<{ success: boolean; message?: string }> {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== "ADMIN") {
+        if (!session?.user || !session.user.roles.includes("ADMIN")) {
             return { success: false, message: "Unauthorized. Admin access required." };
         }
 
@@ -502,7 +502,7 @@ export async function requestReturnGlassware(loanId: string): Promise<{ success:
         const loan = await prisma.glasswareLoan.findUnique({ where: { id: loanId } });
 
         if (!loan) return { success: false, message: "Loan record not found." };
-        if (loan.userId !== session.user.id && session.user.role !== "ADMIN") {
+        if (loan.userId !== session.user.id && !session.user.roles.includes("ADMIN")) {
             return { success: false, message: "Unauthorized. You did not borrow this item." };
         }
         if (loan.status !== "BORROWED") return { success: false, message: "Only actively borrowed items can be requested to return." };
@@ -528,7 +528,7 @@ export async function requestReturnGlassware(loanId: string): Promise<{ success:
 export async function confirmReturnGlassware(loanId: string, returnedQty: number, brokenQty: number): Promise<{ success: boolean; message?: string }> {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== "ADMIN") {
+        if (!session?.user || !session.user.roles.includes("ADMIN")) {
             return { success: false, message: "Unauthorized." };
         }
 
@@ -588,7 +588,7 @@ export async function confirmReturnGlassware(loanId: string, returnedQty: number
 export async function approveBorrow(loanId: string): Promise<{ success: boolean; message?: string }> {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== "ADMIN") {
+        if (!session?.user || !session.user.roles.includes("ADMIN")) {
             return { success: false, message: "Unauthorized." };
         }
 
@@ -617,7 +617,7 @@ export async function approveBorrow(loanId: string): Promise<{ success: boolean;
 export async function rejectBorrow(loanId: string, reason?: string): Promise<{ success: boolean; message?: string }> {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== "ADMIN") {
+        if (!session?.user || !session.user.roles.includes("ADMIN")) {
             return { success: false, message: "Unauthorized." };
         }
 
@@ -662,7 +662,7 @@ export async function requestMultipleReturnGlassware(loanIds: string[]): Promise
         });
 
         // Validation
-        const invalidLoans = loans.filter(loan => loan.userId !== session.user.id && session.user.role !== "ADMIN");
+        const invalidLoans = loans.filter(loan => loan.userId !== session.user.id && !session.user.roles.includes("ADMIN"));
         if (invalidLoans.length > 0) {
             return { success: false, message: "Unauthorized. You did not borrow some of these items." };
         }
@@ -693,7 +693,7 @@ export async function requestMultipleReturnGlassware(loanIds: string[]): Promise
 export async function confirmMultipleReturnGlassware(loanIds: string[]): Promise<{ success: boolean; message?: string }> {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== "ADMIN") {
+        if (!session?.user || !session.user.roles.includes("ADMIN")) {
             return { success: false, message: "Unauthorized." };
         }
 
@@ -733,7 +733,7 @@ export async function confirmMultipleReturnGlassware(loanIds: string[]): Promise
 export async function approveMultipleBorrow(loanIds: string[]): Promise<{ success: boolean; message?: string }> {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== "ADMIN") {
+        if (!session?.user || !session.user.roles.includes("ADMIN")) {
             return { success: false, message: "Unauthorized." };
         }
 

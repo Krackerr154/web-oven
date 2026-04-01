@@ -6,13 +6,15 @@ export default withAuth(
     const { pathname } = req.nextUrl;
     const token = req.nextauth.token;
 
+    const tokenRoles = (token?.roles as string[]) || (token?.role ? [token.role as string] : []);
+
     // Admin routes require ADMIN role
-    if (pathname.startsWith("/admin") && token?.role !== "ADMIN") {
+    if (pathname.startsWith("/admin") && !tokenRoles.includes("ADMIN")) {
       return NextResponse.redirect(new URL("/", req.url));
     }
 
     // CPD Admin routes require CPD_ADMIN or ADMIN role
-    if (pathname.startsWith("/cpd-admin") && token?.role !== "CPD_ADMIN" && token?.role !== "ADMIN") {
+    if (pathname.startsWith("/cpd-admin") && !tokenRoles.includes("CPD_ADMIN") && !tokenRoles.includes("ADMIN")) {
       return NextResponse.redirect(new URL("/", req.url));
     }
 

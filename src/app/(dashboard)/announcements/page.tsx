@@ -16,7 +16,7 @@ export const revalidate = 0;
 export default async function AnnouncementsPage() {
     const session = await getServerSession(authOptions);
     const currentUserId = session?.user?.id;
-    const isAdmin = session?.user?.role === "ADMIN";
+    const isAdmin = session?.user?.roles?.includes("ADMIN") ?? false;
 
     const announcements = await prisma.announcement.findMany({
         orderBy: [

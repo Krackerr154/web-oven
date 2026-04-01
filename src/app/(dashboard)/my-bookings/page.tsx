@@ -17,14 +17,14 @@ export default async function MyBookingsPage() {
   const bookings = await prisma.booking.findMany({
     where: { userId: session?.user?.id, deletedAt: null },
     include: {
-      instrument: { select: { name: true, type: true, maxTemp: true, category: true } },
+      instrument: { select: { name: true, type: true, maxTemp: true, category: true, maxN2FlowRate: true } },
       user: { select: { name: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
   const contactAdmin = await prisma.user.findFirst({
-    where: { role: "ADMIN", isContactPerson: true },
+    where: { roles: { has: "ADMIN" }, isContactPerson: true },
     select: { phone: true },
   });
 
@@ -100,9 +100,17 @@ export default async function MyBookingsPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Temp / Flap</p>
+                    <p className="text-xs text-slate-500">Details</p>
                     <p className="text-slate-300">
-                      {booking.usageTemp}°C / {booking.flap}%
+                      {booking.instrument.type === "OVEN" ? (
+                        <>{booking.usageTemp != null ? `${booking.usageTemp}°C` : "—"} / {booking.flap != null ? `${booking.flap}%` : "—"}</>
+                      ) : booking.instrument.type === "ULTRASONIC_BATH" ? (
+                        <>{booking.sonicatorModes?.length > 0 ? booking.sonicatorModes.join("+") : "—"}</>
+                      ) : booking.instrument.type === "GLOVEBOX" ? (
+                        <>{booking.equipmentBrought || "—"}</>
+                      ) : booking.instrument.type === "CPD" ? (
+                        <>{booking.cpdMode ?? "—"}{booking.sample ? ` • ${booking.sample.slice(0, 30)}` : ""}</>
+                      ) : "—"}
                     </p>
                   </div>
                 </div>
@@ -147,8 +155,7 @@ export default async function MyBookingsPage() {
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Start</th>
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">End</th>
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Duration</th>
-                    <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Temp</th>
-                    <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Flap</th>
+                    <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Details</th>
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Purpose</th>
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Status</th>
                     <th className="px-4 py-3 text-xs font-medium text-slate-400 uppercase">Action</th>
@@ -174,11 +181,16 @@ export default async function MyBookingsPage() {
                       <td className="px-4 py-3 text-sm text-slate-300">
                         {formatDuration(booking.startDate, booking.endDate)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-300">
-                        {booking.usageTemp}°C
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-300">
-                        {booking.flap}%
+                      <td className="px-4 py-3 text-sm text-slate-300 max-w-[200px] truncate">
+                        {booking.instrument.type === "OVEN" ? (
+                          <>{booking.usageTemp != null ? `${booking.usageTemp}°C` : "—"} / {booking.flap != null ? `${booking.flap}%` : "—"}</>
+                        ) : booking.instrument.type === "ULTRASONIC_BATH" ? (
+                          <>{booking.sonicatorModes?.length > 0 ? booking.sonicatorModes.join(" + ") : "—"}</>
+                        ) : booking.instrument.type === "GLOVEBOX" ? (
+                          <>{booking.n2FlowRate != null ? `${booking.n2FlowRate} LPM` : "—"} / {booking.n2Duration != null ? `${booking.n2Duration}m` : "—"}</>
+                        ) : booking.instrument.type === "CPD" ? (
+                          <>{booking.cpdMode ?? "—"}</>
+                        ) : "—"}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-300 max-w-[200px] truncate">
                         {booking.purpose}

@@ -135,7 +135,7 @@ export async function searchReagents(query: string): Promise<{ success: boolean;
 export async function getAllReagents(): Promise<{ success: boolean; data?: Reagent[]; message?: string }> {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== "ADMIN") {
+        if (!session?.user || !session.user.roles.includes("ADMIN")) {
             return { success: false, message: "Unauthorized. Admin access required." };
         }
 
@@ -187,7 +187,7 @@ export async function getAllReagents(): Promise<{ success: boolean; data?: Reage
 export async function addLabChemical(data: { customId?: string, name: string, brand?: string, catalogNo?: string, arrivalDate?: string, size: string, unit: string, condition?: string, location?: string, notes?: string, synonyms?: string }): Promise<{ success: boolean; message?: string }> {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== "ADMIN") {
+        if (!session?.user || !session.user.roles.includes("ADMIN")) {
             return { success: false, message: "Unauthorized. Admin access required." };
         }
 

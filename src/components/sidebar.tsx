@@ -89,8 +89,8 @@ const cpdAdminNavGroups = [
 export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "ADMIN";
-  const isCPDAdmin = session?.user?.role === "CPD_ADMIN" || session?.user?.role === "ADMIN";
+  const isAdmin = session?.user?.roles.includes("ADMIN");
+  const isCPDAdmin = session?.user?.roles.includes("CPD_ADMIN") || session?.user?.roles.includes("ADMIN");
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {

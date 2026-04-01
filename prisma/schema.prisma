@@ -116,7 +116,7 @@ model User {
   hasSeenTour  Boolean    @default(false)
   image        String?    @db.Text
   passwordHash String     @map("password_hash")
-  role         Role       @default(USER)
+  roles        Role[]     @default([USER])
   status       UserStatus @default(PENDING)
   isContactPerson Boolean @default(false) @map("is_contact_person")
   emailVerified DateTime? @map("email_verified")
