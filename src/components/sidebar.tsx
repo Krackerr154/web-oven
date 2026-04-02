@@ -25,6 +25,7 @@ import {
   Megaphone,
   FileText,
   Microscope,
+  LineChart,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -62,6 +63,7 @@ const adminNavGroups = [
   {
     title: "Management",
     items: [
+      { label: "Analytics", href: "/admin/analytics", icon: LineChart },
       { label: "Users", href: "/admin/users", icon: Users },
       { label: "Bookings", href: "/admin/bookings", icon: ListChecks },
       { label: "Instruments", href: "/admin/instruments", icon: Settings },
