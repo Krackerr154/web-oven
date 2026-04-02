@@ -10,7 +10,7 @@ import { authOptions } from "@/lib/auth";
 export async function getReagentStats() {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== "ADMIN") return null;
+        if (!session?.user || !session.user.roles.includes("ADMIN")) return null;
 
         const reagents = await prisma.reagent.groupBy({
             by: ['status'],
@@ -46,7 +46,7 @@ export async function getReagentStats() {
 export async function getGlasswareStats() {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== "ADMIN") return null;
+        if (!session?.user || !session.user.roles.includes("ADMIN")) return null;
 
         // Find the top 5 most borrowed glassware by counting loans
         const loans = await prisma.glasswareLoan.groupBy({
@@ -90,7 +90,7 @@ export async function getGlasswareStats() {
 export async function getOvenUtilization() {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== "ADMIN") return null;
+        if (!session?.user || !session.user.roles.includes("ADMIN")) return null;
 
         // For simplicity, we fetch bookings from the last 7 days
         const sevenDaysAgo = new Date();
