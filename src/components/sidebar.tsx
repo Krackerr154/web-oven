@@ -25,6 +25,7 @@ import {
   Megaphone,
   FileText,
   Microscope,
+  Activity,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
