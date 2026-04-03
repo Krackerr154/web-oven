@@ -26,6 +26,7 @@ import {
   FileText,
   Microscope,
   Activity,
+  LineChart,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
