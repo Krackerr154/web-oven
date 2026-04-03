@@ -11,6 +11,7 @@ import { Loader2, Wrench, Power, Trash2 } from "lucide-react";
 import { EditOvenModal } from "./edit-oven-modal";
 import { useToast } from "@/components/toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { cn } from "@/lib/utils";
 
 type OvenData = {
   id: number;
@@ -105,8 +106,9 @@ export function OvenActionButtons({
             )
           }
           disabled={deleting}
-          className="p-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors disabled:opacity-50"
+          className="p-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
           title="Delete oven"
+          aria-label="Delete Oven"
         >
           {deleting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -140,10 +142,10 @@ export function OvenActionButtons({
             }
           }}
           disabled={loading}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${isMaintenance
-              ? "bg-emerald-600 hover:bg-emerald-500 text-white"
-              : "bg-amber-600 hover:bg-amber-500 text-white"
-            }`}
+          className={cn(
+            "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+            isMaintenance ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "bg-amber-600 hover:bg-amber-500 text-white"
+          )}
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />

@@ -68,6 +68,7 @@ export function BookingActionButtons({ bookingId, status }: Props) {
         {status === "ACTIVE" && (
           <button
             title="Cancel Booking"
+            aria-label="Cancel Booking"
             onClick={() =>
               openConfirm(
                 "Cancel Booking",
@@ -78,7 +79,7 @@ export function BookingActionButtons({ bookingId, status }: Props) {
               )
             }
             disabled={isPending}
-            className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+            className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
           >
             <Ban className="h-4 w-4" />
           </button>
@@ -87,6 +88,7 @@ export function BookingActionButtons({ bookingId, status }: Props) {
         {(status === "ACTIVE" || status === "AUTO_CANCELLED") && (
           <button
             title="Complete Booking"
+            aria-label="Complete Booking"
             onClick={() =>
               openConfirm(
                 "Complete Booking",
@@ -97,7 +99,7 @@ export function BookingActionButtons({ bookingId, status }: Props) {
               )
             }
             disabled={isPending}
-            className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
+            className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
           >
             <CheckCircle className="h-4 w-4" />
           </button>
@@ -105,6 +107,7 @@ export function BookingActionButtons({ bookingId, status }: Props) {
 
         <button
           title="Remove Booking"
+          aria-label="Remove Booking"
           onClick={() =>
             openConfirm(
               "Remove Booking",
@@ -115,7 +118,7 @@ export function BookingActionButtons({ bookingId, status }: Props) {
             )
           }
           disabled={isPending}
-          className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+          className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
         >
           <Trash2 className="h-4 w-4" />
         </button>
