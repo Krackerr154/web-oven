@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { Shield, Mail, Phone, Clock, Edit2, X, Check, Camera, Loader2, FileText, Users, Crop } from "lucide-react";
-import { formatDateTimeWib } from "@/lib/utils";
+import { formatDateTimeWib, cn } from "@/lib/utils";
 import { updateProfile, updateAvatar } from "@/app/actions/profile";
 import { useToast } from "@/components/toast";
 import Image from "next/image";
@@ -153,10 +153,14 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                         <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-center items-center text-white cursor-pointer"
+                            className={cn(
+                                "absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-center items-center text-white cursor-pointer rounded-full",
+                                "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                            )}
+                            aria-label="Change profile picture"
                         >
-                            <Camera className="h-5 w-5 mb-1" />
-                            <span className="text-[9px] font-medium uppercase tracking-wider">Change</span>
+                            <Camera className="h-5 w-5 mb-1" aria-hidden="true" />
+                            <span className="text-[9px] font-medium uppercase tracking-wider" aria-hidden="true">Change</span>
                         </button>
                     </div>
                 </div>
