@@ -141,10 +141,11 @@ export function Sidebar() {
         </Link>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors mt-2"
+          aria-label="Sign out"
+          className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors mt-2 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:outline-none"
         >
-          <LogOut className="h-4 w-4" />
-          Sign out
+          <LogOut className="h-4 w-4" aria-hidden="true" />
+          <span aria-hidden="true">Sign out</span>
         </button>
       </div>
     </>
@@ -156,10 +157,10 @@ export function Sidebar() {
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
         aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
-        className="fixed top-4 left-4 z-50 lg:hidden bg-slate-800 text-white p-2 rounded-lg shadow-lg flex items-center gap-2"
+        className="fixed top-4 left-4 z-50 lg:hidden bg-slate-800 text-white p-2 rounded-lg shadow-lg flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:outline-none"
       >
-        {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        <span className="text-sm font-semibold pr-1">Lab Oven</span>
+        {mobileOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
+        <span className="text-sm font-semibold pr-1" aria-hidden="true">Lab Oven</span>
       </button>
 
       {/* Mobile overlay */}
