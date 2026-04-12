@@ -129,10 +129,11 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                 {!isEditing && (
                     <button
                         onClick={() => setIsEditing(true)}
-                        className="absolute top-0 right-0 p-2 text-slate-400 hover:text-orange-400 hover:bg-orange-500/10 rounded-lg transition-colors"
+                        className="absolute top-0 right-0 p-2 text-slate-400 hover:text-orange-400 hover:bg-orange-500/10 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                         title="Edit Profile"
+                        aria-label="Edit Profile"
                     >
-                        <Edit2 className="h-4 w-4" />
+                        <Edit2 className="h-4 w-4" aria-hidden="true" />
                     </button>
                 )}
 
@@ -153,10 +154,11 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                         <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-center items-center text-white cursor-pointer"
+                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-center items-center text-white cursor-pointer focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-inset"
+                            aria-label="Change avatar"
                         >
-                            <Camera className="h-5 w-5 mb-1" />
-                            <span className="text-[9px] font-medium uppercase tracking-wider">Change</span>
+                            <Camera className="h-5 w-5 mb-1" aria-hidden="true" />
+                            <span className="text-[9px] font-medium uppercase tracking-wider" aria-hidden="true">Change</span>
                         </button>
                     </div>
                 </div>
@@ -191,9 +193,10 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                                 </h3>
                                 <button
                                     onClick={closeCropper}
-                                    className="text-slate-400 hover:text-white transition-colors p-1 rounded-full hover:bg-slate-700"
+                                    className="text-slate-400 hover:text-white transition-colors p-1 rounded-full hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                                    aria-label="Close cropper"
                                 >
-                                    <X className="h-5 w-5" />
+                                    <X className="h-5 w-5" aria-hidden="true" />
                                 </button>
                             </div>
 
