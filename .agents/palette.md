@@ -1,0 +1,3 @@
+## 2025-04-12 - Ensure screen readers do not announce repetitive content in complex interactive elements
+**Learning:** For elements that encompass multiple visual components—such as a dark theme hover overlay containing both an icon and text—associating a comprehensive `aria-label` on the parent container alongside `aria-hidden="true"` on its purely visual child elements prevents screen readers from redundantly announcing inner text after reading the parent's label.
+**Action:** When creating composite interactive elements (like the avatar upload hover overlay in `profile-editor.tsx`), define a clear `aria-label` on the outer interactive container and explicitly hide non-essential inner elements using `aria-hidden="true"` to deliver a streamlined auditory experience.
