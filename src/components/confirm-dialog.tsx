@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type ConfirmDialogProps = {
     open: boolean;
@@ -100,7 +101,7 @@ export function ConfirmDialog({
                         type="button"
                         onClick={onCancel}
                         disabled={loading}
-                        className="flex-1 py-2.5 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 font-medium text-sm transition-colors disabled:opacity-50"
+                        className="flex-1 py-2.5 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 font-medium text-sm transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                     >
                         Cancel
                     </button>
@@ -109,10 +110,10 @@ export function ConfirmDialog({
                         type="button"
                         onClick={onConfirm}
                         disabled={loading}
-                        className={`flex-1 py-2.5 rounded-lg font-medium text-sm text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${isDanger
-                                ? "bg-red-600 hover:bg-red-500"
-                                : "bg-amber-600 hover:bg-amber-500"
-                            }`}
+                        className={cn(
+                            "flex-1 py-2.5 rounded-lg font-medium text-sm text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+                            isDanger ? "bg-red-600 hover:bg-red-500" : "bg-amber-600 hover:bg-amber-500"
+                        )}
                     >
                         {loading ? (
                             <>
