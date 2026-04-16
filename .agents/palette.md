@@ -1,0 +1,3 @@
+## 2024-04-16 - Accessible Hover Overlays in Dark Theme
+**Learning:** Visually hidden hover overlays (e.g., elements with `opacity-0` that appear on hover) in the dark-theme UI must include `focus-visible:opacity-100` alongside standard focus rings (`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500`) to ensure they are accessible and visible to keyboard users.
+**Action:** Always add `focus-visible:opacity-100` and focus rings to visually hidden interactive elements, and add `aria-label` with `aria-hidden="true"` on inner text/icons to prevent redundant screen reader announcements.
