@@ -152,11 +152,12 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                         {/* Hover Overlay for Upload */}
                         <button
                             type="button"
+                            aria-label="Change profile picture"
                             onClick={() => fileInputRef.current?.click()}
-                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-center items-center text-white cursor-pointer"
+                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 transition-opacity flex flex-col justify-center items-center text-white cursor-pointer"
                         >
                             <Camera className="h-5 w-5 mb-1" />
-                            <span className="text-[9px] font-medium uppercase tracking-wider">Change</span>
+                            <span aria-hidden="true" className="text-[9px] font-medium uppercase tracking-wider">Change</span>
                         </button>
                     </div>
                 </div>
