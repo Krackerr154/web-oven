@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Flame, Clock, User, AlertTriangle, Info, X, Zap, Wind } from "lucide-react";
-import { formatDateTimeWib } from "@/lib/utils";
+import { formatDateTimeWib, cn } from "@/lib/utils";
 
 type BookingData = {
     id: string;
@@ -56,10 +56,26 @@ export function OvenStatusCard({ oven }: { oven: OvenData }) {
             onClick={toggleDetails}
             onMouseEnter={() => isInUse && setShowDetails(true)}
             onMouseLeave={() => isInUse && setShowDetails(false)}
-            className={`relative rounded-2xl border p-5 sm:p-6 hover-lift bg-slate-900/40 backdrop-blur-md overflow-hidden flex flex-col ${isInUse ? "min-h-[240px]" : "h-full"} ${statusColor} ${isInUse ? "cursor-pointer" : ""}`}
+            onKeyDown={(e) => {
+                if (isInUse && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    toggleDetails();
+                }
+            }}
+            role={isInUse ? "button" : undefined}
+            tabIndex={isInUse ? 0 : undefined}
+            aria-expanded={isInUse ? showDetails : undefined}
+            className={cn(
+                "relative rounded-2xl border p-5 sm:p-6 hover-lift bg-slate-900/40 backdrop-blur-md overflow-hidden flex flex-col",
+                isInUse ? "min-h-[240px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" : "h-full",
+                statusColor
+            )}
         >
             {/* Front Face */}
-            <div className={`flex flex-col h-full flex-1 transition-opacity duration-300 ${showDetails ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+            <div className={cn(
+                "flex flex-col h-full flex-1 transition-opacity duration-300",
+                showDetails ? "opacity-0 pointer-events-none" : "opacity-100"
+            )}>
                 <div className="flex items-start justify-between">
                     <div className="flex items-center gap-4">
                         <div className="p-2.5 rounded-xl bg-slate-800/80 ring-1 ring-white/5 shadow-inner">
@@ -136,8 +152,12 @@ export function OvenStatusCard({ oven }: { oven: OvenData }) {
                         </h3>
                         <button
                             onClick={(e) => { e.stopPropagation(); setShowDetails(false); }}
-                            className="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                            className={cn(
+                                "p-1 rounded-full bg-slate-800 text-slate-400 hover:text-white transition-colors",
+                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                            )}
                             title="Close Details"
+                            aria-label="Close Details"
                         >
                             <X className="h-3.5 w-3.5" />
                         </button>
