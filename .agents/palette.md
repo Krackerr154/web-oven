@@ -1,0 +1,3 @@
+## 2024-05-20 - Focus Rings & Legacy Utility Classes
+**Learning:** This app's environment does not utilize predefined CSS variables like `--ring` or `--accent` typically found in standard Shadcn UI components. Relying on default classes like `focus:ring-ring` or `bg-accent` will result in broken or invisible styles in our dark theme configuration.
+**Action:** Always utilize explicit Tailwind classes for accessibility features across components, particularly `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500` for focus rings and `bg-slate-700` or similar for active states.
