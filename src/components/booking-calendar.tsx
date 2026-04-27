@@ -153,7 +153,8 @@ export default function BookingCalendar({
             </p>
             <button
               onClick={closeTooltip}
-              className="text-slate-400 hover:text-white"
+              aria-label="Close tooltip"
+              className="text-slate-400 hover:text-white rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
             >
               <X className="h-3.5 w-3.5" />
             </button>
