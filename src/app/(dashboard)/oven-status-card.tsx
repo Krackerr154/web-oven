@@ -53,10 +53,18 @@ export function OvenStatusCard({ oven }: { oven: OvenData }) {
 
     return (
         <div
+            role={isInUse ? "button" : undefined}
+            tabIndex={isInUse ? 0 : undefined}
             onClick={toggleDetails}
+            onKeyDown={(e) => {
+                if (isInUse && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    toggleDetails();
+                }
+            }}
             onMouseEnter={() => isInUse && setShowDetails(true)}
             onMouseLeave={() => isInUse && setShowDetails(false)}
-            className={`relative rounded-2xl border p-5 sm:p-6 hover-lift bg-slate-900/40 backdrop-blur-md overflow-hidden flex flex-col ${isInUse ? "min-h-[240px]" : "h-full"} ${statusColor} ${isInUse ? "cursor-pointer" : ""}`}
+            className={`relative rounded-2xl border p-5 sm:p-6 hover-lift bg-slate-900/40 backdrop-blur-md overflow-hidden flex flex-col ${isInUse ? "min-h-[240px]" : "h-full"} ${statusColor} ${isInUse ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" : ""}`}
         >
             {/* Front Face */}
             <div className={`flex flex-col h-full flex-1 transition-opacity duration-300 ${showDetails ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
@@ -135,8 +143,10 @@ export function OvenStatusCard({ oven }: { oven: OvenData }) {
                             Active Details
                         </h3>
                         <button
+                            aria-label="Close Details"
+                            tabIndex={showDetails ? 0 : -1}
                             onClick={(e) => { e.stopPropagation(); setShowDetails(false); }}
-                            className="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                            className="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                             title="Close Details"
                         >
                             <X className="h-3.5 w-3.5" />
