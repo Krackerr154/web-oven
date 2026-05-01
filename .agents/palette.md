@@ -1,0 +1,3 @@
+## 2026-05-01 - Keyboard Access for Visually Hidden Overlays in Dark Theme
+**Learning:** Visually hidden hover overlays in the dark theme (e.g., using `opacity-0` that appears on hover) remain completely invisible to keyboard users when focused unless explicitly instructed to appear. The standard focus ring is insufficient if the element itself remains transparent (`opacity-0`).
+**Action:** Always append `focus-visible:opacity-100` alongside standard focus rings (`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500`) to any `opacity-0` interactive overlay to ensure it becomes visible and accessible during keyboard navigation.
