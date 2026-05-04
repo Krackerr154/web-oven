@@ -1,0 +1,3 @@
+## 2025-02-24 - Handling compound visually-hidden hover buttons
+**Learning:** In the dark theme, compound visual elements that only appear on hover (like `opacity-0 group-hover:opacity-100`) become invisible to keyboard users who tab to them.
+**Action:** When adding focus states to these overlays, explicitly add `focus-visible:opacity-100` alongside the standard focus ring classes (`focus-visible:ring-2 focus-visible:ring-orange-500`) to guarantee they appear when focused. Add `aria-hidden="true"` to inner decorative text and icons when replacing them with an overarching `aria-label` on the button to prevent redundant screen reader announcements.
