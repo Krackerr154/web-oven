@@ -1,0 +1,3 @@
+## 2024-03-24 - Visually Hidden Hover Overlays Require Focus-Visible Opacity
+**Learning:** In the dark-theme UI, interactive elements that are visually hidden until hovered (using `opacity-0` that changes to `group-hover:opacity-100`) become inaccessible to keyboard users because they remain transparent during keyboard navigation, even if a standard focus ring is applied.
+**Action:** Always include `focus-visible:opacity-100` alongside the standard focus ring classes (`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500`) to ensure visually hidden overlays become visible and functional when focused via keyboard.
