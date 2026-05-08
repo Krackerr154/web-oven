@@ -1,0 +1,3 @@
+## 2026-05-08 - Interactive Div Accessibility in Dark Theme
+**Learning:** When making non-native elements (like `div` cards) interactive (e.g., clickable oven status cards) in this dark-theme app, it's critical to explicitly support keyboard users. Native HTML elements like `button` handle this automatically, but `div` elements require manual intervention to prevent accessibility regressions.
+**Action:** Always ensure that interactive `div` elements include `role="button"`, `tabIndex={0}`, an `onKeyDown` handler for 'Enter' and 'Space' (which MUST call `e.preventDefault()`), and explicit focus ring styles (`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500`) to match the app's dark-theme focus indicators.
