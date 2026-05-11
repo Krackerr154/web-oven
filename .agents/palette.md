@@ -1,0 +1,3 @@
+## 2024-05-24 - Accessible Interactive Div Cards & Overlays
+**Learning:** In dark-theme components, using `opacity-0` for hover overlays makes inner interactive elements (like close buttons) technically focusable but invisible to keyboard users. Divs used as cards also lack native keyboard support.
+**Action:** When making div cards interactive, always add `role="button"`, `tabIndex={0}`, an `onKeyDown` handler for 'Enter'/'Space' (with `e.preventDefault()`), and `focus-visible:ring-2 focus-visible:ring-orange-500`. For inner overlay buttons, dynamically set `tabIndex={isVisible ? 0 : -1}` and apply `focus-within` visibility utilities to the overlay container.
