@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Flame, Clock, User, AlertTriangle, Info, X, Zap, Wind } from "lucide-react";
-import { formatDateTimeWib } from "@/lib/utils";
+import { cn, formatDateTimeWib } from "@/lib/utils";
 
 type BookingData = {
     id: string;
@@ -51,15 +51,34 @@ export function OvenStatusCard({ oven }: { oven: OvenData }) {
         }
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (isInUse && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            toggleDetails();
+        }
+    };
+
     return (
         <div
             onClick={toggleDetails}
+            onKeyDown={handleKeyDown}
             onMouseEnter={() => isInUse && setShowDetails(true)}
             onMouseLeave={() => isInUse && setShowDetails(false)}
-            className={`relative rounded-2xl border p-5 sm:p-6 hover-lift bg-slate-900/40 backdrop-blur-md overflow-hidden flex flex-col ${isInUse ? "min-h-[240px]" : "h-full"} ${statusColor} ${isInUse ? "cursor-pointer" : ""}`}
+            tabIndex={isInUse ? 0 : undefined}
+            role={isInUse ? "button" : undefined}
+            aria-label={isInUse ? "Toggle oven details" : undefined}
+            className={cn(
+                "relative rounded-2xl border p-5 sm:p-6 hover-lift bg-slate-900/40 backdrop-blur-md overflow-hidden flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+                isInUse ? "min-h-[240px]" : "h-full",
+                statusColor,
+                isInUse ? "cursor-pointer" : ""
+            )}
         >
             {/* Front Face */}
-            <div className={`flex flex-col h-full flex-1 transition-opacity duration-300 ${showDetails ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+            <div className={cn(
+                "flex flex-col h-full flex-1 transition-opacity duration-300 focus-within:opacity-0 focus-within:pointer-events-none",
+                showDetails ? "opacity-0 pointer-events-none" : "opacity-100"
+            )}>
                 <div className="flex items-start justify-between">
                     <div className="flex items-center gap-4">
                         <div className="p-2.5 rounded-xl bg-slate-800/80 ring-1 ring-white/5 shadow-inner">
@@ -128,7 +147,10 @@ export function OvenStatusCard({ oven }: { oven: OvenData }) {
 
             {/* Back Face (Details Overlay) */}
             {isInUse && currentBooking && (
-                <div className={`absolute inset-0 bg-slate-900/95 p-4 sm:p-5 flex flex-col transition-all duration-300 z-10 ${showDetails ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>
+                <div className={cn(
+                    "absolute inset-0 bg-slate-900/95 p-4 sm:p-5 flex flex-col transition-all duration-300 z-10 focus-within:opacity-100 focus-within:translate-y-0 focus-within:pointer-events-auto",
+                    showDetails ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+                )}>
                     <div className="flex justify-between items-start mb-3 shrink-0">
                         <h3 className="font-semibold text-white flex items-center gap-2 text-sm">
                             <Info className="h-4 w-4 text-blue-400" />
