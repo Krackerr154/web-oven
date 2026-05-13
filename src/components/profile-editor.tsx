@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { Shield, Mail, Phone, Clock, Edit2, X, Check, Camera, Loader2, FileText, Users, Crop } from "lucide-react";
-import { formatDateTimeWib } from "@/lib/utils";
+import { formatDateTimeWib, cn } from "@/lib/utils";
 import { updateProfile, updateAvatar } from "@/app/actions/profile";
 import { useToast } from "@/components/toast";
 import Image from "next/image";
@@ -128,11 +128,16 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                 {/* Edit Toggle Button */}
                 {!isEditing && (
                     <button
+                        aria-label="Edit profile"
                         onClick={() => setIsEditing(true)}
-                        className="absolute top-0 right-0 p-2 text-slate-400 hover:text-orange-400 hover:bg-orange-500/10 rounded-lg transition-colors"
+                        className={cn(
+                            "absolute top-0 right-0 p-2 text-slate-400 rounded-lg transition-colors",
+                            "hover:text-orange-400 hover:bg-orange-500/10",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                        )}
                         title="Edit Profile"
                     >
-                        <Edit2 className="h-4 w-4" />
+                        <Edit2 className="h-4 w-4" aria-hidden="true" />
                     </button>
                 )}
 
@@ -152,11 +157,16 @@ export function ProfileEditor({ user }: { user: ProfileUser }) {
                         {/* Hover Overlay for Upload */}
                         <button
                             type="button"
+                            aria-label="Change profile picture"
                             onClick={() => fileInputRef.current?.click()}
-                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-center items-center text-white cursor-pointer"
+                            className={cn(
+                                "absolute inset-0 bg-black/60 opacity-0 transition-opacity flex flex-col justify-center items-center text-white cursor-pointer",
+                                "group-hover:opacity-100",
+                                "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                            )}
                         >
-                            <Camera className="h-5 w-5 mb-1" />
-                            <span className="text-[9px] font-medium uppercase tracking-wider">Change</span>
+                            <Camera className="h-5 w-5 mb-1" aria-hidden="true" />
+                            <span className="text-[9px] font-medium uppercase tracking-wider" aria-hidden="true">Change</span>
                         </button>
                     </div>
                 </div>

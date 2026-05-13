@@ -1,0 +1,3 @@
+## 2026-05-13 - Accessible Hidden Hover Overlays
+**Learning:** In the dark-theme UI, visually hidden hover overlays (e.g., elements with `opacity-0` that appear on hover) often contain focusable elements like buttons. If keyboard users tab to these elements, the focus ring is applied but the element remains hidden (opacity 0) because hover state is not active.
+**Action:** When building interactive overlays triggered by hover, apply `focus-visible:opacity-100` alongside standard focus rings (`focus-visible:ring-2 focus-visible:ring-orange-500`) to ensure the element becomes visible when it receives keyboard focus, or use `focus-within:opacity-100` on the parent container.
