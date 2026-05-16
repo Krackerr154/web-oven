@@ -150,24 +150,27 @@
 
 ---
 
-## Phase 4 — Server Actions & Data Layer ⬜
+## Phase 4 — Server Actions & Data Layer ✅
 
-**Status:** Not Started  
+**Status:** Complete  
+**Completed:** 2026-05-17  
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 4.1 | Define Zod input schemas | ⬜ | |
-| 4.2 | Implement `saveExperiment()` | ⬜ | |
-| 4.3 | Implement `listExperiments()` | ⬜ | |
-| 4.4 | Implement `getExperiment()` | ⬜ | |
-| 4.5 | Implement `deleteExperiment()` | ⬜ | |
-| 4.6 | Implement `updatePeaks()` | ⬜ | |
+| 4.1 | Define Zod input schemas | ✅ | Implemented `saveDscExperimentSchema` and `dscPeakSchema` in `src/app/actions/dsc.ts` |
+| 4.2 | Implement `saveExperiment()` | ✅ | `saveExperiment` creates `DscExperiment` and cascades `DscPeak` creation |
+| 4.3 | Implement `listExperiments()` | ✅ | `listExperiments` retrieves all user experiments and their peak counts |
+| 4.4 | Implement `getExperiment()` | ✅ | `getExperiment` retrieves details with security check for ownership/admin |
+| 4.5 | Implement `deleteExperiment()` | ✅ | `deleteExperiment` removes experiment with security check |
+| 4.6 | Implement `updatePeaks()` | ✅ | `updatePeaks` supports re-analysis overriding peaks via transaction |
+
 
 ---
 
 ## Phase 5 — UI Components & Pages ⬜
 
 **Status:** Not Started  
+**Location:** Sidebar Navigation → Data Analysis → DSC Analysis (`/dsc`)
 
 ### Phase 5A — Upload & History
 

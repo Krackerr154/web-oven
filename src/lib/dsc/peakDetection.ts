@@ -312,7 +312,6 @@ function findBaselineBoundaries(
   opts: PeakDetectionOptions,
 ): { leftBaseIdx: number; rightBaseIdx: number } {
   const n = smoothed.length;
-  const k = opts.baselineDeviationK;
 
   // ── First derivative (for left boundary) ──
   const deriv = new Float64Array(n);
