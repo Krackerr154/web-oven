@@ -32,6 +32,7 @@ export function DscAnalysisClient({ experimentId }: { experimentId: string }) {
   const [reuploading, setReuploading] = useState(false);
   const [exportImage, setExportImage] = useState<ChartExportHandlers["exportImage"] | undefined>();
   const initializedPeaksRef = useRef(false);
+  const exportReadyRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -137,7 +138,9 @@ export function DscAnalysisClient({ experimentId }: { experimentId: string }) {
   };
 
   const handleChartReady = useCallback((handlers: ChartExportHandlers) => {
-    setExportImage((current) => current ?? handlers.exportImage);
+    if (exportReadyRef.current) return;
+    exportReadyRef.current = true;
+    setExportImage(() => handlers.exportImage);
   }, []);
 
   if (loading) {

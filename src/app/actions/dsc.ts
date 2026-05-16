@@ -7,7 +7,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import type { DscExperimentSummary, DscExperimentWithPeaks } from "@/components/dsc/types";
 
-export const dscPeakSchema = z.object({
+const dscPeakSchema = z.object({
   cycleIndex: z.number(),
   peakType: z.enum(["exothermic", "endothermic"]),
   onsetTempC: z.number(),
@@ -22,7 +22,7 @@ export const dscPeakSchema = z.object({
   isManual: z.boolean().default(false),
 });
 
-export const saveDscExperimentSchema = z.object({
+const saveDscExperimentSchema = z.object({
   filename: z.string(),
   sampleName: z.string(),
   massMg: z.number(),
@@ -131,11 +131,28 @@ export async function getExperiment(id: string): Promise<DscActionResult<DscExpe
       return { success: false, message: "Unauthorized access" };
     }
 
-    return { success: true, message: "Fetched experiment", data: experiment };
+    return {
+      success: true,
+      message: "Fetched experiment",
+      data: {
+        ...experiment,
+        peaks: experiment.peaks.map((peak) => ({
+          ...peak,
+          peakType: toDscPeakType(peak.peakType),
+        })),
+      },
+    };
   } catch (error) {
     console.error("Get experiment error:", error);
     return { success: false, message: "An unexpected error occurred" };
   }
+}
+
+function toDscPeakType(value: string): "exothermic" | "endothermic" {
+  if (value !== "exothermic" && value !== "endothermic") {
+    throw new Error(`Unsupported DSC peak type: ${value}`);
+  }
+  return value;
 }
 
 export async function deleteExperiment(id: string): Promise<DscActionResult<undefined>> {
