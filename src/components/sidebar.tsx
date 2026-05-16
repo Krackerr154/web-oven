@@ -53,6 +53,12 @@ const userNavGroups = [
     ],
   },
   {
+    title: "Data Analysis",
+    items: [
+      { label: "DSC Analysis", href: "/dsc", icon: Activity },
+    ],
+  },
+  {
     title: "Documents",
     items: [
       { label: "Forms", href: "/forms", icon: FileText },

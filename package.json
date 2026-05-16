@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",
@@ -30,6 +32,7 @@
     "papaparse": "^5.5.3",
     "pdf-lib": "^1.17.1",
     "pg": "^8.18.0",
+    "plotly.js-dist-min": "^2.35.3",
     "posthog-js": "^1.364.6",
     "prisma": "^7.4.0",
     "react": "19.2.3",
@@ -49,9 +52,11 @@
     "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/runner": "^4.1.6",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^4.1.6"
   }
 }

@@ -135,6 +135,7 @@ model User {
   announcements     Announcement[]
   reactions         Reaction[]
   announcementComments AnnouncementComment[]
+  dscExperiments    DscExperiment[]
 
   @@map("ap_users")
 }
@@ -380,3 +381,50 @@ model AnnouncementComment {
   @@index([authorId])
   @@map("ap_announcement_comments")
 }
+
+// ─── DSC Analysis Models ─────────────────────────────────────────────
+
+model DscExperiment {
+  id            String       @id @default(cuid())
+  userId        String       @map("user_id")
+  user          User         @relation(fields: [userId], references: [id])
+  filename      String
+  sampleName    String       @map("sample_name")
+  massMg        Float        @map("mass_mg")
+  molarMass     Float?       @map("molar_mass")
+  atmosphere    String?
+  operatorName  String?      @map("operator_name")
+  procedureName String?      @map("procedure_name")
+  recordedAt    DateTime?    @map("recorded_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  peaks         DscPeak[]
+  // Raw data is NOT stored in the DB — it stays client-side (IndexedDB / state)
+  // Only metadata and computed peak results are persisted
+
+  @@index([userId])
+  @@map("ap_dsc_experiments")
+}
+
+model DscPeak {
+  id              String        @id @default(cuid())
+  experimentId    String        @map("experiment_id")
+  experiment      DscExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  cycleIndex      Int           @map("cycle_index")
+  peakType        String        @map("peak_type")       // "exothermic" | "endothermic"
+  onsetTempC      Float         @map("onset_temp_c")
+  onsetTimeH      Float         @map("onset_time_h")
+  offsetTempC     Float         @map("offset_temp_c")
+  offsetTimeH     Float         @map("offset_time_h")
+  peakMaxTempC    Float         @map("peak_max_temp_c")
+  peakMaxTimeH    Float         @map("peak_max_time_h")
+  peakHeightMw    Float         @map("peak_height_mw")
+  heatJPerG       Float         @map("heat_j_per_g")
+  label           String?
+  isManual        Boolean       @default(false) @map("is_manual")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@index([experimentId])
+  @@map("ap_dsc_peaks")
+}
+
