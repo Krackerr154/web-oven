@@ -167,46 +167,47 @@
 
 ---
 
-## Phase 5 — UI Components & Pages ⬜
+## Phase 5 — UI Components & Pages 🔄
 
-**Status:** Not Started  
+**Status:** Implemented — verification pending
+**Completed:** 2026-05-17
 **Location:** Sidebar Navigation → Data Analysis → DSC Analysis (`/dsc`)
 
 ### Phase 5A — Upload & History
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 5A.1 | Build `DscUploader` component | ⬜ | |
-| 5A.2 | Build upload/history page (full) | ⬜ | |
-| 5A.3 | Implement sessionStorage pattern | ⬜ | |
+| 5A.1 | Build `DscUploader` component | ✅ | Drag/drop + file picker, 50 MB `.txt` validation, UTF-16 LE parsing, metadata preview |
+| 5A.2 | Build upload/history page (full) | ✅ | `/dsc` now renders uploader and authenticated experiment history |
+| 5A.3 | Implement sessionStorage pattern | ✅ | Raw parsed data cached by experiment id for 50 MB client-side workflows |
 
 ### Phase 5B — Analysis View
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 5B.1 | Build analysis page shell | ⬜ | |
-| 5B.2 | Build re-upload prompt | ⬜ | |
+| 5B.1 | Build analysis page shell | ✅ | `/dsc/[experimentId]` renders the analysis client with chart + sidebar layout |
+| 5B.2 | Build re-upload prompt | ✅ | Missing sessionStorage data prompts the user to re-upload the original DSC file |
 
 ### Phase 5C — Chart Component
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 5C.1 | Build `DscChart` (Plotly) | ⬜ | |
-| 5C.2 | Multi-cycle traces | ⬜ | |
-| 5C.3 | Baseline toggle | ⬜ | |
-| 5C.4 | Peak annotations | ⬜ | |
-| 5C.5 | Peak highlighting | ⬜ | |
-| 5C.6 | Pan/zoom + hover tooltip | ⬜ | |
-| 5C.7 | Manual peak addition | ⬜ | |
-| 5C.8 | Onset/offset dragging | ⬜ | |
+| 5C.1 | Build `DscChart` (Plotly) | ✅ | Dynamic `plotly.js-dist-min` client rendering |
+| 5C.2 | Multi-cycle traces | ✅ | Heating/cooling/isothermal cycles render as separate traces |
+| 5C.3 | Baseline toggle | ✅ | Linear peak baselines can be shown/hidden |
+| 5C.4 | Peak annotations | ✅ | Peak labels and integrated peak fills render on chart |
+| 5C.5 | Peak highlighting | ✅ | Selected peak is visually emphasized in chart and sidebar |
+| 5C.6 | Pan/zoom + hover tooltip | ✅ | Plotly modebar, pan/zoom, and custom hover data enabled |
+| 5C.7 | Manual peak addition | ✅ | Drag-select temperature range creates a manual peak card + annotation |
+| 5C.8 | Onset/offset dragging | ✅ | Editable vertical boundary markers update peak integration bounds |
 
 ### Phase 5D — Sidebar Components
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 5D.1 | Build `PeakCard` | ⬜ | |
-| 5D.2 | Build `PeakSidebar` (3 tabs) | ⬜ | |
-| 5D.3 | Build `DscExportButtons` | ⬜ | |
+| 5D.1 | Build `PeakCard` | ✅ | Individual peak card with metrics, label editing, selection, and delete |
+| 5D.2 | Build `PeakSidebar` (3 tabs) | ✅ | Peaks, Detect, and Stats tabs implemented with detection controls |
+| 5D.3 | Build `DscExportButtons` | ✅ | Save-to-portal plus PNG/SVG chart export; PDF/Excel left for Phase 6 |
 
 ---
 

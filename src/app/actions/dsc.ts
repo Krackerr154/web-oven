@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import type { DscExperimentSummary, DscExperimentWithPeaks } from "@/components/dsc/types";
 
 export const dscPeakSchema = z.object({
   cycleIndex: z.number(),
@@ -33,13 +34,18 @@ export const saveDscExperimentSchema = z.object({
   peaks: z.array(dscPeakSchema),
 });
 
-export type ActionResponse = {
-  success: boolean;
-  message: string;
-  data?: any;
+export type DscActionResult<T = undefined> =
+  | { success: true; message: string; data: T }
+  | { success: false; message: string; data?: never };
+
+export type SaveExperimentResult = {
+  experimentId: string;
 };
 
-export async function saveExperiment(data: z.infer<typeof saveDscExperimentSchema>): Promise<ActionResponse> {
+export type DscPeakInput = z.infer<typeof dscPeakSchema>;
+export type SaveDscExperimentInput = z.infer<typeof saveDscExperimentSchema>;
+
+export async function saveExperiment(data: SaveDscExperimentInput): Promise<DscActionResult<SaveExperimentResult>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { success: false, message: "You must be logged in" };
@@ -86,7 +92,7 @@ export async function saveExperiment(data: z.infer<typeof saveDscExperimentSchem
   }
 }
 
-export async function listExperiments(): Promise<ActionResponse> {
+export async function listExperiments(): Promise<DscActionResult<DscExperimentSummary[]>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { success: false, message: "You must be logged in" };
@@ -108,7 +114,7 @@ export async function listExperiments(): Promise<ActionResponse> {
   }
 }
 
-export async function getExperiment(id: string): Promise<ActionResponse> {
+export async function getExperiment(id: string): Promise<DscActionResult<DscExperimentWithPeaks>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { success: false, message: "You must be logged in" };
@@ -132,7 +138,7 @@ export async function getExperiment(id: string): Promise<ActionResponse> {
   }
 }
 
-export async function deleteExperiment(id: string): Promise<ActionResponse> {
+export async function deleteExperiment(id: string): Promise<DscActionResult<undefined>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { success: false, message: "You must be logged in" };
@@ -153,14 +159,14 @@ export async function deleteExperiment(id: string): Promise<ActionResponse> {
 
     revalidatePath("/dsc");
 
-    return { success: true, message: "Experiment deleted successfully" };
+    return { success: true, message: "Experiment deleted successfully", data: undefined };
   } catch (error) {
     console.error("Delete experiment error:", error);
     return { success: false, message: "An unexpected error occurred" };
   }
 }
 
-export async function updatePeaks(experimentId: string, peaks: z.infer<typeof dscPeakSchema>[]): Promise<ActionResponse> {
+export async function updatePeaks(experimentId: string, peaks: DscPeakInput[]): Promise<DscActionResult<undefined>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { success: false, message: "You must be logged in" };
@@ -205,7 +211,7 @@ export async function updatePeaks(experimentId: string, peaks: z.infer<typeof ds
     revalidatePath("/dsc");
     revalidatePath(`/dsc/${experimentId}`);
 
-    return { success: true, message: "Peaks updated successfully" };
+    return { success: true, message: "Peaks updated successfully", data: undefined };
   } catch (error) {
     console.error("Update peaks error:", error);
     return { success: false, message: "An unexpected error occurred" };
