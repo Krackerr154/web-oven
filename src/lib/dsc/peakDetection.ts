@@ -18,6 +18,8 @@ import type { DscDataPoint } from "./parser";
 export interface PeakDetectionOptions {
   prominenceThresholdMw: number; // default 0.8
   smoothingWindowPts: number;    // default 12
+  /** Fraction of peak height for right boundary detection on cooling cycles (range 0.01–0.05) */
+  peakHeightFraction: number;    // default 0.02
 }
 
 export interface DetectedPeak {
@@ -41,6 +43,7 @@ export interface DetectedPeak {
 const DEFAULT_OPTIONS: PeakDetectionOptions = {
   prominenceThresholdMw: 0.8,
   smoothingWindowPts: 12,
+  peakHeightFraction: 0.025,
 };
 
 // ─── Main Entry Point ──────────────────────────────────────────────────
@@ -84,6 +87,7 @@ export function detectPeaks(
         cycleIndex,
         isHeating,
         massMg,
+        opts,
       );
       if (peak) peaks.push(peak);
     }
@@ -221,6 +225,7 @@ function analyzePeak(
   cycleIndex: number,
   isHeating: boolean,
   massMg: number,
+  opts: PeakDetectionOptions,
 ): DetectedPeak | null {
   const n = points.length;
   const peakIdx = extremum.index;
@@ -231,6 +236,7 @@ function analyzePeak(
     peakIdx,
     isHeating,
     points,
+    opts,
   );
 
   if (leftBaseIdx < 0 || rightBaseIdx >= n || rightBaseIdx <= leftBaseIdx) {
@@ -302,11 +308,13 @@ function findBaselineBoundaries(
   smoothed: Float64Array,
   peakIdx: number,
   isHeating: boolean,
-  _points: DscDataPoint[],
+  points: DscDataPoint[],
+  opts: PeakDetectionOptions,
 ): { leftBaseIdx: number; rightBaseIdx: number } {
   const n = smoothed.length;
+  const k = opts.baselineDeviationK;
 
-  // ── First derivative (for left boundary + right fallback) ──
+  // ── First derivative (for left boundary) ──
   const deriv = new Float64Array(n);
   for (let i = 1; i < n - 1; i++) {
     deriv[i] = smoothed[i + 1] - smoothed[i - 1];
@@ -328,80 +336,103 @@ function findBaselineBoundaries(
     }
   }
 
-  // Right boundary (d1 fallback): derivative sign-change
-  let rightBaseD1 = n - 1;
-  for (let i = peakIdx + 1; i < n - 1; i++) {
-    if (isHeating) {
-      if (deriv[i] <= 0 && deriv[i + 1] <= 0) {
-        rightBaseD1 = i;
-        break;
-      }
-    } else {
-      if (deriv[i] >= 0 && deriv[i + 1] >= 0) {
-        rightBaseD1 = i;
-        break;
-      }
-    }
-  }
+  // ── Right boundary: peak-height-relative threshold method ──
+  // 1. Estimate a provisional linear baseline from leftBaseIdx to cycle end
+  // 2. Compute peakHeight = |HF[peakMaxIdx] - baseline[peakMaxIdx]|
+  // 3. Walk right from peak: boundary = first index where
+  //    |smoothed[i] - baseline[i]| < frac * peakHeight for 20 consecutive points
 
-  // ── Second derivative (for right boundary refinement) ──
-  // This catches the exact tail end more precisely than d1
-  const stencil = 5;
-  const d2 = new Float64Array(n);
-  for (let i = stencil; i < n - stencil; i++) {
-    d2[i] = smoothed[i + stencil] - 2 * smoothed[i] + smoothed[i - stencil];
-  }
+  // Provisional baseline: linear interpolation from left boundary to end of cycle
+  const leftVal = smoothed[leftBaseIdx];
+  const rightEdgeIdx = n - 1;
+  const rightEdgeVal = smoothed[rightEdgeIdx];
+  const provSlope = (rightEdgeVal - leftVal) / (rightEdgeIdx - leftBaseIdx);
+  const provBaselineAt = (idx: number) =>
+    leftVal + provSlope * (idx - leftBaseIdx);
 
-  // Smooth d2
-  const d2Smooth = new Float64Array(n);
-  const d2Half = 12;
-  for (let i = d2Half; i < n - d2Half; i++) {
-    let sum = 0;
-    for (let j = i - d2Half; j <= i + d2Half; j++) sum += d2[j];
-    d2Smooth[i] = sum / (2 * d2Half + 1);
-  }
+  const peakHeight = Math.abs(smoothed[peakIdx] - provBaselineAt(peakIdx));
+  const threshold = opts.peakHeightFraction * peakHeight;
+  const consecutiveNeeded = 20;
 
-  // Max |d2| in peak region for threshold
-  const margin = stencil + d2Half;
-  let maxD2 = 0;
-  const scanLeft = Math.max(margin, peakIdx - 500);
-  const scanRight = Math.min(n - margin - 1, peakIdx + 500);
-  for (let i = scanLeft; i <= scanRight; i++) {
-    const mag = Math.abs(d2Smooth[i]);
-    if (mag > maxD2) maxD2 = mag;
-  }
-
-  const nearZeroThreshold = maxD2 * 0.02; // 2% of max curvature
-  const consecutiveNeeded = 12;
-
-  // Walk right from peak to find d2 flat zone
-  let rightBaseD2 = n - 1;
-  const searchEnd = Math.min(n - margin - 1, peakIdx + 1500);
-  for (let i = peakIdx + margin; i < searchEnd; i++) {
-    if (Math.abs(d2Smooth[i]) < nearZeroThreshold) {
+  let rightBaseThresh = n - 1;
+  for (let i = peakIdx + 1; i < n - consecutiveNeeded; i++) {
+    const dev = Math.abs(smoothed[i] - provBaselineAt(i));
+    if (dev < threshold) {
+      // Check consecutive
       let staysFlat = true;
-      for (let j = 1; j < consecutiveNeeded && i + j < searchEnd; j++) {
-        if (Math.abs(d2Smooth[i + j]) >= nearZeroThreshold) {
+      for (let j = 1; j < consecutiveNeeded; j++) {
+        if (Math.abs(smoothed[i + j] - provBaselineAt(i + j)) >= threshold) {
           staysFlat = false;
           break;
         }
       }
       if (staysFlat) {
-        rightBaseD2 = i;
+        rightBaseThresh = i;
         break;
       }
     }
   }
 
-  // Choose right boundary: prefer d2 if it gives a reasonable window,
-  // otherwise fall back to d1. "Reasonable" = at least 100 data points
-  // from peak (prevents clipping narrow peaks).
-  const minPeakWidth = 100;
+  // ── Right boundary selection ──
+  const minPeakWidth = 50;
   let rightBaseIdx: number;
-  if (rightBaseD2 < n - 1 && (rightBaseD2 - peakIdx) >= minPeakWidth) {
-    rightBaseIdx = rightBaseD2;
+
+  if (!isHeating) {
+    // COOLING: use peak-height threshold method (primary), d2 (secondary), d1 (ultimate fallback)
+    if (rightBaseThresh < n - 1 && (rightBaseThresh - peakIdx) >= minPeakWidth) {
+      rightBaseIdx = rightBaseThresh;
+    } else {
+      // d2 fallback
+      const stencil = 5;
+      const d2 = new Float64Array(n);
+      for (let i = stencil; i < n - stencil; i++) {
+        d2[i] = smoothed[i + stencil] - 2 * smoothed[i] + smoothed[i - stencil];
+      }
+      const d2Smooth = new Float64Array(n);
+      const d2Half = 12;
+      for (let i = d2Half; i < n - d2Half; i++) {
+        let sum = 0;
+        for (let j = i - d2Half; j <= i + d2Half; j++) sum += d2[j];
+        d2Smooth[i] = sum / (2 * d2Half + 1);
+      }
+      const margin = stencil + d2Half;
+      let maxD2 = 0;
+      const scanL = Math.max(margin, peakIdx - 500);
+      const scanR = Math.min(n - margin - 1, peakIdx + 500);
+      for (let i = scanL; i <= scanR; i++) {
+        const mag = Math.abs(d2Smooth[i]);
+        if (mag > maxD2) maxD2 = mag;
+      }
+      const d2Threshold = maxD2 * 0.02;
+      const d2Consec = 12;
+      let rightBaseD2 = n - 1;
+      const searchEnd = Math.min(n - margin - 1, peakIdx + 1500);
+      for (let i = peakIdx + margin; i < searchEnd; i++) {
+        if (Math.abs(d2Smooth[i]) < d2Threshold) {
+          let flat = true;
+          for (let j = 1; j < d2Consec && i + j < searchEnd; j++) {
+            if (Math.abs(d2Smooth[i + j]) >= d2Threshold) { flat = false; break; }
+          }
+          if (flat) { rightBaseD2 = i; break; }
+        }
+      }
+
+      if (rightBaseD2 < n - 1 && (rightBaseD2 - peakIdx) >= minPeakWidth) {
+        rightBaseIdx = rightBaseD2;
+      } else {
+        // d1 sign-change fallback
+        rightBaseIdx = n - 1;
+        for (let i = peakIdx + 1; i < n - 1; i++) {
+          if (deriv[i] >= 0 && deriv[i + 1] >= 0) { rightBaseIdx = i; break; }
+        }
+      }
+    }
   } else {
-    rightBaseIdx = rightBaseD1;
+    // HEATING: d1 sign-change (proven accurate for melting peaks)
+    rightBaseIdx = n - 1;
+    for (let i = peakIdx + 1; i < n - 1; i++) {
+      if (deriv[i] <= 0 && deriv[i + 1] <= 0) { rightBaseIdx = i; break; }
+    }
   }
 
   return { leftBaseIdx, rightBaseIdx };
