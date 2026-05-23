@@ -1,38 +1,34 @@
 import type { DscDataPoint, DscMetadata } from "@/lib/dsc/parser";
 import type { DetectedPeak } from "@/lib/dsc/peakDetection";
-import type { DscPeakWithId, DscRawCache, DscSavedPeak } from "./types";
-
-export const DSC_RAW_STORAGE_PREFIX = "dsc_raw_";
-
-export function getDscRawStorageKey(experimentId: string) {
-  return `${DSC_RAW_STORAGE_PREFIX}${experimentId}`;
-}
+import type { DscPeakWithId, DscRawFilePayload, DscSavedPeak } from "./types";
 
 export function countCycles(dataPoints: DscDataPoint[]) {
   return new Set(dataPoints.map((point) => point.cycleIndex)).size;
 }
 
-export function storeRawDscData(experimentId: string, cache: DscRawCache) {
-  sessionStorage.setItem(getDscRawStorageKey(experimentId), JSON.stringify(cache));
+export function decodeDscRawFile(rawFile: DscRawFilePayload): ArrayBuffer {
+  const bytes = Uint8Array.from(atob(rawFile.content), (char) => char.charCodeAt(0));
+  return bytes.buffer;
 }
 
-export function loadRawDscData(experimentId: string): DscRawCache | null {
-  const raw = sessionStorage.getItem(getDscRawStorageKey(experimentId));
-  if (!raw) return null;
+export async function encodeDscRawFile(file: File): Promise<DscRawFilePayload> {
+  return {
+    filename: file.name,
+    content: arrayBufferToBase64(await file.arrayBuffer()),
+    sizeBytes: file.size,
+  };
+}
 
-  try {
-    const parsed = JSON.parse(raw) as DscRawCache;
-    return {
-      ...parsed,
-      metadata: reviveMetadata(parsed.metadata),
-    };
-  } catch {
-    return null;
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
   }
-}
 
-export function removeRawDscData(experimentId: string) {
-  sessionStorage.removeItem(getDscRawStorageKey(experimentId));
+  return btoa(binary);
 }
 
 export function addIdsToDetectedPeaks(peaks: DetectedPeak[], prefix = "auto"): DscPeakWithId[] {
@@ -156,13 +152,6 @@ export function rebuildPeakWithBounds(
     isManual: peak.isManual,
     label: peak.label,
   });
-}
-
-function reviveMetadata(metadata: DscMetadata): DscMetadata {
-  return {
-    ...metadata,
-    recordedAt: metadata.recordedAt ? new Date(metadata.recordedAt) : null,
-  };
 }
 
 function findNearestPointIndex(

@@ -9,7 +9,6 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useToast } from "@/components/toast";
 import { formatDateTimeWib } from "@/lib/utils";
 import type { DscExperimentSummary } from "./types";
-import { removeRawDscData } from "./utils";
 
 export function DscHistory({ experiments }: { experiments: DscExperimentSummary[] }) {
   const router = useRouter();
@@ -26,8 +25,6 @@ export function DscHistory({ experiments }: { experiments: DscExperimentSummary[
         toast.error(result.message);
         return;
       }
-
-      removeRawDscData(pendingDelete.id);
       toast.success(result.message);
       setPendingDelete(null);
       router.refresh();

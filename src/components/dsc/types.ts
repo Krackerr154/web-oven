@@ -49,3 +49,9 @@ export type DscExperimentWithPeaks = Omit<DscExperimentSummary, "_count"> & {
   userId: string;
   peaks: DscSavedPeak[];
 };
+
+export type DscRawFilePayload = {
+  filename: string;
+  content: string;
+  sizeBytes: number;
+};

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Activity, ArrowLeft, FileWarning, Loader2, RefreshCw, Upload } from "lucide-react";
-import { getExperiment } from "@/app/actions/dsc";
+import { getExperiment, getRawFile, upsertRawFile } from "@/app/actions/dsc";
 import { DscChart, type ChartExportHandlers } from "./DscChart";
 import { PeakSidebar } from "./PeakSidebar";
 import { detectPeaks } from "@/lib/dsc/peakDetection";
@@ -14,10 +14,10 @@ import { useToast } from "@/components/toast";
 import {
   addIdsToDetectedPeaks,
   createManualPeakFromRange,
-  loadRawDscData,
+  decodeDscRawFile,
+  encodeDscRawFile,
   mapSavedPeaksToUiPeaks,
   rebuildPeakWithBounds,
-  storeRawDscData,
 } from "./utils";
 
 export function DscAnalysisClient({ experimentId }: { experimentId: string }) {
@@ -39,10 +39,10 @@ export function DscAnalysisClient({ experimentId }: { experimentId: string }) {
 
     async function load() {
       setLoading(true);
-      const cached = loadRawDscData(experimentId);
-      if (active) setRawData(cached);
-
-      const result = await getExperiment(experimentId);
+      const [result, rawFileResult] = await Promise.all([
+        getExperiment(experimentId),
+        getRawFile(experimentId),
+      ]);
       if (!active) return;
 
       if (!result.success) {
@@ -52,6 +52,23 @@ export function DscAnalysisClient({ experimentId }: { experimentId: string }) {
       }
 
       setExperiment(result.data);
+      if (!rawFileResult.success) {
+        toast.error(rawFileResult.message);
+      } else if (rawFileResult.data) {
+        const parsed = parseDscFile(decodeDscRawFile(rawFileResult.data));
+        if (parsed.dataPoints.length === 0) {
+          toast.error(parsed.parseErrors[0] ?? "Stored raw DSC file could not be parsed");
+          setRawData(null);
+        } else {
+          setRawData({
+            filename: rawFileResult.data.filename,
+            metadata: parsed.metadata,
+            dataPoints: parsed.dataPoints,
+          });
+        }
+      } else {
+        setRawData(null);
+      }
       setLoading(false);
     }
 
@@ -119,16 +136,25 @@ export function DscAnalysisClient({ experimentId }: { experimentId: string }) {
 
     setReuploading(true);
     try {
-      const parsed = parseDscFile(await file.arrayBuffer());
+      const rawFile = await encodeDscRawFile(file);
+      const parsed = parseDscFile(decodeDscRawFile(rawFile));
+      if (parsed.dataPoints.length === 0) {
+        toast.error(parsed.parseErrors[0] ?? "Could not parse DSC file");
+        return;
+      }
+      const saved = await upsertRawFile(experiment.id, rawFile);
+      if (!saved.success) {
+        toast.error(saved.message);
+        return;
+      }
       const cache = {
         filename: file.name,
         metadata: parsed.metadata,
         dataPoints: parsed.dataPoints,
       };
-      storeRawDscData(experiment.id, cache);
       setRawData(cache);
       initializedPeaksRef.current = false;
-      toast.success("Raw data restored for this browser session");
+      toast.success("Raw data restored and saved to portal");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not parse DSC file";
       toast.error(message);

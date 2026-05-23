@@ -8,7 +8,7 @@ import { parseDscFile } from "@/lib/dsc/parser";
 import type { DscDataPoint, DscMetadata } from "@/lib/dsc/parser";
 import { formatDateTimeWib } from "@/lib/utils";
 import { useToast } from "@/components/toast";
-import { countCycles, storeRawDscData } from "./utils";
+import { countCycles, encodeDscRawFile } from "./utils";
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
@@ -20,6 +20,7 @@ export function DscUploader() {
   const [isParsing, setIsParsing] = useState(false);
   const [parsedFile, setParsedFile] = useState<{
     filename: string;
+    file: File;
     metadata: DscMetadata;
     dataPoints: DscDataPoint[];
   } | null>(null);
@@ -42,6 +43,7 @@ export function DscUploader() {
       const parsed = parseDscFile(buffer);
       setParsedFile({
         filename: file.name,
+        file,
         metadata: parsed.metadata,
         dataPoints: parsed.dataPoints,
       });
@@ -67,24 +69,27 @@ export function DscUploader() {
         return;
       }
 
-      const result = await saveExperiment({
-        filename: parsedFile.filename,
-        sampleName,
-        massMg,
-        molarMass: parsedFile.metadata.molarMass,
-        atmosphere: parsedFile.metadata.atmosphere,
-        operatorName: parsedFile.metadata.operator,
-        procedureName: parsedFile.metadata.procedure,
-        recordedAt: parsedFile.metadata.recordedAt,
-        peaks: [],
-      });
+      const rawFile = await encodeDscRawFile(parsedFile.file);
+      const result = await saveExperiment(
+        {
+          filename: parsedFile.filename,
+          sampleName,
+          massMg,
+          molarMass: parsedFile.metadata.molarMass,
+          atmosphere: parsedFile.metadata.atmosphere,
+          operatorName: parsedFile.metadata.operator,
+          procedureName: parsedFile.metadata.procedure,
+          recordedAt: parsedFile.metadata.recordedAt,
+          peaks: [],
+        },
+        rawFile,
+      );
 
       if (!result.success) {
         toast.error(result.message);
         return;
       }
 
-      storeRawDscData(result.data.experimentId, parsedFile);
       toast.success("Experiment saved. Opening analysis view.");
       router.push(`/dsc/${result.data.experimentId}`);
       router.refresh();
