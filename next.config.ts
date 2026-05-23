@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "75mb",
     },
+    proxyClientMaxBodySize: "75mb",
   },
   // @ts-expect-error NextConfig does have eslint property but type might be outdated
   eslint: {
