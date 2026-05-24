@@ -399,11 +399,23 @@ model DscExperiment {
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
   peaks         DscPeak[]
-  // Raw data is NOT stored in the DB — it stays client-side (IndexedDB / state)
-  // Only metadata and computed peak results are persisted
+  rawFile       DscRawFile?
 
   @@index([userId])
   @@map("ap_dsc_experiments")
+}
+
+model DscRawFile {
+  id           String        @id @default(cuid())
+  experimentId String        @unique @map("experiment_id")
+  experiment   DscExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  filename     String
+  sizeBytes    Int           @map("size_bytes")
+  content      String        @db.Text
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  @@map("ap_dsc_raw_files")
 }
 
 model DscPeak {
@@ -427,4 +439,3 @@ model DscPeak {
   @@index([experimentId])
   @@map("ap_dsc_peaks")
 }
-

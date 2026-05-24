@@ -5,8 +5,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import type { DscExperimentSummary, DscExperimentWithPeaks, DscRawFilePayload } from "@/components/dsc/types";
 
-export const dscPeakSchema = z.object({
+const MAX_DSC_RAW_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+
+const dscPeakSchema = z.object({
   cycleIndex: z.number(),
   peakType: z.enum(["exothermic", "endothermic"]),
   onsetTempC: z.number(),
@@ -21,7 +24,7 @@ export const dscPeakSchema = z.object({
   isManual: z.boolean().default(false),
 });
 
-export const saveDscExperimentSchema = z.object({
+const saveDscExperimentSchema = z.object({
   filename: z.string(),
   sampleName: z.string(),
   massMg: z.number(),
@@ -33,19 +36,35 @@ export const saveDscExperimentSchema = z.object({
   peaks: z.array(dscPeakSchema),
 });
 
-export type ActionResponse = {
-  success: boolean;
-  message: string;
-  data?: any;
+const saveDscRawFileSchema = z.object({
+  filename: z.string().min(1),
+  content: z.string().min(1),
+  sizeBytes: z.number().int().positive().max(MAX_DSC_RAW_FILE_SIZE_BYTES),
+});
+
+export type DscActionResult<T = undefined> =
+  | { success: true; message: string; data: T }
+  | { success: false; message: string; data?: never };
+
+export type SaveExperimentResult = {
+  experimentId: string;
 };
 
-export async function saveExperiment(data: z.infer<typeof saveDscExperimentSchema>): Promise<ActionResponse> {
+export type DscPeakInput = z.infer<typeof dscPeakSchema>;
+export type SaveDscExperimentInput = z.infer<typeof saveDscExperimentSchema>;
+
+export async function saveExperiment(
+  data: SaveDscExperimentInput,
+  rawFile?: DscRawFilePayload,
+): Promise<DscActionResult<SaveExperimentResult>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { success: false, message: "You must be logged in" };
 
     const parsed = saveDscExperimentSchema.safeParse(data);
     if (!parsed.success) return { success: false, message: "Invalid data format" };
+    const parsedRawFile = rawFile ? saveDscRawFileSchema.safeParse(rawFile) : null;
+    if (parsedRawFile && !parsedRawFile.success) return { success: false, message: "Invalid raw DSC file" };
 
     const exp = await prisma.dscExperiment.create({
       data: {
@@ -58,6 +77,15 @@ export async function saveExperiment(data: z.infer<typeof saveDscExperimentSchem
         operatorName: parsed.data.operatorName ?? null,
         procedureName: parsed.data.procedureName ?? null,
         recordedAt: parsed.data.recordedAt ? new Date(parsed.data.recordedAt) : null,
+        rawFile: parsedRawFile
+          ? {
+              create: {
+                filename: parsedRawFile.data.filename,
+                content: parsedRawFile.data.content,
+                sizeBytes: parsedRawFile.data.sizeBytes,
+              },
+            }
+          : undefined,
         peaks: {
           create: parsed.data.peaks.map((p) => ({
             cycleIndex: p.cycleIndex,
@@ -86,7 +114,7 @@ export async function saveExperiment(data: z.infer<typeof saveDscExperimentSchem
   }
 }
 
-export async function listExperiments(): Promise<ActionResponse> {
+export async function listExperiments(): Promise<DscActionResult<DscExperimentSummary[]>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { success: false, message: "You must be logged in" };
@@ -108,7 +136,7 @@ export async function listExperiments(): Promise<ActionResponse> {
   }
 }
 
-export async function getExperiment(id: string): Promise<ActionResponse> {
+export async function getExperiment(id: string): Promise<DscActionResult<DscExperimentWithPeaks>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { success: false, message: "You must be logged in" };
@@ -125,14 +153,64 @@ export async function getExperiment(id: string): Promise<ActionResponse> {
       return { success: false, message: "Unauthorized access" };
     }
 
-    return { success: true, message: "Fetched experiment", data: experiment };
+    return {
+      success: true,
+      message: "Fetched experiment",
+      data: {
+        ...experiment,
+        peaks: experiment.peaks.map((peak) => ({
+          ...peak,
+          peakType: toDscPeakType(peak.peakType),
+        })),
+      },
+    };
   } catch (error) {
     console.error("Get experiment error:", error);
     return { success: false, message: "An unexpected error occurred" };
   }
 }
 
-export async function deleteExperiment(id: string): Promise<ActionResponse> {
+export async function getRawFile(experimentId: string): Promise<DscActionResult<DscRawFilePayload | null>> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { success: false, message: "You must be logged in" };
+
+    const experiment = await prisma.dscExperiment.findUnique({
+      where: { id: experimentId },
+      include: { rawFile: true },
+    });
+
+    if (!experiment) return { success: false, message: "Experiment not found" };
+
+    if (experiment.userId !== session.user.id && !session.user.roles.includes("ADMIN")) {
+      return { success: false, message: "Unauthorized access" };
+    }
+
+    return {
+      success: true,
+      message: experiment.rawFile ? "Fetched raw DSC file" : "Raw DSC file not found",
+      data: experiment.rawFile
+        ? {
+            filename: experiment.rawFile.filename,
+            content: experiment.rawFile.content,
+            sizeBytes: experiment.rawFile.sizeBytes,
+          }
+        : null,
+    };
+  } catch (error) {
+    console.error("Get raw file error:", error);
+    return { success: false, message: "An unexpected error occurred" };
+  }
+}
+
+function toDscPeakType(value: string): "exothermic" | "endothermic" {
+  if (value !== "exothermic" && value !== "endothermic") {
+    throw new Error(`Unsupported DSC peak type: ${value}`);
+  }
+  return value;
+}
+
+export async function deleteExperiment(id: string): Promise<DscActionResult<undefined>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { success: false, message: "You must be logged in" };
@@ -153,14 +231,14 @@ export async function deleteExperiment(id: string): Promise<ActionResponse> {
 
     revalidatePath("/dsc");
 
-    return { success: true, message: "Experiment deleted successfully" };
+    return { success: true, message: "Experiment deleted successfully", data: undefined };
   } catch (error) {
     console.error("Delete experiment error:", error);
     return { success: false, message: "An unexpected error occurred" };
   }
 }
 
-export async function updatePeaks(experimentId: string, peaks: z.infer<typeof dscPeakSchema>[]): Promise<ActionResponse> {
+export async function updatePeaks(experimentId: string, peaks: DscPeakInput[]): Promise<DscActionResult<undefined>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { success: false, message: "You must be logged in" };
@@ -205,9 +283,54 @@ export async function updatePeaks(experimentId: string, peaks: z.infer<typeof ds
     revalidatePath("/dsc");
     revalidatePath(`/dsc/${experimentId}`);
 
-    return { success: true, message: "Peaks updated successfully" };
+    return { success: true, message: "Peaks updated successfully", data: undefined };
   } catch (error) {
     console.error("Update peaks error:", error);
+    return { success: false, message: "An unexpected error occurred" };
+  }
+}
+
+export async function upsertRawFile(
+  experimentId: string,
+  rawFile: DscRawFilePayload,
+): Promise<DscActionResult<undefined>> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { success: false, message: "You must be logged in" };
+
+    const experiment = await prisma.dscExperiment.findUnique({
+      where: { id: experimentId },
+    });
+
+    if (!experiment) return { success: false, message: "Experiment not found" };
+
+    if (experiment.userId !== session.user.id && !session.user.roles.includes("ADMIN")) {
+      return { success: false, message: "Unauthorized access" };
+    }
+
+    const parsedRawFile = saveDscRawFileSchema.safeParse(rawFile);
+    if (!parsedRawFile.success) return { success: false, message: "Invalid raw DSC file" };
+
+    await prisma.dscRawFile.upsert({
+      where: { experimentId },
+      create: {
+        experimentId,
+        filename: parsedRawFile.data.filename,
+        content: parsedRawFile.data.content,
+        sizeBytes: parsedRawFile.data.sizeBytes,
+      },
+      update: {
+        filename: parsedRawFile.data.filename,
+        content: parsedRawFile.data.content,
+        sizeBytes: parsedRawFile.data.sizeBytes,
+      },
+    });
+
+    revalidatePath(`/dsc/${experimentId}`);
+
+    return { success: true, message: "Raw DSC file saved successfully", data: undefined };
+  } catch (error) {
+    console.error("Upsert raw file error:", error);
     return { success: false, message: "An unexpected error occurred" };
   }
 }
