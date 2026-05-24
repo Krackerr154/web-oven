@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DscDataPoint } from "@/lib/dsc/parser";
 import type { DscPeakWithId } from "./types";
 import { getCycleLabel } from "./utils";
@@ -60,6 +60,7 @@ type PlotlySelectedEvent = {
 type PlotlyRelayoutEvent = Record<string, number | string | boolean>;
 
 const CYCLE_COLORS = ["#22d3ee", "#fb7185", "#a78bfa", "#34d399", "#fbbf24", "#60a5fa", "#f472b6", "#c084fc"];
+const SUMMARY_CYCLE_COUNT = 4;
 
 export function DscChart({
   dataPoints,
@@ -77,13 +78,18 @@ export function DscChart({
   const shapeMetaRef = useRef<ShapeMeta[]>([]);
   const latestPeaksRef = useRef(peaks);
   latestPeaksRef.current = peaks;
+  const [showAllCycles, setShowAllCycles] = useState(false);
+  const [showAllPeakLabels, setShowAllPeakLabels] = useState(false);
 
-  const chartModel = useMemo(() => buildChartModel(dataPoints, peaks, selectedPeakId, showBaseline), [
+  const chartModel = useMemo(() => buildChartModel(dataPoints, peaks, selectedPeakId, showBaseline, showAllCycles, showAllPeakLabels), [
     dataPoints,
     peaks,
     selectedPeakId,
     showBaseline,
+    showAllCycles,
+    showAllPeakLabels,
   ]);
+  const cycleCount = useMemo(() => new Set(dataPoints.map((point) => point.cycleIndex)).size, [dataPoints]);
 
   useEffect(() => {
     let active = true;
@@ -151,7 +157,7 @@ export function DscChart({
         autosize: true,
         paper_bgcolor: "rgba(15, 23, 42, 0)",
         plot_bgcolor: "rgba(15, 23, 42, 0.35)",
-        margin: { l: 64, r: 28, t: 24, b: 58 },
+        margin: { l: 64, r: 28, t: 24, b: showAllCycles ? 58 : 42 },
         xaxis: {
           title: { text: "Sample Temperature (°C)", font: { color: "#cbd5e1" } },
           color: "#cbd5e1",
@@ -164,6 +170,7 @@ export function DscChart({
           gridcolor: "rgba(148, 163, 184, 0.14)",
           zerolinecolor: "rgba(148, 163, 184, 0.2)",
         },
+        showlegend: showAllCycles,
         legend: { orientation: "h", font: { color: "#cbd5e1" }, x: 0, y: -0.22 },
         hovermode: "closest",
         dragmode: manualMode ? "select" : "pan",
@@ -210,7 +217,7 @@ export function DscChart({
         graphNode.removeListener("plotly_relayout", handleRelayout);
       }
     };
-  }, [chartModel, manualMode, onManualRange, onPeakBoundsChange, onReady, onSelectPeak]);
+  }, [chartModel, manualMode, onManualRange, onPeakBoundsChange, onReady, onSelectPeak, showAllCycles]);
 
   useEffect(() => {
     return () => {
@@ -222,6 +229,30 @@ export function DscChart({
 
   return (
     <div className="relative min-h-[560px] rounded-xl border border-slate-800 bg-slate-950/30">
+      <div className="absolute right-4 top-4 z-10 flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setShowAllCycles((current) => !current)}
+          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${
+            showAllCycles
+              ? "border-cyan-400/50 bg-cyan-400/20 text-cyan-100"
+              : "border-slate-700 bg-slate-900/85 text-slate-300 hover:border-slate-500 hover:text-white"
+          }`}
+        >
+          {showAllCycles ? "All cycles" : `Clean view (${Math.min(cycleCount, SUMMARY_CYCLE_COUNT)}/${cycleCount} cycles)`}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowAllPeakLabels((current) => !current)}
+          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${
+            showAllPeakLabels
+              ? "border-pink-400/50 bg-pink-400/20 text-pink-100"
+              : "border-slate-700 bg-slate-900/85 text-slate-300 hover:border-slate-500 hover:text-white"
+          }`}
+        >
+          {showAllPeakLabels ? "All labels" : "Selected label"}
+        </button>
+      </div>
       {manualMode && (
         <div className="absolute left-4 top-4 z-10 rounded-lg border border-amber-500/30 bg-amber-500/15 px-3 py-2 text-xs font-medium text-amber-100 shadow-lg">
           Drag-select a temperature range to add a manual peak
@@ -237,14 +268,20 @@ function buildChartModel(
   peaks: DscPeakWithId[],
   selectedPeakId: string | null,
   showBaseline: boolean,
+  showAllCycles: boolean,
+  showAllPeakLabels: boolean,
 ) {
   const traces: PlotlyTrace[] = [];
   const shapes: PlotlyLayout[] = [];
   const annotations: PlotlyLayout[] = [];
   const shapeMeta: ShapeMeta[] = [];
   const cycleGroups = groupDataByCycle(dataPoints);
+  const visibleCycles = new Set(
+    cycleGroups.slice(0, showAllCycles ? cycleGroups.length : SUMMARY_CYCLE_COUNT).map(([cycleIndex]) => cycleIndex),
+  );
 
   for (const [cycleIndex, points] of cycleGroups) {
+    if (!visibleCycles.has(cycleIndex)) continue;
     const color = CYCLE_COLORS[cycleIndex % CYCLE_COLORS.length];
     traces.push({
       type: "scattergl",
@@ -272,48 +309,54 @@ function buildChartModel(
 
   for (const peak of peaks) {
     const selected = selectedPeakId === peak.id;
+    const visibleCycle = visibleCycles.has(peak.cycleIndex);
     const color = peak.peakType === "exothermic" ? "#fb7185" : "#38bdf8";
-    const fill = buildPeakFillTrace(dataPoints, peak, color, selected);
+    const fill = visibleCycle ? buildPeakFillTrace(dataPoints, peak, color, selected) : null;
     if (fill) traces.push(fill);
 
-    traces.push({
-      type: "scatter",
-      mode: "markers",
-      name: peak.label || `${getCycleLabel(peak.cycleIndex)} ${peak.peakType}`,
-      x: [peak.peakMaxTempC],
-      y: [dataPoints[peak.peakMaxIdx]?.heatflowMw ?? peak.peakHeightMw],
-      marker: {
-        color,
-        size: selected ? 13 : 9,
-        line: { color: selected ? "#f8fafc" : "#0f172a", width: selected ? 3 : 1 },
-      },
-      customdata: [peak.id],
-      hovertemplate: [
-        `${peak.label || peak.peakType}`,
-        "Peak %{x:.2f} °C",
-        `${peak.heatJPerG.toFixed(2)} J/g`,
-        "<extra></extra>",
-      ].join("<br>"),
-    });
+    if (visibleCycle || selected) {
+      traces.push({
+        type: "scatter",
+        mode: "markers",
+        name: peak.label || `${getCycleLabel(peak.cycleIndex)} ${peak.peakType}`,
+        x: [peak.peakMaxTempC],
+        y: [dataPoints[peak.peakMaxIdx]?.heatflowMw ?? peak.peakHeightMw],
+        marker: {
+          color,
+          size: selected ? 13 : 9,
+          line: { color: selected ? "#f8fafc" : "#0f172a", width: selected ? 3 : 1 },
+        },
+        customdata: [peak.id],
+        showlegend: false,
+        hovertemplate: [
+          `${peak.label || peak.peakType}`,
+          "Peak %{x:.2f} °C",
+          `${peak.heatJPerG.toFixed(2)} J/g`,
+          "<extra></extra>",
+        ].join("<br>"),
+      });
+    }
 
     shapeMeta.push({ peakId: peak.id, boundary: "onset" });
-    shapes.push(buildBoundaryLine(peak.onsetTempC, color, selected));
+    shapes.push(buildBoundaryLine(peak.onsetTempC, color, selected, visibleCycle));
     shapeMeta.push({ peakId: peak.id, boundary: "offset" });
-    shapes.push(buildBoundaryLine(peak.offsetTempC, color, selected));
+    shapes.push(buildBoundaryLine(peak.offsetTempC, color, selected, visibleCycle));
 
-    annotations.push({
-      x: peak.peakMaxTempC,
-      y: dataPoints[peak.peakMaxIdx]?.heatflowMw ?? peak.peakHeightMw,
-      text: peak.label || `${peak.peakType === "exothermic" ? "Exo" : "Endo"} ${peak.peakMaxTempC.toFixed(1)}°C`,
-      showarrow: true,
-      arrowcolor: color,
-      font: { color: "#e2e8f0", size: selected ? 13 : 11 },
-      bgcolor: selected ? "rgba(15, 23, 42, 0.92)" : "rgba(15, 23, 42, 0.72)",
-      bordercolor: color,
-      borderpad: 4,
-      ax: 24,
-      ay: -36,
-    });
+    if (selected || (showAllPeakLabels && visibleCycle)) {
+      annotations.push({
+        x: peak.peakMaxTempC,
+        y: dataPoints[peak.peakMaxIdx]?.heatflowMw ?? peak.peakHeightMw,
+        text: peak.label || `${peak.peakType === "exothermic" ? "Exo" : "Endo"} ${peak.peakMaxTempC.toFixed(1)}°C`,
+        showarrow: true,
+        arrowcolor: color,
+        font: { color: "#e2e8f0", size: selected ? 13 : 11 },
+        bgcolor: selected ? "rgba(15, 23, 42, 0.92)" : "rgba(15, 23, 42, 0.72)",
+        bordercolor: color,
+        borderpad: 4,
+        ax: 24,
+        ay: -36,
+      });
+    }
   }
 
   return { traces, shapes, annotations, shapeMeta };
@@ -361,7 +404,7 @@ function buildPeakFillTrace(
   };
 }
 
-function buildBoundaryLine(tempC: number, color: string, selected: boolean): PlotlyLayout {
+function buildBoundaryLine(tempC: number, color: string, selected: boolean, visible: boolean): PlotlyLayout {
   return {
     type: "line",
     x0: tempC,
@@ -370,6 +413,7 @@ function buildBoundaryLine(tempC: number, color: string, selected: boolean): Plo
     y1: 1,
     xref: "x",
     yref: "paper",
+    visible: visible || selected,
     line: { color, width: selected ? 3 : 2, dash: selected ? "solid" : "dash" },
     editable: true,
   };
