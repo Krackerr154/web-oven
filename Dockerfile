@@ -44,7 +44,7 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 # Install runtime deps needed for prisma db push, seed, and adapter
-RUN --mount=type=cache,target=/root/.npm npm install --no-save prisma @prisma/adapter-pg pg postgres-array dotenv bcryptjs tsx typescript @types/node
+RUN --mount=type=cache,target=/root/.npm npm install --no-save prisma@7.4.0 @prisma/adapter-pg@7.4.0 @prisma/client@7.4.0 pg postgres-array dotenv bcryptjs tsx typescript @types/node
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh ./docker-entrypoint.sh

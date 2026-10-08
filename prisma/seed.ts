@@ -93,8 +93,9 @@ async function main() {
         email: adminEmail,
         phone: "+0000000000",
         passwordHash,
-        role: "ADMIN",
+        roles: ["ADMIN"],
         status: "APPROVED",
+        emailVerified: new Date(),
       },
     });
 
