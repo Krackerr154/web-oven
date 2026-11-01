@@ -12,7 +12,6 @@ import {
   Settings,
   ListChecks,
   LogOut,
-  Info,
   Flame,
   Menu,
   X,
@@ -58,7 +57,6 @@ const userNavGroups = [
     title: "Documents",
     items: [
       { label: "Forms", href: "/forms", icon: FileText },
-      { label: "About", href: "/about", icon: Info },
     ],
   },
 ];
