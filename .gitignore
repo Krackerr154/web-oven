@@ -55,3 +55,14 @@ docker-compose.local-db.yml
 reset-tour.ts
 test-admin.ts
 reset-admin.js
+
+# Build/debug artifacts and one-shot migration scripts (kept on disk, never committed)
+.next_dev_log.txt
+test-db.js
+tsc_output.txt
+typescript_errors.log
+migrate_roles.js
+
+# Reference documents belong in /public or cloud storage, not the repo root
+# (root-anchored: public/templates/*.pdf app assets must stay tracked)
+/*.pdf
