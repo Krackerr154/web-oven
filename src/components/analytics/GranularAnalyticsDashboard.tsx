@@ -1,11 +1,21 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Zap, Clock, ShieldAlert, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export function GranularAnalyticsDashboard({ data }: { data: any }) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     const { powerUsers, abandonmentUsers, frictionIndex, averageDurations } = data;
+
+    if (!mounted) {
+        return <div className="space-y-8 pb-12 animate-pulse min-h-[400px]" />;
+    }
 
     return (
         <div className="space-y-8 pb-12">

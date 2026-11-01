@@ -11,7 +11,7 @@ export async function getAdminAnalytics() {
 
     const isAdmin =
         session?.user?.roles?.includes("ADMIN") ||
-        session?.user?.email === "admin@g-labs.app";
+        session?.user?.email === "admin@g-labs.my.id";
 
     if (!isAdmin) throw new Error("Unauthorized");
 

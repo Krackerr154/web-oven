@@ -3,8 +3,8 @@ import UserGlasswareClient from "./glassware-client";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-    title: "Glassware Inventory | G-Labs",
-    description: "Search and borrow laboratory glassware",
+    title: "Glassware Inventory | AP-Lab",
+    description: "Browse available laboratory glassware for borrowing",
 };
 
 import { getServerSession } from "next-auth/next";

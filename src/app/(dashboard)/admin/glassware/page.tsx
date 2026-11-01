@@ -3,8 +3,8 @@ import AdminGlasswareClient from "./glassware-client";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-    title: "Lab Glassware | G-Labs",
-    description: "Manage laboratory glassware inventory",
+    title: "Lab Glassware | AP-Lab",
+    description: "Manage laboratory glassware inventory and view active loans",
 };
 
 export default async function AdminGlasswarePage() {

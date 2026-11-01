@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
     BarChart,
     Bar,
@@ -24,6 +25,11 @@ interface AnalyticsClientProps {
 }
 
 export default function AnalyticsClient({ reagentStats, glasswareStats, ovenStats }: AnalyticsClientProps) {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
@@ -40,6 +46,16 @@ export default function AnalyticsClient({ reagentStats, glasswareStats, ovenStat
         }
         return null;
     };
+
+    if (!mounted) {
+        return (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full animate-pulse min-h-[400px]">
+                <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-5 lg:col-span-2 h-[380px]" />
+                <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-5 h-[340px]" />
+                <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-5 h-[340px]" />
+            </div>
+        );
+    }
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">

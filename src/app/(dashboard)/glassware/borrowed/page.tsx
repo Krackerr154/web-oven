@@ -6,8 +6,8 @@ import { redirect } from "next/navigation";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-    title: "My Borrowed Glassware | G-Labs",
-    description: "Manage and return your borrowed laboratory glassware",
+    title: "My Borrowed Glassware | AP-Lab",
+    description: "View and manage all your active and pending glassware loans",
 };
 
 export default async function BorrowedGlasswarePage() {

@@ -1,9 +1,15 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Filter, Users, XCircle, ArrowRightCircle, CheckCircle } from "lucide-react";
 
 export function BookingOperationsDashboard({ data }: { data: any }) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     const { funnel, peakDays, cancelStats } = data;
 
     const funnelData = [
@@ -11,6 +17,10 @@ export function BookingOperationsDashboard({ data }: { data: any }) {
         { name: 'Active', count: funnel.active, fill: '#3b82f6' },
         { name: 'Completed', count: funnel.completed, fill: '#10b981' }
     ];
+
+    if (!mounted) {
+        return <div className="bg-slate-900/80 border border-slate-800/60 rounded-3xl p-6 shadow-xl mb-8 h-[280px] animate-pulse" />;
+    }
 
     return (
         <div className="bg-slate-900/80 backdrop-blur-md border border-slate-800/60 rounded-3xl p-6 shadow-xl mb-8 flex flex-col xl:flex-row gap-6">

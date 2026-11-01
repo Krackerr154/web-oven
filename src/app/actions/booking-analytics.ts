@@ -8,7 +8,7 @@ export async function getBookingOperationsAnalytics() {
     const session = await getServerSession(authOptions);
     const isAdmin =
         session?.user?.roles?.includes("ADMIN") ||
-        session?.user?.email === "admin@g-labs.app";
+        session?.user?.email === "admin@g-labs.my.id";
 
     if (!isAdmin) {
         throw new Error("Unauthorized");

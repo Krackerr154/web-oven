@@ -6,8 +6,8 @@ import { redirect, notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 
 export const metadata: Metadata = {
-    title: "Edit Private Glassware | G-Labs",
-    description: "Edit your personal laboratory glassware",
+    title: "Edit Private Glassware | AP-Lab",
+    description: "Update details for your personal glassware",
 };
 
 interface PageProps {

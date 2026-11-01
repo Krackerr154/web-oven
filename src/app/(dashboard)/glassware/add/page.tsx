@@ -2,8 +2,8 @@ import AddUserGlasswareClient from "./add-glassware-client";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-    title: "Add Private Glassware | G-Labs",
-    description: "Add personal glassware to the laboratory inventory",
+    title: "Add Private Glassware | AP-Lab",
+    description: "Register glassware strictly owned by you",
 };
 
 export default function AddUserGlasswarePage() {
