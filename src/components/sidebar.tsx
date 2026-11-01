@@ -59,6 +59,12 @@ const userNavGroups = [
       { label: "Forms", href: "/forms", icon: FileText },
     ],
   },
+  {
+    title: "Analysis",
+    items: [
+      { label: "XRD Plotter", href: "/analysis/xrd", icon: LineChart },
+    ],
+  },
 ];
 
 const adminNavGroups = [

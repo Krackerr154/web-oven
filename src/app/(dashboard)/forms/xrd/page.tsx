@@ -152,6 +152,15 @@ export default function XrdFormPage() {
           Fill in the details below to generate a ready-to-print registration form (PDF).
           Fields are auto-populated from your profile where possible.
         </p>
+        <p className="text-slate-500 mt-3 text-sm">
+          Scan already back from the lab?{" "}
+          <Link
+            href="/analysis/xrd"
+            className="text-orange-400 hover:text-orange-300 font-medium transition-colors"
+          >
+            Open the XRD Plotter →
+          </Link>
+        </p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
