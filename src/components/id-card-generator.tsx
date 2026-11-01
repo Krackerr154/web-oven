@@ -344,7 +344,7 @@ export function IdCardGenerator({ user }: IDCardProps) {
                 }}
             >
                 <span style={{ color: "#94a3b8", fontSize: "7.5px", fontWeight: 700, letterSpacing: "0.1em" }}>
-                    G-LABS AP-LAB
+                    AP-LAB
                 </span>
                 <span style={{ color: "#94a3b8", fontSize: "7.5px", fontWeight: 700, letterSpacing: "0.1em" }}>
                     OFFICIAL LAB PASS
