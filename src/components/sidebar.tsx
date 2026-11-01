@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { RheovantSignature } from "@/components/rheovant-signature";
 import {
   LayoutDashboard,
   CalendarPlus,
@@ -11,6 +12,7 @@ import {
   Settings,
   ListChecks,
   LogOut,
+  Info,
   Flame,
   Menu,
   X,
@@ -56,6 +58,7 @@ const userNavGroups = [
     title: "Documents",
     items: [
       { label: "Forms", href: "/forms", icon: FileText },
+      { label: "About", href: "/about", icon: Info },
     ],
   },
 ];
@@ -205,6 +208,11 @@ export function Sidebar() {
           <LogOut className="h-4 w-4" />
           Sign out
         </button>
+
+        {/* Parent-entity signature — deliberately the quietest element in the app */}
+        <div className="mt-3 pt-3 border-t border-slate-700/40">
+          <RheovantSignature />
+        </div>
       </div>
     </>
   );

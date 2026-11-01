@@ -10,6 +10,15 @@ const getResendClient = () => {
   return new Resend(apiKey);
 };
 
+/**
+ * Rheovant's standard product signature. Transactional mail is the only AP-Lab
+ * surface that leaves the application, so it carries the parent-entity line.
+ */
+const EMAIL_FOOTER = `
+  <p style="margin-top: 28px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8;">
+    AP-Lab &middot; infrastructure by <a href="https://rheovant.tech" style="color: #94a3b8; text-decoration: underline;">Rheovant Systems</a>
+  </p>`;
+
 export async function sendPasswordResetEmail(email: string, token: string) {
   const resend = getResendClient();
   if (!resend) {
@@ -35,6 +44,7 @@ export async function sendPasswordResetEmail(email: string, token: string) {
                     <p style="font-size: 12px; color: #666;">
                         If you did not request a password reset, please ignore this email or contact support if you have concerns.
                     </p>
+                    ${EMAIL_FOOTER}
                 </div>
             `,
     });
@@ -70,6 +80,7 @@ export async function sendVerificationOtpEmail(email: string, otp: string) {
                     <p style="font-size: 12px; color: #666;">
                         If you did not request this code, please ignore this email.
                     </p>
+                    ${EMAIL_FOOTER}
                 </div>
             `,
     });
@@ -128,6 +139,7 @@ export async function sendCPDBookingRequestEmail(
             </a>
           </div>
           <p style="font-size: 12px; color: #94a3b8; margin-top: 20px;">Booking ID: ${booking.id}</p>
+          ${EMAIL_FOOTER}
         </div>
       </div>
     `,
@@ -177,6 +189,7 @@ export async function sendCPDBookingDecisionEmail(
               ? 'Your CPD booking has been approved. You may proceed with your scheduled session.'
               : 'Your CPD booking request was not approved. Please contact the CPD admin for more information.'}
           </p>
+          ${EMAIL_FOOTER}
         </div>
       </div>
     `,
