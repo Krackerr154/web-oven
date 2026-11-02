@@ -627,7 +627,7 @@ export function XrdPlotter() {
 
         // value box
         const rowH = 15;
-        const boxW = 186;
+        const boxW = Math.min(214, layout.W - 24);
         const boxH = 24 + hover.rows.length * rowH + 8;
         let bx = hover.px + 14;
         let by = hover.py + 14;
@@ -651,12 +651,22 @@ export function XrdPlotter() {
         ctx.fillText(`2θ = ${hover.twoTheta.toFixed(2)}°`, bx + 8, by + 16);
 
         ctx.font = "400 11px system-ui, -apple-system, sans-serif";
+        // Ellipsise by measured width, not by character count: renamed traces
+        // often share a long prefix and a fixed cut would make them identical.
+        const labelMax = boxW - 22 - 76;
         hover.rows.forEach((r, i) => {
             const y = by + 30 + i * rowH;
             ctx.fillStyle = r.color;
             ctx.fillRect(bx + 8, y - 6, 10, 3);
             ctx.fillStyle = "#1F2937";
-            const label = r.label.length > 17 ? `${r.label.slice(0, 16)}…` : r.label;
+            let label = r.label;
+            if (ctx.measureText(label).width > labelMax) {
+                let cut = label.length;
+                while (cut > 4 && ctx.measureText(`${label.slice(0, cut)}…`).width > labelMax) {
+                    cut--;
+                }
+                label = `${label.slice(0, cut).trimEnd()}…`;
+            }
             ctx.fillText(label, bx + 22, y);
             ctx.textAlign = "right";
             ctx.fillText(Math.round(r.counts).toLocaleString(), bx + boxW - 8, y);
