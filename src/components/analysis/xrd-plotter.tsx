@@ -459,7 +459,16 @@ export function XrdPlotter() {
     const [matchBusy, setMatchBusy] = useState(false);
     const [matchError, setMatchError] = useState<string | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const overlayRef = useRef<HTMLCanvasElement | null>(null);
     const wrapRef = useRef<HTMLDivElement | null>(null);
+    const [hover, setHover] = useState<{
+        px: number;
+        py: number;
+        twoTheta: number;
+        rows: { label: string; color: string; counts: number }[];
+    } | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editValue, setEditValue] = useState("");
     const [canvasW, setCanvasW] = useState(0);
     const fileRef = useRef<HTMLInputElement | null>(null);
     const cifRef = useRef<HTMLInputElement | null>(null);
@@ -551,6 +560,133 @@ export function XrdPlotter() {
     useEffect(() => {
         paint();
     }, [paint]);
+
+    // ---- cursor readout ---------------------------------------------------
+    // Drawn on its own overlay canvas so a pointer move never rebuilds the
+    // figure. Only a crosshair and a value box, so this cannot drift out of
+    // sync with the stacking maths inside buildFigure.
+    const handleHover = useCallback(
+        (e: React.PointerEvent<HTMLCanvasElement>) => {
+            const c = canvasRef.current;
+            if (!c || visibleTraces.length === 0) return;
+            const rect = c.getBoundingClientRect();
+            const cx = e.clientX - rect.left;
+            const cy = e.clientY - rect.top;
+            const { M, W, H } = layout;
+            const PW = W - M.l - M.r;
+            const PH = H - M.t - M.b;
+
+            if (cx < M.l || cx > M.l + PW || cy < M.t || cy > M.t + PH) {
+                setHover(null);
+                return;
+            }
+
+            const twoTheta = viewLo + ((cx - M.l) / PW) * (viewHi - viewLo);
+            const rows = visibleTraces.map((t) => {
+                const idx = nearestIndex(t.x, twoTheta);
+                return {
+                    label: t.label,
+                    color: t.color,
+                    counts: idx >= 0 ? t.y[idx] : 0,
+                };
+            });
+            setHover({ px: cx, py: cy, twoTheta, rows });
+        },
+        [layout, viewLo, viewHi, visibleTraces],
+    );
+
+    useEffect(() => {
+        const oc = overlayRef.current;
+        if (!oc) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 3);
+        oc.width = Math.round(layout.W * dpr);
+        oc.height = Math.round(layout.H * dpr);
+        oc.style.width = `${layout.W}px`;
+        oc.style.height = `${layout.H}px`;
+        const ctx = oc.getContext("2d");
+        if (!ctx) return;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, layout.W, layout.H);
+        if (!hover) return;
+
+        const { M } = layout;
+        const PW = layout.W - M.l - M.r;
+        const PH = layout.H - M.t - M.b;
+
+        // crosshair
+        ctx.strokeStyle = "rgba(17,24,39,0.35)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(hover.px, M.t);
+        ctx.lineTo(hover.px, M.t + PH);
+        ctx.moveTo(M.l, hover.py);
+        ctx.lineTo(M.l + PW, hover.py);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // value box
+        const rowH = 15;
+        const boxW = 186;
+        const boxH = 24 + hover.rows.length * rowH + 8;
+        let bx = hover.px + 14;
+        let by = hover.py + 14;
+        if (bx + boxW > layout.W - 4) bx = hover.px - boxW - 14;
+        if (by + boxH > layout.H - 4) by = layout.H - boxH - 4;
+        if (bx < 4) bx = 4;
+        if (by < 4) by = 4;
+
+        ctx.fillStyle = "rgba(255,255,255,0.97)";
+        ctx.strokeStyle = "#94A3B8";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, boxW, boxH, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#111827";
+        ctx.font = "600 12px system-ui, -apple-system, sans-serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(`2θ = ${hover.twoTheta.toFixed(2)}°`, bx + 8, by + 16);
+
+        ctx.font = "400 11px system-ui, -apple-system, sans-serif";
+        hover.rows.forEach((r, i) => {
+            const y = by + 30 + i * rowH;
+            ctx.fillStyle = r.color;
+            ctx.fillRect(bx + 8, y - 6, 10, 3);
+            ctx.fillStyle = "#1F2937";
+            const label = r.label.length > 17 ? `${r.label.slice(0, 16)}…` : r.label;
+            ctx.fillText(label, bx + 22, y);
+            ctx.textAlign = "right";
+            ctx.fillText(Math.round(r.counts).toLocaleString(), bx + boxW - 8, y);
+            ctx.textAlign = "left";
+        });
+    }, [hover, layout, visibleTraces.length]);
+
+    // A readout holds label text copied at hover time; clear it when the traces
+    // change so it can never show a name that has since been edited or removed.
+    useEffect(() => {
+        setHover(null);
+    }, [traces]);
+
+    // ---- rename -----------------------------------------------------------
+    function startRename(t: Trace) {
+        setEditingId(t.id);
+        setEditValue(t.label);
+    }
+
+    function commitRename() {
+        const id = editingId;
+        const next = editValue.trim();
+        setEditingId(null);
+        if (!id || !next) return;
+        setTraces((prev) => prev.map((x) => (x.id === id ? { ...x, label: next } : x)));
+        // Keep the agreement table in step with the figure.
+        setMatchResults((prev) =>
+            prev ? prev.map((m) => (m.traceId === id ? { ...m, label: next } : m)) : prev,
+        );
+    }
 
     // Reorder by dragging the handle. Window-level listeners so the gesture
     // survives React moving the row's DOM node mid-drag.
@@ -808,7 +944,7 @@ export function XrdPlotter() {
                         handleFiles(e.dataTransfer.files);
                     }}
                 >
-                    <div ref={wrapRef} className="w-full">
+                    <div ref={wrapRef} className="w-full relative">
                         {empty ? (
                             <button
                                 type="button"
@@ -826,7 +962,20 @@ export function XrdPlotter() {
                                 </span>
                             </button>
                         ) : (
-                            <canvas ref={canvasRef} className="block max-w-full" />
+                            <>
+                                <canvas
+                                    ref={canvasRef}
+                                    className="block max-w-full cursor-crosshair"
+                                    onPointerMove={handleHover}
+                                    onPointerDown={handleHover}
+                                    onPointerLeave={() => setHover(null)}
+                                />
+                                <canvas
+                                    ref={overlayRef}
+                                    aria-hidden="true"
+                                    className="absolute left-0 top-0 pointer-events-none"
+                                />
+                            </>
                         )}
                     </div>
 
@@ -953,7 +1102,39 @@ export function XrdPlotter() {
                                 className="h-[3px] w-4 rounded-full shrink-0 ring-1 ring-white/25"
                                 style={{ background: t.color, opacity: t.visible ? 1 : 0.35 }}
                             />
-                            <span className="truncate flex-1" title={t.label}>{t.label}</span>
+                            {editingId === t.id ? (
+                                <input
+                                    autoFocus
+                                    value={editValue}
+                                    maxLength={80}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    onBlur={commitRename}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            commitRename();
+                                        } else if (e.key === "Escape") {
+                                            e.preventDefault();
+                                            setEditingId(null);
+                                        }
+                                    }}
+                                    className="min-w-0 flex-1 rounded border border-orange-500/70 bg-slate-950 px-1 py-0.5 text-[11px] text-white outline-none"
+                                />
+                            ) : (
+                                <button
+                                    type="button"
+                                    title={`${t.label} — double-click to rename`}
+                                    aria-label={`${t.label}. Activate to rename.`}
+                                    onClick={(e) => {
+                                        // detail === 0 means it was activated by keyboard
+                                        if (e.detail === 0) startRename(t);
+                                    }}
+                                    onDoubleClick={() => startRename(t)}
+                                    className="min-w-0 flex-1 truncate text-left"
+                                >
+                                    {t.label}
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 aria-label={`Remove ${t.label}`}
@@ -1189,4 +1370,20 @@ function stamp() {
     const d = new Date();
     const p = (n: number) => String(n).padStart(2, "0");
     return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+}
+
+/** Binary search for the sample nearest a target 2θ. */
+function nearestIndex(xs: number[], target: number): number {
+    const n = xs.length;
+    if (n === 0) return -1;
+    if (target <= xs[0]) return 0;
+    if (target >= xs[n - 1]) return n - 1;
+    let lo = 0;
+    let hi = n - 1;
+    while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (xs[mid] <= target) lo = mid;
+        else hi = mid;
+    }
+    return Math.abs(xs[lo] - target) <= Math.abs(xs[hi] - target) ? lo : hi;
 }
