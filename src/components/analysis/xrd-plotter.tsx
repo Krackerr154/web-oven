@@ -21,6 +21,12 @@ type Trace = {
     y: number[];
     peak2Theta: number;
     peakIntensity: number;
+    /**
+     * Inactive traces stay loaded but are excluded from the figure, the legend,
+     * exports and phase scoring. Off means off everywhere — a scan that is not
+     * on the plot must not silently reappear in the agreement table.
+     */
+    visible: boolean;
 };
 
 type Prim =
@@ -451,9 +457,12 @@ export function XrdPlotter() {
     const fileRef = useRef<HTMLInputElement | null>(null);
     const cifRef = useRef<HTMLInputElement | null>(null);
 
+    // Everything downstream of the figure works on active traces only.
+    const visibleTraces = useMemo(() => traces.filter((t) => t.visible), [traces]);
+
     const overlay = useMemo<Overlay>(() => {
         if (!matchResults || !selectedMatchId) return null;
-        const idx = traces.findIndex((t) => t.id === selectedMatchId);
+        const idx = visibleTraces.findIndex((t) => t.id === selectedMatchId);
         const sel = matchResults.find((m) => m.traceId === selectedMatchId);
         if (!sel || idx < 0) return null;
         return {
@@ -461,16 +470,16 @@ export function XrdPlotter() {
             unexplained: sel.result.unexplainedExp.map((p) => ({ x: p.x, i: p.i })),
             traceIndex: idx,
         };
-    }, [matchResults, selectedMatchId, traces]);
+    }, [matchResults, selectedMatchId, visibleTraces]);
 
     // Re-layout at the measured container width: type must not scale with the box.
     const layout = useMemo(() => screenLayout(canvasW || 860), [canvasW]);
 
     const prims = useMemo(
-        () => (traces.length || reference
-            ? buildFigure(traces, lo, hi, gap, stacked, reference, overlay, layout)
+        () => (visibleTraces.length || reference
+            ? buildFigure(visibleTraces, lo, hi, gap, stacked, reference, overlay, layout)
             : []),
-        [traces, lo, hi, gap, stacked, reference, overlay, layout],
+        [visibleTraces, lo, hi, gap, stacked, reference, overlay, layout],
     );
 
     // Repaint whenever the figure changes
@@ -567,6 +576,7 @@ export function XrdPlotter() {
                     x, y,
                     peak2Theta: x[peakIdx],
                     peakIntensity: y[peakIdx],
+                    visible: true,
                 });
             } catch {
                 setError(`${file.name}: could not be read`);
@@ -600,7 +610,7 @@ export function XrdPlotter() {
             }));
 
             const out: ScanMatch[] = [];
-            for (const t of traces) {
+            for (const t of visibleTraces) {
                 const peaks = detectPeaks(t.x, t.y);
                 if (peaks.length < 3) continue;
                 // Compare only where this scan actually has data AND is visible.
@@ -689,7 +699,7 @@ export function XrdPlotter() {
         const cv = document.createElement("canvas");
         // Print geometry, never the on-screen one — a phone window must not
         // produce a phone-sized figure.
-        paintCanvas(cv, buildFigure(traces, lo, hi, gap, stacked, reference, overlay, PRINT_LAYOUT),
+        paintCanvas(cv, buildFigure(visibleTraces, lo, hi, gap, stacked, reference, overlay, PRINT_LAYOUT),
             PRINT_LAYOUT.W, PRINT_LAYOUT.H, 2.6);
         const a = document.createElement("a");
         a.href = cv.toDataURL("image/png");
@@ -699,7 +709,7 @@ export function XrdPlotter() {
 
     function exportSVG() {
         const svg = toSVG(
-            buildFigure(traces, lo, hi, gap, stacked, reference, overlay, PRINT_LAYOUT),
+            buildFigure(visibleTraces, lo, hi, gap, stacked, reference, overlay, PRINT_LAYOUT),
             PRINT_LAYOUT.W,
             PRINT_LAYOUT.H,
         );
@@ -714,7 +724,7 @@ export function XrdPlotter() {
 
     function exportPDF() {
         const cv = document.createElement("canvas");
-        paintCanvas(cv, buildFigure(traces, lo, hi, gap, stacked, reference, overlay, PRINT_LAYOUT),
+        paintCanvas(cv, buildFigure(visibleTraces, lo, hi, gap, stacked, reference, overlay, PRINT_LAYOUT),
             PRINT_LAYOUT.W, PRINT_LAYOUT.H, 2.6);
         const img = cv.toDataURL("image/png");
         const widthMM = 85;
@@ -742,6 +752,8 @@ export function XrdPlotter() {
     }
 
     const empty = traces.length === 0 && !reference;
+    // Nothing on the figure: every scan hidden and no reference to show either.
+    const nothingVisible = visibleTraces.length === 0 && !reference?.visible;
 
     return (
         <div className="space-y-5">
@@ -787,11 +799,21 @@ export function XrdPlotter() {
                         real DOM text, which stays crisp at any pixel density. */}
                     {!empty && !layout.legendInPlot && (
                         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
-                            {traces.map((t) => (
-                                <span key={`leg-${t.id}`} className="inline-flex items-center gap-1.5 text-[11px] text-slate-700">
+                            {visibleTraces.map((t) => (
+                                <button
+                                    key={`leg-${t.id}`}
+                                    type="button"
+                                    onClick={() =>
+                                        setTraces((p) =>
+                                            p.map((x) => (x.id === t.id ? { ...x, visible: !x.visible } : x)),
+                                        )
+                                    }
+                                    title={`Hide ${t.label}`}
+                                    className="inline-flex items-center gap-1.5 text-[11px] text-slate-700 hover:text-slate-900"
+                                >
                                     <span className="h-[3px] w-4 rounded-full shrink-0" style={{ background: t.color }} />
                                     <span className="truncate max-w-[190px]">{t.label}</span>
-                                </span>
+                                </button>
                             ))}
                             {reference?.visible && (
                                 <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-700">
@@ -801,6 +823,13 @@ export function XrdPlotter() {
                             )}
                         </div>
                     )}
+
+                    {!empty && visibleTraces.length === 0 && !reference?.visible && (
+                        <p className="mt-3 text-[11px] text-slate-500">
+                            All scans are hidden. Click an eye in the list to bring one back — nothing
+                            was unloaded.
+                        </p>
+                    )}
                 </div>
 
                 {/* ── Settings ───────────────────────────────────────── */}
@@ -809,9 +838,16 @@ export function XrdPlotter() {
                     style={{ "--plot-h": `${layout.H + 32}px` } as React.CSSProperties}
                 >
                     <div>
-                        <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 mb-3">
-                            Data
-                        </h3>
+                        <div className="flex items-baseline justify-between mb-3">
+                            <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                                Data
+                            </h3>
+                            {traces.length > 0 && (
+                                <span className="text-[10px] font-mono text-slate-500">
+                                    {visibleTraces.length} of {traces.length} active
+                                </span>
+                            )}
+                        </div>
                         <button
                             type="button"
                             onClick={() => fileRef.current?.click()}
@@ -842,10 +878,12 @@ export function XrdPlotter() {
                         <div
                             key={t.id}
                             data-trace-row={t.id}
-                            className={`flex items-center gap-2 text-[11px] rounded-md px-1 -mx-1 py-1 transition-colors ${
+                            className={`flex items-center gap-1.5 text-[11px] rounded-md px-1 -mx-1 py-0.5 transition-colors ${
                                 dragId === t.id
                                     ? "bg-orange-500/15 text-white"
-                                    : "text-slate-300 hover:bg-slate-800/60"
+                                    : t.visible
+                                        ? "text-slate-300 hover:bg-slate-800/60"
+                                        : "text-slate-600 hover:bg-slate-800/40"
                             }`}
                         >
                             <button
@@ -856,28 +894,45 @@ export function XrdPlotter() {
                                     e.preventDefault();
                                     setDragId(t.id);
                                 }}
-                                className="touch-none cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-300 shrink-0 -ml-0.5"
+                                className="touch-none cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-300 shrink-0 grid place-items-center h-6 w-6 -ml-1 rounded hover:bg-slate-700/50"
                             >
                                 <GripVertical className="h-3.5 w-3.5" />
                             </button>
+                            <button
+                                type="button"
+                                aria-pressed={t.visible}
+                                aria-label={t.visible ? `Hide ${t.label}` : `Show ${t.label}`}
+                                title={t.visible ? "Hide from plot, export and scoring" : "Show again"}
+                                onClick={() =>
+                                    setTraces((p) =>
+                                        p.map((x) => (x.id === t.id ? { ...x, visible: !x.visible } : x)),
+                                    )
+                                }
+                                className={`shrink-0 grid place-items-center h-6 w-6 rounded hover:bg-slate-700/50 ${
+                                    t.visible ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-300"
+                                }`}
+                            >
+                                {t.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                            </button>
                             <span
                                 className="h-[3px] w-4 rounded-full shrink-0 ring-1 ring-white/25"
-                                style={{ background: t.color }}
+                                style={{ background: t.color, opacity: t.visible ? 1 : 0.35 }}
                             />
                             <span className="truncate flex-1" title={t.label}>{t.label}</span>
                             <button
                                 type="button"
                                 aria-label={`Remove ${t.label}`}
                                 onClick={() => setTraces((p) => p.filter((x) => x.id !== t.id))}
-                                className="text-slate-500 hover:text-red-400 shrink-0"
+                                className="shrink-0 grid place-items-center h-6 w-6 rounded text-slate-500 hover:text-red-400 hover:bg-slate-700/50"
                             >
-                                <X className="h-3 w-3" />
+                                <X className="h-3.5 w-3.5" />
                             </button>
                         </div>
                     ))}
                     {traces.length > 1 && (
                         <p className="text-[10px] text-slate-500 leading-relaxed -mt-1">
-                            Drag the handle to reorder. Top of the list plots on top.
+                            Drag the handle to reorder. Top of the list plots on top. The eye takes a
+                            scan out of the figure, the export and the scoring without unloading it.
                         </p>
                     )}
 
@@ -945,19 +1000,19 @@ export function XrdPlotter() {
                         Export
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <button type="button" onClick={exportPNG} disabled={empty}
+                        <button type="button" onClick={exportPNG} disabled={nothingVisible}
                             className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors disabled:opacity-40">
                             <ImageIcon className="h-3.5 w-3.5" /> PNG
                         </button>
-                        <button type="button" onClick={exportSVG} disabled={empty}
+                        <button type="button" onClick={exportSVG} disabled={nothingVisible}
                             className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors disabled:opacity-40">
                             <FileText className="h-3.5 w-3.5" /> SVG
                         </button>
-                        <button type="button" onClick={exportPDF} disabled={empty}
+                        <button type="button" onClick={exportPDF} disabled={nothingVisible}
                             className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors disabled:opacity-40">
                             <Download className="h-3.5 w-3.5" /> PDF 85 mm
                         </button>
-                        <button type="button" onClick={exportCSV} disabled={empty}
+                        <button type="button" onClick={exportCSV} disabled={nothingVisible}
                             className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors disabled:opacity-40">
                             <Download className="h-3.5 w-3.5" /> CSV
                         </button>
@@ -1036,21 +1091,26 @@ export function XrdPlotter() {
             </div>
 
             <PhaseMatchPanel
-                results={matchResults}
+                results={matchResults?.filter((m) => visibleTraces.some((t) => t.id === m.traceId)) ?? null}
                 selectedId={selectedMatchId}
                 onSelect={setSelectedMatchId}
                 onRun={runMatch}
                 busy={matchBusy}
                 error={matchError}
-                canRun={!!reference && traces.length > 0}
+                canRun={!!reference && visibleTraces.length > 0}
                 referenceLabel={reference ? `${reference.formula} (${reference.spacegroup})` : null}
             />
 
             {traces.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {traces.map((t) => (
-                        <div key={`${t.id}-meta`} className="rounded-lg border border-slate-700/50 bg-slate-900/40 px-3 py-2">
-                            <p className="text-[10px] text-slate-500 truncate" title={t.fileName}>{t.fileName}</p>
+                        <div
+                            key={`${t.id}-meta`}
+                            className={`rounded-lg border border-slate-700/50 bg-slate-900/40 px-3 py-2 ${t.visible ? "" : "opacity-45"}`}
+                        >
+                            <p className="text-[10px] text-slate-500 truncate" title={t.fileName}>
+                                {t.fileName}{t.visible ? "" : " · hidden"}
+                            </p>
                             <p className="text-[11px] text-slate-300 font-mono mt-0.5">
                                 {t.x.length.toLocaleString()} pts · max {Math.round(t.peakIntensity).toLocaleString()} @ {t.peak2Theta.toFixed(2)}°
                             </p>
