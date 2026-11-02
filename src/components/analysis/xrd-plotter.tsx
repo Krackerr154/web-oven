@@ -40,8 +40,11 @@ type Prim =
     };
 
 const PALETTE = [
-    "#0F172A", "#C2410C", "#0E7490", "#4D7C0F",
-    "#7C3AED", "#BE123C", "#B45309", "#155E75",
+    // Slot 1 used to be #0F172A, which is 2/1/3 RGB away from the axis frame
+    // (#111827) — the trace read as part of the border. No entry may sit within
+    // ~60 RGB units of the frame colour.
+    "#1D4ED8", "#C2410C", "#0E7490", "#4D7C0F",
+    "#7C3AED", "#BE123C", "#A21CAF", "#B45309",
 ];
 
 /**
@@ -439,6 +442,10 @@ export function XrdPlotter() {
     const [traces, setTraces] = useState<Trace[]>([]);
     const [lo, setLo] = useState(5);
     const [hi, setHi] = useState(50);
+    // Drafts let a field be empty while typing; committing "" straight to
+    // Number() made it 0, which silently inverted the range.
+    const [loDraft, setLoDraft] = useState<string | null>(null);
+    const [hiDraft, setHiDraft] = useState<string | null>(null);
     const [gap, setGap] = useState(1.15);
     const [stacked, setStacked] = useState(true);
     const [busy, setBusy] = useState(false);
@@ -460,6 +467,34 @@ export function XrdPlotter() {
     // Everything downstream of the figure works on active traces only.
     const visibleTraces = useMemo(() => traces.filter((t) => t.visible), [traces]);
 
+    // ---- 2θ range guard ---------------------------------------------------
+    // An inverted or half-typed range used to render a blank white figure with
+    // no explanation. Now the typed value is held in a draft, the figure falls
+    // back to the measured extent while the range is unusable, and the panel
+    // says so.
+    const loParsed = Number(loDraft ?? lo);
+    const hiParsed = Number(hiDraft ?? hi);
+    const rangeInvalid =
+        !Number.isFinite(loParsed) ||
+        !Number.isFinite(hiParsed) ||
+        hiParsed <= loParsed;
+
+    const dataExtent = useMemo(() => {
+        const src = visibleTraces.length ? visibleTraces : traces;
+        if (src.length === 0) return { min: 5, max: 80 };
+        let min = Infinity;
+        let max = -Infinity;
+        for (const t of src) {
+            if (t.x[0] < min) min = t.x[0];
+            const last = t.x[t.x.length - 1];
+            if (last > max) max = last;
+        }
+        return { min, max };
+    }, [visibleTraces, traces]);
+
+    const viewLo = rangeInvalid ? dataExtent.min : loParsed;
+    const viewHi = rangeInvalid ? dataExtent.max : hiParsed;
+
     const overlay = useMemo<Overlay>(() => {
         if (!matchResults || !selectedMatchId) return null;
         const idx = visibleTraces.findIndex((t) => t.id === selectedMatchId);
@@ -477,9 +512,9 @@ export function XrdPlotter() {
 
     const prims = useMemo(
         () => (visibleTraces.length || reference
-            ? buildFigure(visibleTraces, lo, hi, gap, stacked, reference, overlay, layout)
+            ? buildFigure(visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, layout)
             : []),
-        [visibleTraces, lo, hi, gap, stacked, reference, overlay, layout],
+        [visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, layout],
     );
 
     // Repaint whenever the figure changes
@@ -614,8 +649,8 @@ export function XrdPlotter() {
                 const peaks = detectPeaks(t.x, t.y);
                 if (peaks.length < 3) continue;
                 // Compare only where this scan actually has data AND is visible.
-                const from = Math.max(lo, t.x[0]);
-                const to = Math.min(hi, t.x[t.x.length - 1]);
+                const from = Math.max(viewLo, t.x[0]);
+                const to = Math.min(viewHi, t.x[t.x.length - 1]);
                 if (to - from < 5) continue;
                 const res = matchPhase(peaks, refPeaks, { range: [from, to] });
                 if (res) {
@@ -699,7 +734,7 @@ export function XrdPlotter() {
         const cv = document.createElement("canvas");
         // Print geometry, never the on-screen one — a phone window must not
         // produce a phone-sized figure.
-        paintCanvas(cv, buildFigure(visibleTraces, lo, hi, gap, stacked, reference, overlay, PRINT_LAYOUT),
+        paintCanvas(cv, buildFigure(visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, PRINT_LAYOUT),
             PRINT_LAYOUT.W, PRINT_LAYOUT.H, 2.6);
         const a = document.createElement("a");
         a.href = cv.toDataURL("image/png");
@@ -709,7 +744,7 @@ export function XrdPlotter() {
 
     function exportSVG() {
         const svg = toSVG(
-            buildFigure(visibleTraces, lo, hi, gap, stacked, reference, overlay, PRINT_LAYOUT),
+            buildFigure(visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, PRINT_LAYOUT),
             PRINT_LAYOUT.W,
             PRINT_LAYOUT.H,
         );
@@ -724,7 +759,7 @@ export function XrdPlotter() {
 
     function exportPDF() {
         const cv = document.createElement("canvas");
-        paintCanvas(cv, buildFigure(visibleTraces, lo, hi, gap, stacked, reference, overlay, PRINT_LAYOUT),
+        paintCanvas(cv, buildFigure(visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, PRINT_LAYOUT),
             PRINT_LAYOUT.W, PRINT_LAYOUT.H, 2.6);
         const img = cv.toDataURL("image/png");
         const widthMM = 85;
@@ -737,7 +772,7 @@ export function XrdPlotter() {
     function exportCSV() {
         const blocks = traces.map((t) => {
             const rows = t.x
-                .map((xv, i) => (xv >= lo && xv <= hi ? `${xv},${t.y[i]}` : null))
+                .map((xv, i) => (xv >= viewLo && xv <= viewHi ? `${xv},${t.y[i]}` : null))
                 .filter(Boolean)
                 .join("\n");
             return `# trace: ${t.label}\n# file: ${t.fileName}\n2theta,intensity\n${rows}`;
@@ -947,17 +982,45 @@ export function XrdPlotter() {
                                 <div className="flex items-center gap-2">
                                     <label className="text-[11px] text-slate-400 w-16">2&theta; range</label>
                                     <input
-                                        type="number" value={lo} step={1} min={0} max={hi - 1}
-                                        onChange={(e) => setLo(Number(e.target.value))}
-                                        className="w-full rounded-md bg-slate-950 border border-slate-700 px-2 py-1 text-xs text-white"
+                                        type="number"
+                                        inputMode="decimal"
+                                        value={loDraft ?? String(lo)}
+                                        step={1}
+                                        aria-invalid={rangeInvalid}
+                                        onChange={(e) => {
+                                            const raw = e.target.value;
+                                            setLoDraft(raw);
+                                            const v = Number(raw);
+                                            // Never commit an empty field: Number("") is 0.
+                                            if (raw.trim() !== "" && Number.isFinite(v)) setLo(v);
+                                        }}
+                                        onBlur={() => setLoDraft(null)}
+                                        className={`w-full rounded-md bg-slate-950 border px-2 py-1 text-xs text-white ${rangeInvalid ? "border-amber-500/70" : "border-slate-700"}`}
                                     />
                                     <span className="text-slate-600 text-xs">–</span>
                                     <input
-                                        type="number" value={hi} step={1} min={lo + 1} max={160}
-                                        onChange={(e) => setHi(Number(e.target.value))}
-                                        className="w-full rounded-md bg-slate-950 border border-slate-700 px-2 py-1 text-xs text-white"
+                                        type="number"
+                                        inputMode="decimal"
+                                        value={hiDraft ?? String(hi)}
+                                        step={1}
+                                        aria-invalid={rangeInvalid}
+                                        onChange={(e) => {
+                                            const raw = e.target.value;
+                                            setHiDraft(raw);
+                                            const v = Number(raw);
+                                            if (raw.trim() !== "" && Number.isFinite(v)) setHi(v);
+                                        }}
+                                        onBlur={() => setHiDraft(null)}
+                                        className={`w-full rounded-md bg-slate-950 border px-2 py-1 text-xs text-white ${rangeInvalid ? "border-amber-500/70" : "border-slate-700"}`}
                                     />
                                 </div>
+                                {rangeInvalid && (
+                                    <p className="text-[10px] leading-relaxed text-amber-300">
+                                        The lower bound must be below the upper bound. Until that is
+                                        fixed the figure shows the full measured range,{" "}
+                                        {dataExtent.min.toFixed(1)}–{dataExtent.max.toFixed(1)}°.
+                                    </p>
+                                )}
 
                                 <div>
                                     <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
