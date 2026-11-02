@@ -804,7 +804,10 @@ export function XrdPlotter() {
                 </div>
 
                 {/* ── Settings ───────────────────────────────────────── */}
-                <aside className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-4 space-y-4">
+                <aside
+                    className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-4 space-y-4 xl:max-h-[var(--plot-h)] xl:overflow-y-auto xl:sticky xl:top-4"
+                    style={{ "--plot-h": `${layout.H + 32}px` } as React.CSSProperties}
+                >
                     <div>
                         <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 mb-3">
                             Data
@@ -928,40 +931,46 @@ export function XrdPlotter() {
                                 </p>
                             </div>
 
-                            <div className="h-px bg-slate-700/60" />
-
-                            <div className="space-y-2">
-                                <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
-                                    Export
-                                </h3>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button type="button" onClick={exportPNG}
-                                        className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors">
-                                        <ImageIcon className="h-3.5 w-3.5" /> PNG
-                                    </button>
-                                    <button type="button" onClick={exportSVG}
-                                        className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors">
-                                        <FileText className="h-3.5 w-3.5" /> SVG
-                                    </button>
-                                    <button type="button" onClick={exportPDF}
-                                        className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors">
-                                        <Download className="h-3.5 w-3.5" /> PDF 85 mm
-                                    </button>
-                                    <button type="button" onClick={exportCSV}
-                                        className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors">
-                                        <Download className="h-3.5 w-3.5" /> CSV
-                                    </button>
-                                </div>
-                            </div>
                         </>
                     )}
+                </aside>
+            </div>
 
-                    <div className="h-px bg-slate-700/60" />
+            {/* Export and Reference are actions, not plot settings. Below the
+                plot they stop the side column from stretching the grid row and
+                stranding dead space under the figure. */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <section className="rounded-xl border border-slate-700/60 bg-slate-900/50 p-4 space-y-2">
+                    <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                        Export
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <button type="button" onClick={exportPNG} disabled={empty}
+                            className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors disabled:opacity-40">
+                            <ImageIcon className="h-3.5 w-3.5" /> PNG
+                        </button>
+                        <button type="button" onClick={exportSVG} disabled={empty}
+                            className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors disabled:opacity-40">
+                            <FileText className="h-3.5 w-3.5" /> SVG
+                        </button>
+                        <button type="button" onClick={exportPDF} disabled={empty}
+                            className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors disabled:opacity-40">
+                            <Download className="h-3.5 w-3.5" /> PDF 85 mm
+                        </button>
+                        <button type="button" onClick={exportCSV} disabled={empty}
+                            className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors disabled:opacity-40">
+                            <Download className="h-3.5 w-3.5" /> CSV
+                        </button>
+                    </div>
+                    <p className="text-[10px] leading-relaxed text-slate-500">
+                        Always print geometry — an 85 mm figure regardless of window size.
+                    </p>
+                </section>
 
-                    <div className="space-y-2">
-                        <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
-                            Reference
-                        </h3>
+                <section className="rounded-xl border border-slate-700/60 bg-slate-900/50 p-4 space-y-2">
+                    <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                        Reference
+                    </h3>
                         <button
                             type="button"
                             onClick={() => cifRef.current?.click()}
@@ -1023,8 +1032,7 @@ export function XrdPlotter() {
                         <p className="text-[10px] leading-relaxed text-slate-500">
                             Computed from the CIF with Cu Kα, structure factors and Lorentz-polarisation applied.
                         </p>
-                    </div>
-                </aside>
+                </section>
             </div>
 
             <PhaseMatchPanel
