@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import jsPDF from "jspdf";
+import { detectPeaks, matchPhase, type Peak } from "@/lib/xrd/phase-match";
+import { PhaseMatchPanel, type ScanMatch } from "@/components/analysis/phase-match-panel";
 import {
     Upload, X, Download, FileText, Image as ImageIcon, Loader2, GripVertical, Eye, EyeOff, FlaskConical,
 } from "lucide-react";
@@ -89,6 +91,13 @@ type Reference = {
     visible: boolean;
 };
 
+type Overlay = {
+    matchedRefX: number[];
+    /** Peaks the reference could not explain, with their relative intensity */
+    unexplained: { x: number; i: number }[];
+    traceIndex: number;
+} | null;
+
 function buildFigure(
     traces: Trace[],
     lo: number,
@@ -96,6 +105,7 @@ function buildFigure(
     gap: number,
     stacked: boolean,
     reference: Reference | null,
+    overlay: Overlay = null,
 ): Prim[] {
     const out: Prim[] = [];
     const PW = W - M.l - M.r;
@@ -174,13 +184,19 @@ function buildFigure(
             (p) => p.two_theta >= lo && p.two_theta <= hi,
         );
 
+        const matchedKeys = overlay
+            ? new Set(overlay.matchedRefX.map((x) => x.toFixed(3)))
+            : null;
+
         for (const p of inWindow) {
             const h = (p.intensity / maxI) * REF_H;
             if (h < 0.002) continue;
             const px = X(p.two_theta);
+            const hit = matchedKeys?.has(p.two_theta.toFixed(3)) ?? false;
             out.push({
                 t: "line", x1: px, y1: Y(REF_BASE), x2: px, y2: Y(REF_BASE + h),
-                stroke: "#334155", w: 1.1,
+                stroke: hit ? "#059669" : "#334155",
+                w: hit ? 2.0 : 1.1,
             });
         }
 
@@ -218,6 +234,19 @@ function buildFigure(
         }
         if (pts.length > 1) out.push({ t: "poly", pts, stroke: t.color, w: 1.15 });
     });
+
+    // Markers under the selected trace for peaks the reference cannot explain
+    if (overlay && overlay.traceIndex >= 0 && overlay.traceIndex < n) {
+        const base = base0 + (stacked ? (n - 1 - overlay.traceIndex) * step : 0);
+        for (const u of overlay.unexplained) {
+            if (u.x < lo || u.x > hi) continue;
+            const px = X(u.x);
+            // Float the marker just above the offending peak's own tip
+            const my = Y(base + u.i / 100) - 13;
+            out.push({ t: "line", x1: px - 3, y1: my - 3, x2: px + 3, y2: my + 3, stroke: "#DC2626", w: 1.3 });
+            out.push({ t: "line", x1: px - 3, y1: my + 3, x2: px + 3, y2: my - 3, stroke: "#DC2626", w: 1.3 });
+        }
+    }
 
     // In-plot legend — same order as the list and the stack
     const lx = M.l + PW - 244;
@@ -342,15 +371,31 @@ export function XrdPlotter() {
     const [reference, setReference] = useState<Reference | null>(null);
     const [refBusy, setRefBusy] = useState(false);
     const [refError, setRefError] = useState<string | null>(null);
+    const [matchResults, setMatchResults] = useState<ScanMatch[] | null>(null);
+    const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+    const [matchBusy, setMatchBusy] = useState(false);
+    const [matchError, setMatchError] = useState<string | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const fileRef = useRef<HTMLInputElement | null>(null);
     const cifRef = useRef<HTMLInputElement | null>(null);
 
+    const overlay = useMemo<Overlay>(() => {
+        if (!matchResults || !selectedMatchId) return null;
+        const idx = traces.findIndex((t) => t.id === selectedMatchId);
+        const sel = matchResults.find((m) => m.traceId === selectedMatchId);
+        if (!sel || idx < 0) return null;
+        return {
+            matchedRefX: sel.result.pairs.map((p) => p.refX),
+            unexplained: sel.result.unexplainedExp.map((p) => ({ x: p.x, i: p.i })),
+            traceIndex: idx,
+        };
+    }, [matchResults, selectedMatchId, traces]);
+
     const prims = useMemo(
         () => (traces.length || reference
-            ? buildFigure(traces, lo, hi, gap, stacked, reference)
+            ? buildFigure(traces, lo, hi, gap, stacked, reference, overlay)
             : []),
-        [traces, lo, hi, gap, stacked, reference],
+        [traces, lo, hi, gap, stacked, reference, overlay],
     );
 
     // Repaint whenever the figure changes
@@ -439,6 +484,49 @@ export function XrdPlotter() {
         }
         setBusy(false);
         if (fileRef.current) fileRef.current.value = "";
+    }
+
+    function runMatch() {
+        if (!reference || traces.length === 0) return;
+        setMatchError(null);
+        setMatchBusy(true);
+        try {
+            const refPeaks: Peak[] = reference.peaks.map((p) => ({
+                x: p.two_theta,
+                y: p.intensity,
+                i: p.intensity,
+                hkl: p.hkl,
+            }));
+
+            const out: ScanMatch[] = [];
+            for (const t of traces) {
+                const peaks = detectPeaks(t.x, t.y);
+                if (peaks.length < 3) continue;
+                // Compare only where this scan actually has data AND is visible.
+                const from = Math.max(lo, t.x[0]);
+                const to = Math.min(hi, t.x[t.x.length - 1]);
+                if (to - from < 5) continue;
+                const res = matchPhase(peaks, refPeaks, { range: [from, to] });
+                if (res) {
+                    out.push({ traceId: t.id, label: t.label, color: t.color, result: res });
+                }
+            }
+
+            if (out.length === 0) {
+                setMatchError("No scan produced enough detected peaks to score.");
+                return;
+            }
+            setMatchResults(out);
+            setSelectedMatchId((prev) =>
+                prev && out.some((o) => o.traceId === prev)
+                    ? prev
+                    : [...out].sort((a, b) => b.result.score - a.result.score)[0].traceId,
+            );
+        } catch {
+            setMatchError("Scoring failed unexpectedly.");
+        } finally {
+            setMatchBusy(false);
+        }
     }
 
     async function handleCif(files: FileList | null) {
@@ -811,6 +899,17 @@ export function XrdPlotter() {
                     </div>
                 </aside>
             </div>
+
+            <PhaseMatchPanel
+                results={matchResults}
+                selectedId={selectedMatchId}
+                onSelect={setSelectedMatchId}
+                onRun={runMatch}
+                busy={matchBusy}
+                error={matchError}
+                canRun={!!reference && traces.length > 0}
+                referenceLabel={reference ? `${reference.formula} (${reference.spacegroup})` : null}
+            />
 
             {traces.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
