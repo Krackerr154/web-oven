@@ -177,6 +177,13 @@ function buildFigure(
     reference: Reference | null,
     overlay: Overlay = null,
     L: Layout = PRINT_LAYOUT,
+    /**
+     * Legend membership. The on-screen legend must list EVERY trace at a stable
+     * vertical slot, otherwise hiding a trace collapses its row and every entry
+     * below it walks up — the next click then toggles the wrong series.
+     * Exports pass nothing and keep the tighter "only what is plotted" legend.
+     */
+    legendTraces?: Trace[],
 ): Prim[] {
     const out: Prim[] = [];
     const { W, H, M } = L;
@@ -320,24 +327,24 @@ function buildFigure(
         }
     }
 
-    // In-plot legend — same order as the list and the stack
-    // Store legend click targets in a data attribute for DOM lookup
+    // In-plot legend — same order as the list and the stack.
+    // legendTraces keeps hidden entries in place on screen (see signature note).
     const lx = M.l + PW - 244;
-    if (L.legendInPlot) traces.forEach((t, i) => {
+    const legendList = legendTraces ?? traces;
+    if (L.legendInPlot) legendList.forEach((t, i) => {
         const ly = M.t + 18 + i * 17;
         const opacity = t.visible ? 1 : 0.35;
         out.push({ t: "line", x1: lx, y1: ly, x2: lx + 18, y2: ly, stroke: t.color, w: 2, opacity });
         out.push({
             t: "text", x: lx + 24, y: ly + 0.5, s: t.label, size: L.legendFont,
             anchor: "start", baseline: "middle", fill: "#1F2937", opacity,
-            // Store trace ID for click handling
             data: { traceId: t.id, legendIndex: i },
         });
     });
 
     // Legend entry for the simulated reference
     if (L.legendInPlot && hasRef && reference) {
-        const ly = M.t + 18 + traces.length * 17;
+        const ly = M.t + 18 + legendList.length * 17;
         out.push({ t: "line", x1: lx + 6, y1: ly - 5, x2: lx + 6, y2: ly + 5, stroke: "#334155", w: 1.2 });
         out.push({
             t: "text", x: lx + 24, y: ly + 0.5, s: `Simulated · ${reference.formula}`, size: L.legendFont,
@@ -540,10 +547,10 @@ export function XrdPlotter() {
     const layout = useMemo(() => screenLayout(canvasW || 860), [canvasW]);
 
     const prims = useMemo(
-        () => (visibleTraces.length || reference
-            ? buildFigure(visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, layout)
+        () => (traces.length || reference
+            ? buildFigure(visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, layout, traces)
             : []),
-        [visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, layout],
+        [visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, layout, traces],
     );
 
     // Repaint whenever the figure changes
