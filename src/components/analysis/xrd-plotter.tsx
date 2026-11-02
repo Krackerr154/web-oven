@@ -472,6 +472,7 @@ export function XrdPlotter() {
     const [canvasW, setCanvasW] = useState(0);
     const [showHelp, setShowHelp] = useState(false);
     const [exportToast, setExportToast] = useState<{ msg: string; t: number } | null>(null);
+    const [dragOverId, setDragOverId] = useState<string | null>(null);
     const fileRef = useRef<HTMLInputElement | null>(null);
     const cifRef = useRef<HTMLInputElement | null>(null);
 
@@ -727,6 +728,10 @@ export function XrdPlotter() {
             const el = document.elementFromPoint(e.clientX, e.clientY);
             const row = el?.closest("[data-trace-row]") as HTMLElement | null;
             const overId = row?.dataset.traceRow;
+            
+            // Update hover state for visual feedback
+            setDragOverId(overId && overId !== dragId ? overId : null);
+            
             if (!overId || overId === dragId) return;
 
             setTraces((prev) => {
@@ -740,7 +745,10 @@ export function XrdPlotter() {
             });
         };
 
-        const end = () => setDragId(null);
+        const end = () => {
+            setDragId(null);
+            setDragOverId(null);
+        };
 
         window.addEventListener("pointermove", onMove);
         window.addEventListener("pointerup", end);
@@ -1144,12 +1152,34 @@ export function XrdPlotter() {
                         )}
                     </div>
 
-                    {traces.map((t) => (
+                    {traces.map((t) => {
+                        const isDragging = dragId === t.id;
+                        const isDropTarget = dragOverId === t.id;
+                        
+                        // Compute direction if this is the drop target
+                        let direction: "up" | "down" | null = null;
+                        if (isDragging === false && isDropTarget && dragId) {
+                            const dragIdx = traces.findIndex((x) => x.id === dragId);
+                            const overIdx = traces.findIndex((x) => x.id === t.id);
+                            direction = dragIdx < overIdx ? "down" : "up";
+                        }
+                        
+                        return (
+                        <div key={t.id} className="relative">
+                            {/* Drop indicator bar */}
+                            {isDropTarget && direction && (
+                                <div
+                                    className={`absolute left-0 right-0 h-0.5 bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)] ${
+                                        direction === "up" ? "-top-1" : "-bottom-1"
+                                    }`}
+                                    aria-hidden="true"
+                                />
+                            )}
+                            
                         <div
-                            key={t.id}
                             data-trace-row={t.id}
                             className={`flex items-center gap-1.5 text-[11px] rounded-md px-1 -mx-1 py-0.5 transition-colors ${
-                                dragId === t.id
+                                isDragging
                                     ? "bg-orange-500/15 text-white"
                                     : t.visible
                                         ? "text-slate-300 hover:bg-slate-800/60"
@@ -1164,7 +1194,11 @@ export function XrdPlotter() {
                                     e.preventDefault();
                                     setDragId(t.id);
                                 }}
-                                className="touch-none cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-300 shrink-0 grid place-items-center h-6 w-6 -ml-1 rounded hover:bg-slate-700/50"
+                                className={`touch-none cursor-grab active:cursor-grabbing shrink-0 grid place-items-center h-6 w-6 -ml-1 rounded hover:bg-slate-700/50 transition-all ${
+                                    isDragging 
+                                        ? "text-orange-400 shadow-[0_0_12px_rgba(251,146,60,0.5)]" 
+                                        : "text-slate-600 hover:text-slate-300"
+                                }`}
                             >
                                 <GripVertical className="h-3.5 w-3.5" />
                             </button>
@@ -1229,8 +1263,17 @@ export function XrdPlotter() {
                             >
                                 <X className="h-3.5 w-3.5" />
                             </button>
+                            
+                            {/* Directional indicator when dragging */}
+                            {isDragging && (
+                                <span className="absolute -right-6 text-[10px] text-orange-400 font-mono animate-pulse">
+                                    ↕
+                                </span>
+                            )}
                         </div>
-                    ))}
+                        </div>
+                        );
+                    })}
                     {traces.length > 1 && (
                         <p className="text-[10px] text-slate-500 leading-relaxed -mt-1">
                             Drag the handle to reorder. Top of the list plots on top. The eye takes a
