@@ -625,9 +625,20 @@ export function XrdPlotter() {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // value box
+        // value box — sized to the widest label so two traces that share a long
+        // prefix stay distinguishable instead of collapsing to the same text.
         const rowH = 15;
-        const boxW = Math.min(214, layout.W - 24);
+        const numW = 62;
+        ctx.font = "400 11px system-ui, -apple-system, sans-serif";
+        let widest = 0;
+        for (const r of hover.rows) {
+            const w = ctx.measureText(r.label).width;
+            if (w > widest) widest = w;
+        }
+        const boxW = Math.min(
+            Math.max(170, widest + 22 + 8 + numW + 10),
+            Math.min(300, layout.W - 24),
+        );
         const boxH = 24 + hover.rows.length * rowH + 8;
         let bx = hover.px + 14;
         let by = hover.py + 14;
@@ -653,7 +664,7 @@ export function XrdPlotter() {
         ctx.font = "400 11px system-ui, -apple-system, sans-serif";
         // Ellipsise by measured width, not by character count: renamed traces
         // often share a long prefix and a fixed cut would make them identical.
-        const labelMax = boxW - 22 - 76;
+        const labelMax = boxW - 22 - 8 - numW;
         hover.rows.forEach((r, i) => {
             const y = by + 30 + i * rowH;
             ctx.fillStyle = r.color;
