@@ -30,13 +30,14 @@ type Trace = {
 };
 
 type Prim =
-    | { t: "line"; x1: number; y1: number; x2: number; y2: number; stroke: string; w: number }
+    | { t: "line"; x1: number; y1: number; x2: number; y2: number; stroke: string; w: number; opacity?: number }
     | { t: "rect"; x: number; y: number; w: number; h: number; stroke: string; sw: number; fill?: string }
     | { t: "poly"; pts: Array<[number, number]>; stroke: string; w: number }
     | {
         t: "text"; x: number; y: number; s: string; size: number; weight?: number;
         anchor?: "start" | "middle" | "end"; baseline?: "top" | "middle" | "bottom" | "alphabetic";
-        fill: string; rotate?: number;
+        fill: string; rotate?: number; opacity?: number;
+        data?: { traceId?: string; legendIndex?: number };
     };
 
 const PALETTE = [
@@ -320,13 +321,17 @@ function buildFigure(
     }
 
     // In-plot legend — same order as the list and the stack
+    // Store legend click targets in a data attribute for DOM lookup
     const lx = M.l + PW - 244;
     if (L.legendInPlot) traces.forEach((t, i) => {
         const ly = M.t + 18 + i * 17;
-        out.push({ t: "line", x1: lx, y1: ly, x2: lx + 18, y2: ly, stroke: t.color, w: 2 });
+        const opacity = t.visible ? 1 : 0.35;
+        out.push({ t: "line", x1: lx, y1: ly, x2: lx + 18, y2: ly, stroke: t.color, w: 2, opacity });
         out.push({
             t: "text", x: lx + 24, y: ly + 0.5, s: t.label, size: L.legendFont,
-            anchor: "start", baseline: "middle", fill: "#1F2937",
+            anchor: "start", baseline: "middle", fill: "#1F2937", opacity,
+            // Store trace ID for click handling
+            data: { traceId: t.id, legendIndex: i },
         });
     });
 
@@ -371,12 +376,14 @@ function paintCanvas(
             if (p.fill) ctx.fillRect(p.x, p.y, p.w, p.h);
             if (p.stroke !== "none" && p.sw > 0) ctx.strokeRect(p.x, p.y, p.w, p.h);
         } else if (p.t === "line") {
+            ctx.globalAlpha = p.opacity ?? 1;
             ctx.beginPath();
             ctx.strokeStyle = p.stroke;
             ctx.lineWidth = p.w;
             ctx.moveTo(p.x1, p.y1);
             ctx.lineTo(p.x2, p.y2);
             ctx.stroke();
+            ctx.globalAlpha = 1;
         } else if (p.t === "poly") {
             ctx.beginPath();
             ctx.strokeStyle = p.stroke;
@@ -387,6 +394,7 @@ function paintCanvas(
             ctx.stroke();
         } else {
             ctx.save();
+            ctx.globalAlpha = p.opacity ?? 1;
             ctx.fillStyle = p.fill;
             ctx.font = `${p.weight ?? 400} ${p.size}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
             ctx.textAlign = p.anchor === "middle" ? "center" : p.anchor === "end" ? "right" : "left";
@@ -460,6 +468,8 @@ export function XrdPlotter() {
     const [matchError, setMatchError] = useState<string | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const overlayRef = useRef<HTMLCanvasElement | null>(null);
+    const currentPrimsRef = useRef<Prim[]>([]);
+    const currentLayoutRef = useRef<Layout | null>(null);
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const [hover, setHover] = useState<{
         px: number;
@@ -565,11 +575,46 @@ export function XrdPlotter() {
         if (!c || !prims.length) return;
         const dpr = Math.min(window.devicePixelRatio || 1, 3);
         paintCanvas(c, prims, layout.W, layout.H, dpr);
+        // Store for click handling
+        currentPrimsRef.current = prims;
+        currentLayoutRef.current = layout;
     }, [prims, layout]);
 
     useEffect(() => {
         paint();
     }, [paint]);
+
+    // ---- legend click to toggle visibility -------------------------------
+    const handleLegendClick = useCallback(
+        (e: React.PointerEvent<HTMLCanvasElement>) => {
+            const c = canvasRef.current;
+            const prims = currentPrimsRef.current;
+            const L = currentLayoutRef.current;
+            if (!c || !prims.length || !L || !L.legendInPlot) return;
+
+            const rect = c.getBoundingClientRect();
+            const cx = e.clientX - rect.left;
+            const cy = e.clientY - rect.top;
+
+            // Find legend text primitives within click radius
+            const lx = L.M.l + (L.W - L.M.l - L.M.r) - 244;
+            for (const p of prims) {
+                if (p.t !== "text" || !p.data?.traceId) continue;
+                const ly = L.M.t + 18 + (p.data.legendIndex ?? 0) * 17;
+                // Hit box: line + text, roughly 240px wide × 14px tall
+                if (cx >= lx && cx <= lx + 240 && cy >= ly - 7 && cy <= ly + 7) {
+                    // Toggle visibility
+                    setTraces((prev) =>
+                        prev.map((t) =>
+                            t.id === p.data!.traceId ? { ...t, visible: !t.visible } : t
+                        )
+                    );
+                    return;
+                }
+            }
+        },
+        []
+    );
 
     // ---- cursor readout ---------------------------------------------------
     // Drawn on its own overlay canvas so a pointer move never rebuilds the
@@ -1061,7 +1106,10 @@ export function XrdPlotter() {
                                     ref={canvasRef}
                                     className="block max-w-full cursor-crosshair"
                                     onPointerMove={handleHover}
-                                    onPointerDown={handleHover}
+                                    onPointerDown={(e) => {
+                                        handleHover(e);
+                                        handleLegendClick(e);
+                                    }}
                                     onPointerLeave={() => setHover(null)}
                                 />
                                 <canvas
