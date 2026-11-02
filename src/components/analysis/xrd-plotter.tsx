@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import jsPDF from "jspdf";
 import {
-    Upload, X, Download, FileText, Image as ImageIcon, Lock, Loader2,
+    Upload, X, Download, FileText, Image as ImageIcon, Lock, Loader2, GripVertical,
 } from "lucide-react";
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -137,9 +137,9 @@ function buildFigure(
         weight: 600, anchor: "middle", baseline: "alphabetic", fill: "#111827", rotate: -90,
     });
 
-    // Traces
+    // Traces — index 0 plots at the TOP, so list order == visual order everywhere
     traces.forEach((t, i) => {
-        const base = base0 + (stacked ? i * step : 0);
+        const base = base0 + (stacked ? (n - 1 - i) * step : 0);
         const scale = stacked ? (Math.max(...t.y) || 1) : globalMax;
         const pts: Array<[number, number]> = [];
         for (let k = 0; k < t.x.length; k++) {
@@ -150,9 +150,9 @@ function buildFigure(
         if (pts.length > 1) out.push({ t: "poly", pts, stroke: t.color, w: 1.15 });
     });
 
-    // In-plot legend — listed in visual order (topmost trace first)
+    // In-plot legend — same order as the list and the stack
     const lx = M.l + PW - 244;
-    [...traces].reverse().forEach((t, i) => {
+    traces.forEach((t, i) => {
         const ly = M.t + 18 + i * 17;
         out.push({ t: "line", x1: lx, y1: ly, x2: lx + 18, y2: ly, stroke: t.color, w: 2 });
         out.push({
@@ -259,6 +259,7 @@ export function XrdPlotter() {
     const [stacked, setStacked] = useState(true);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [dragId, setDragId] = useState<string | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -275,6 +276,40 @@ export function XrdPlotter() {
     useEffect(() => {
         paint();
     }, [paint]);
+
+    // Reorder by dragging the handle. Window-level listeners so the gesture
+    // survives React moving the row's DOM node mid-drag.
+    useEffect(() => {
+        if (!dragId) return;
+
+        const onMove = (e: PointerEvent) => {
+            const el = document.elementFromPoint(e.clientX, e.clientY);
+            const row = el?.closest("[data-trace-row]") as HTMLElement | null;
+            const overId = row?.dataset.traceRow;
+            if (!overId || overId === dragId) return;
+
+            setTraces((prev) => {
+                const from = prev.findIndex((t) => t.id === dragId);
+                const to = prev.findIndex((t) => t.id === overId);
+                if (from < 0 || to < 0 || from === to) return prev;
+                const next = [...prev];
+                const [moved] = next.splice(from, 1);
+                next.splice(to, 0, moved);
+                return next;
+            });
+        };
+
+        const end = () => setDragId(null);
+
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", end);
+        window.addEventListener("pointercancel", end);
+        return () => {
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", end);
+            window.removeEventListener("pointercancel", end);
+        };
+    }, [dragId]);
 
     async function handleFiles(files: FileList | null) {
         if (!files || !files.length) return;
@@ -446,9 +481,32 @@ export function XrdPlotter() {
                     </div>
 
                     {traces.map((t) => (
-                        <div key={t.id} className="flex items-center gap-2 text-[11px] text-slate-300">
-                            <span className="h-[3px] w-4 rounded-full shrink-0 ring-1 ring-white/25" style={{ background: t.color }} />
-                            <span className="truncate flex-1">{t.label}</span>
+                        <div
+                            key={t.id}
+                            data-trace-row={t.id}
+                            className={`flex items-center gap-2 text-[11px] rounded-md px-1 -mx-1 py-1 transition-colors ${
+                                dragId === t.id
+                                    ? "bg-orange-500/15 text-white"
+                                    : "text-slate-300 hover:bg-slate-800/60"
+                            }`}
+                        >
+                            <button
+                                type="button"
+                                aria-label={`Drag to reorder ${t.label}`}
+                                title="Drag to reorder"
+                                onPointerDown={(e) => {
+                                    e.preventDefault();
+                                    setDragId(t.id);
+                                }}
+                                className="touch-none cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-300 shrink-0 -ml-0.5"
+                            >
+                                <GripVertical className="h-3.5 w-3.5" />
+                            </button>
+                            <span
+                                className="h-[3px] w-4 rounded-full shrink-0 ring-1 ring-white/25"
+                                style={{ background: t.color }}
+                            />
+                            <span className="truncate flex-1" title={t.label}>{t.label}</span>
                             <button
                                 type="button"
                                 aria-label={`Remove ${t.label}`}
@@ -459,6 +517,11 @@ export function XrdPlotter() {
                             </button>
                         </div>
                     ))}
+                    {traces.length > 1 && (
+                        <p className="text-[10px] text-slate-500 leading-relaxed -mt-1">
+                            Drag the handle to reorder. Top of the list plots on top.
+                        </p>
+                    )}
 
                     {!empty && (
                         <>
