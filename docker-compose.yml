@@ -19,9 +19,23 @@ services:
       - RESEND_EMAIL_FROM=${RESEND_EMAIL_FROM:-noreply@g-labs.my.id}
       - TZ=Asia/Jakarta
       - PGTZ=Asia/Jakarta
+      - XRD_SIM_URL=http://xrd-sim:8000
     depends_on:
       ap_lab_db:
         condition: service_healthy
+    networks:
+      - ap_lab_net
+
+  # Internal-only compute sidecar. No published ports: reachable solely
+  # from the app container over ap_lab_net.
+  xrd-sim:
+    build:
+      context: ./xrd-sim
+      dockerfile: Dockerfile
+    container_name: ap_lab_xrd_sim
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Jakarta
     networks:
       - ap_lab_net
 

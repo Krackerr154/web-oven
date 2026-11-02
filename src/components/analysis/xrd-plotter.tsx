@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import jsPDF from "jspdf";
 import {
-    Upload, X, Download, FileText, Image as ImageIcon, Lock, Loader2, GripVertical,
+    Upload, X, Download, FileText, Image as ImageIcon, Loader2, GripVertical, Eye, EyeOff, FlaskConical,
 } from "lucide-react";
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -78,12 +78,24 @@ function parseScan(text: string) {
    Geometry → drawing primitives (shared by canvas, SVG and PDF)
    ──────────────────────────────────────────────────────────────────────────── */
 
+type Reference = {
+    id: string;
+    fileName: string;
+    formula: string;
+    spacegroup: string;
+    volume: number;
+    wavelength: number;
+    peaks: { two_theta: number; intensity: number; hkl: number[] }[];
+    visible: boolean;
+};
+
 function buildFigure(
     traces: Trace[],
     lo: number,
     hi: number,
     gap: number,
     stacked: boolean,
+    reference: Reference | null,
 ): Prim[] {
     const out: Prim[] = [];
     const PW = W - M.l - M.r;
@@ -94,8 +106,17 @@ function buildFigure(
 
     const n = traces.length;
     const step = stacked ? gap : 0;
-    const base0 = 0.52;
-    const top = base0 + (n - 1) * step + 1.18;
+    const hasRef = !!reference && reference.visible && reference.peaks.length > 0;
+
+    // A reference stick panel takes the bottom strip, so the traces have to sit
+    // higher. Solve for the baseline that guarantees a fixed pixel gap between
+    // the stick labels and the lowest trace, whatever the trace count.
+    const A = Math.max(0, n - 1) * step + 1.18;
+    const PAD_PX = 62;
+    const base0 = hasRef
+        ? (0.40 + (PAD_PX * A) / PH) / (1 - PAD_PX / PH)
+        : 0.52;
+    const top = base0 + A;
 
     const Y = (v: number) => M.t + PH - (v / top) * PH;
     const X = (v: number) => M.l + ((v - lo) / (hi - lo)) * PW;
@@ -137,6 +158,54 @@ function buildFigure(
         weight: 600, anchor: "middle", baseline: "alphabetic", fill: "#111827", rotate: -90,
     });
 
+    // Reference pattern (simulated from the CIF) — sticks along the bottom strip
+    if (hasRef && reference) {
+        const REF_BASE = 0.06;
+        const REF_H = 0.30;
+        const REF_TOP = REF_BASE + REF_H;
+        const maxI = Math.max(...reference.peaks.map((p) => p.intensity), 1);
+
+        out.push({
+            t: "line", x1: M.l, y1: Y(REF_BASE), x2: M.l + PW, y2: Y(REF_BASE),
+            stroke: "#9CA3AF", w: 0.9,
+        });
+
+        const inWindow = reference.peaks.filter(
+            (p) => p.two_theta >= lo && p.two_theta <= hi,
+        );
+
+        for (const p of inWindow) {
+            const h = (p.intensity / maxI) * REF_H;
+            if (h < 0.002) continue;
+            const px = X(p.two_theta);
+            out.push({
+                t: "line", x1: px, y1: Y(REF_BASE), x2: px, y2: Y(REF_BASE + h),
+                stroke: "#334155", w: 1.1,
+            });
+        }
+
+        // Label the strongest reflections. A ratio floor is wrong for MOFs:
+        // the (100) reflection can hold 100% while the next sits at 20%, so
+        // take the top N by intensity and drop any that would collide.
+        const strong = [...inWindow]
+            .sort((a, b) => b.intensity - a.intensity)
+            .slice(0, 10)
+            .sort((a, b) => a.two_theta - b.two_theta);
+
+        let lastX = -1e9;
+        for (const p of strong) {
+            const px = X(p.two_theta);
+            if (px - lastX < 13) continue;
+            lastX = px;
+            out.push({
+                t: "text", x: px, y: Y(REF_TOP + 0.03),
+                s: `(${p.hkl.join(" ")})`, size: 9,
+                anchor: "start", baseline: "alphabetic",
+                fill: "#475569", rotate: -90,
+            });
+        }
+    }
+
     // Traces — index 0 plots at the TOP, so list order == visual order everywhere
     traces.forEach((t, i) => {
         const base = base0 + (stacked ? (n - 1 - i) * step : 0);
@@ -160,6 +229,16 @@ function buildFigure(
             anchor: "start", baseline: "middle", fill: "#1F2937",
         });
     });
+
+    // Legend entry for the simulated reference
+    if (hasRef && reference) {
+        const ly = M.t + 18 + traces.length * 17;
+        out.push({ t: "line", x1: lx + 6, y1: ly - 5, x2: lx + 6, y2: ly + 5, stroke: "#334155", w: 1.2 });
+        out.push({
+            t: "text", x: lx + 24, y: ly + 0.5, s: `Simulated · ${reference.formula}`, size: 11.5,
+            anchor: "start", baseline: "middle", fill: "#1F2937",
+        });
+    }
 
     return out;
 }
@@ -260,12 +339,18 @@ export function XrdPlotter() {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [dragId, setDragId] = useState<string | null>(null);
+    const [reference, setReference] = useState<Reference | null>(null);
+    const [refBusy, setRefBusy] = useState(false);
+    const [refError, setRefError] = useState<string | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const fileRef = useRef<HTMLInputElement | null>(null);
+    const cifRef = useRef<HTMLInputElement | null>(null);
 
     const prims = useMemo(
-        () => (traces.length ? buildFigure(traces, lo, hi, gap, stacked) : []),
-        [traces, lo, hi, gap, stacked],
+        () => (traces.length || reference
+            ? buildFigure(traces, lo, hi, gap, stacked, reference)
+            : []),
+        [traces, lo, hi, gap, stacked, reference],
     );
 
     // Repaint whenever the figure changes
@@ -356,6 +441,61 @@ export function XrdPlotter() {
         if (fileRef.current) fileRef.current.value = "";
     }
 
+    async function handleCif(files: FileList | null) {
+        const file = files?.[0];
+        if (!file) return;
+        setRefError(null);
+        setRefBusy(true);
+        try {
+            const text = await file.text();
+            if (!/data_/i.test(text)) {
+                setRefError(`${file.name}: this does not look like a CIF file`);
+                return;
+            }
+
+            // Always simulate the full 5-80 window so widening the 2-theta
+            // range later does not need another round trip.
+            const res = await fetch("/api/xrd/simulate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ cif: text, twoThetaMin: 5, twoThetaMax: 80 }),
+            });
+            const payload = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                setRefError(payload?.error ?? `Simulating failed (${res.status})`);
+                return;
+            }
+            if (!payload?.peaks?.length) {
+                setRefError("No reflections came back for this structure");
+                return;
+            }
+
+            setReference({
+                id: `${file.name}-${Date.now()}`,
+                fileName: file.name,
+                formula: payload.formula ?? "unknown",
+                spacegroup: payload.spacegroup ?? "unknown",
+                volume: payload.volume ?? 0,
+                wavelength: payload.wavelength ?? 1.5406,
+                peaks: payload.peaks,
+                visible: true,
+            });
+
+            if (traces.length === 0) {
+                const first = payload.peaks[0].two_theta as number;
+                const last = payload.peaks[payload.peaks.length - 1].two_theta as number;
+                setLo(Math.max(0, Math.floor(first / 5) * 5));
+                setHi(Math.ceil(last / 5) * 5);
+            }
+        } catch {
+            setRefError("Could not reach the simulator");
+        } finally {
+            setRefBusy(false);
+            if (cifRef.current) cifRef.current.value = "";
+        }
+    }
+
     function exportPNG() {
         const cv = document.createElement("canvas");
         paintCanvas(cv, prims, 2.6);           // ~3150 px wide → >900 dpi at 85 mm
@@ -403,7 +543,7 @@ export function XrdPlotter() {
         setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
 
-    const empty = traces.length === 0;
+    const empty = traces.length === 0 && !reference;
 
     return (
         <div className="space-y-5">
@@ -602,17 +742,77 @@ export function XrdPlotter() {
                     )}
 
                     <div className="h-px bg-slate-700/60" />
-                    <div className="flex items-start gap-2 text-[10px] leading-relaxed text-slate-500">
-                        <Lock className="h-3 w-3 mt-0.5 shrink-0" />
-                        <span>
-                            <span className="text-slate-400 font-semibold">Reference pattern (CIF)</span> —
-                            simulated stick patterns arrive in Phase 2 with the compute service.
-                        </span>
+
+                    <div className="space-y-2">
+                        <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                            Reference
+                        </h3>
+                        <button
+                            type="button"
+                            onClick={() => cifRef.current?.click()}
+                            disabled={refBusy}
+                            className="w-full flex items-center justify-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors disabled:opacity-60"
+                        >
+                            {refBusy
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <FlaskConical className="h-3.5 w-3.5" />}
+                            {refBusy ? "Simulating…" : reference ? "Replace CIF" : "Add CIF pattern"}
+                        </button>
+                        <input
+                            ref={cifRef}
+                            type="file"
+                            accept=".cif,.txt"
+                            className="hidden"
+                            onChange={(e) => handleCif(e.target.files)}
+                        />
+
+                        {refError && (
+                            <p className="text-[10px] leading-relaxed text-amber-300">{refError}</p>
+                        )}
+
+                        {reference && (
+                            <div className="rounded-md border border-slate-700/60 bg-slate-950/40 px-2 py-2 space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="h-3 w-[2px] rounded bg-slate-300 shrink-0" />
+                                    <span
+                                        className="truncate flex-1 text-[11px] font-semibold text-slate-200"
+                                        title={reference.fileName}
+                                    >
+                                        {reference.formula}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        aria-label={reference.visible ? "Hide reference pattern" : "Show reference pattern"}
+                                        onClick={() => setReference((r) => (r ? { ...r, visible: !r.visible } : r))}
+                                        className="shrink-0 text-slate-500 hover:text-slate-200"
+                                    >
+                                        {reference.visible
+                                            ? <Eye className="h-3.5 w-3.5" />
+                                            : <EyeOff className="h-3.5 w-3.5" />}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        aria-label="Remove reference pattern"
+                                        onClick={() => setReference(null)}
+                                        className="shrink-0 text-slate-500 hover:text-red-400"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-slate-500 font-mono leading-relaxed">
+                                    {reference.spacegroup} · {reference.peaks.length} refl · λ {reference.wavelength.toFixed(4)} Å
+                                </p>
+                            </div>
+                        )}
+
+                        <p className="text-[10px] leading-relaxed text-slate-500">
+                            Computed from the CIF with Cu Kα, structure factors and Lorentz-polarisation applied.
+                        </p>
                     </div>
                 </aside>
             </div>
 
-            {!empty && (
+            {traces.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {traces.map((t) => (
                         <div key={`${t.id}-meta`} className="rounded-lg border border-slate-700/50 bg-slate-900/40 px-3 py-2">
