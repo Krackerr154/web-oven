@@ -38,9 +38,69 @@ const PALETTE = [
     "#7C3AED", "#BE123C", "#B45309", "#155E75",
 ];
 
-const W = 1210;
-const H = 760;
-const M = { l: 86, r: 30, t: 34, b: 88 };
+/**
+ * Drawing geometry. The screen never scales a fixed canvas: it re-lays out at
+ * the measured container width so type stays at a readable CSS size
+ * (ONS guidance: 14px minimum for chart text, 12px at the very smallest).
+ * The print layout stays fixed so exports are identical from any screen.
+ */
+type Layout = {
+    W: number;
+    H: number;
+    M: { l: number; r: number; t: number; b: number };
+    xMajor: number;
+    xMinor: number;
+    tickFont: number;
+    titleFont: number;
+    legendFont: number;
+    hklFont: number;
+    legendInPlot: boolean;
+    showHkl: boolean;
+};
+
+const PRINT_LAYOUT: Layout = {
+    W: 1210,
+    H: 760,
+    M: { l: 86, r: 30, t: 34, b: 88 },
+    xMajor: 10,
+    xMinor: 2,
+    tickFont: 13,
+    titleFont: 15,
+    legendFont: 12,
+    hklFont: 9.5,
+    legendInPlot: true,
+    showHkl: true,
+};
+
+/** Screen geometry for a container of cssW pixels. Type never drops below 11px. */
+function screenLayout(cssW: number): Layout {
+    const w = Math.max(280, Math.round(cssW));
+    if (w >= 840) {
+        return {
+            W: w, H: Math.round(w * 0.62),
+            M: { l: 78, r: 24, t: 26, b: 76 },
+            xMajor: 10, xMinor: 2,
+            tickFont: 14, titleFont: 15, legendFont: 12.5, hklFont: 10,
+            legendInPlot: true, showHkl: true,
+        };
+    }
+    if (w >= 560) {
+        return {
+            W: w, H: Math.round(w * 0.66),
+            M: { l: 62, r: 16, t: 22, b: 70 },
+            xMajor: 10, xMinor: 2,
+            tickFont: 12, titleFont: 13, legendFont: 11.5, hklFont: 9,
+            legendInPlot: true, showHkl: true,
+        };
+    }
+    return {
+        W: w, H: Math.round(w * 0.92),
+        M: { l: 46, r: 12, t: 16, b: 58 },
+        xMajor: 10, xMinor: 5,
+        tickFont: 11.5, titleFont: 12, legendFont: 11, hklFont: 0,
+        legendInPlot: false, showHkl: false,
+    };
+}
 
 /* ────────────────────────────────────────────────────────────────────────────
    Parsing — Rigaku .xy / generic two-column text
@@ -106,8 +166,10 @@ function buildFigure(
     stacked: boolean,
     reference: Reference | null,
     overlay: Overlay = null,
+    L: Layout = PRINT_LAYOUT,
 ): Prim[] {
     const out: Prim[] = [];
+    const { W, H, M } = L;
     const PW = W - M.l - M.r;
     const PH = H - M.t - M.b;
 
@@ -122,7 +184,7 @@ function buildFigure(
     // higher. Solve for the baseline that guarantees a fixed pixel gap between
     // the stick labels and the lowest trace, whatever the trace count.
     const A = Math.max(0, n - 1) * step + 1.18;
-    const PAD_PX = 62;
+    const PAD_PX = L.showHkl ? 62 : 34;
     const base0 = hasRef
         ? (0.40 + (PAD_PX * A) / PH) / (1 - PAD_PX / PH)
         : 0.52;
@@ -136,8 +198,8 @@ function buildFigure(
     out.push({ t: "rect", x: M.l, y: M.t, w: PW, h: PH, stroke: "#111827", sw: 1.1 });
 
     // X ticks
-    const majorX = 10;
-    const minorX = 2;
+    const majorX = L.xMajor;
+    const minorX = L.xMinor;
     for (let v = Math.ceil(lo / minorX) * minorX; v <= hi + 1e-6; v += minorX) {
         const isMajor = Math.abs(v % majorX) < 1e-6;
         const px = X(v);
@@ -145,7 +207,7 @@ function buildFigure(
         out.push({ t: "line", x1: px, y1: M.t + PH, x2: px, y2: M.t + PH - len, stroke: "#111827", w: 1 });
         if (isMajor) {
             out.push({
-                t: "text", x: px, y: M.t + PH + 9, s: v.toFixed(0), size: 12,
+                t: "text", x: px, y: M.t + PH + 9, s: v.toFixed(0), size: L.tickFont,
                 anchor: "middle", baseline: "top", fill: "#111827",
             });
         }
@@ -160,11 +222,11 @@ function buildFigure(
 
     // Axis titles
     out.push({
-        t: "text", x: M.l + PW / 2, y: H - 26, s: "2\u03B8 (\u00B0)", size: 14,
+        t: "text", x: M.l + PW / 2, y: H - 24, s: "2\u03B8 (\u00B0)", size: L.titleFont,
         weight: 600, anchor: "middle", baseline: "alphabetic", fill: "#111827",
     });
     out.push({
-        t: "text", x: 26, y: M.t + PH / 2, s: "Intensity (a.u.)", size: 14,
+        t: "text", x: 24, y: M.t + PH / 2, s: "Intensity (a.u.)", size: L.titleFont,
         weight: 600, anchor: "middle", baseline: "alphabetic", fill: "#111827", rotate: -90,
     });
 
@@ -209,13 +271,13 @@ function buildFigure(
             .sort((a, b) => a.two_theta - b.two_theta);
 
         let lastX = -1e9;
-        for (const p of strong) {
+        for (const p of L.showHkl ? strong : []) {
             const px = X(p.two_theta);
             if (px - lastX < 13) continue;
             lastX = px;
             out.push({
                 t: "text", x: px, y: Y(REF_TOP + 0.03),
-                s: `(${p.hkl.join(" ")})`, size: 9,
+                s: `(${p.hkl.join(" ")})`, size: L.hklFont,
                 anchor: "start", baseline: "alphabetic",
                 fill: "#475569", rotate: -90,
             });
@@ -250,21 +312,21 @@ function buildFigure(
 
     // In-plot legend — same order as the list and the stack
     const lx = M.l + PW - 244;
-    traces.forEach((t, i) => {
+    if (L.legendInPlot) traces.forEach((t, i) => {
         const ly = M.t + 18 + i * 17;
         out.push({ t: "line", x1: lx, y1: ly, x2: lx + 18, y2: ly, stroke: t.color, w: 2 });
         out.push({
-            t: "text", x: lx + 24, y: ly + 0.5, s: t.label, size: 11.5,
+            t: "text", x: lx + 24, y: ly + 0.5, s: t.label, size: L.legendFont,
             anchor: "start", baseline: "middle", fill: "#1F2937",
         });
     });
 
     // Legend entry for the simulated reference
-    if (hasRef && reference) {
+    if (L.legendInPlot && hasRef && reference) {
         const ly = M.t + 18 + traces.length * 17;
         out.push({ t: "line", x1: lx + 6, y1: ly - 5, x2: lx + 6, y2: ly + 5, stroke: "#334155", w: 1.2 });
         out.push({
-            t: "text", x: lx + 24, y: ly + 0.5, s: `Simulated · ${reference.formula}`, size: 11.5,
+            t: "text", x: lx + 24, y: ly + 0.5, s: `Simulated · ${reference.formula}`, size: L.legendFont,
             anchor: "start", baseline: "middle", fill: "#1F2937",
         });
     }
@@ -276,9 +338,17 @@ function buildFigure(
    Renderers
    ──────────────────────────────────────────────────────────────────────────── */
 
-function paintCanvas(canvas: HTMLCanvasElement, prims: Prim[], scale: number) {
-    canvas.width = W * scale;
-    canvas.height = H * scale;
+function paintCanvas(
+    canvas: HTMLCanvasElement,
+    prims: Prim[],
+    W: number,
+    H: number,
+    scale: number,
+) {
+    canvas.width = Math.round(W * scale);
+    canvas.height = Math.round(H * scale);
+    canvas.style.width = `${W}px`;
+    canvas.style.height = `${H}px`;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
@@ -326,7 +396,7 @@ function paintCanvas(canvas: HTMLCanvasElement, prims: Prim[], scale: number) {
     }
 }
 
-function toSVG(prims: Prim[]) {
+function toSVG(prims: Prim[], W: number, H: number) {
     const esc = (s: string) =>
         s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -376,6 +446,8 @@ export function XrdPlotter() {
     const [matchBusy, setMatchBusy] = useState(false);
     const [matchError, setMatchError] = useState<string | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const wrapRef = useRef<HTMLDivElement | null>(null);
+    const [canvasW, setCanvasW] = useState(0);
     const fileRef = useRef<HTMLInputElement | null>(null);
     const cifRef = useRef<HTMLInputElement | null>(null);
 
@@ -391,17 +463,46 @@ export function XrdPlotter() {
         };
     }, [matchResults, selectedMatchId, traces]);
 
+    // Re-layout at the measured container width: type must not scale with the box.
+    const layout = useMemo(() => screenLayout(canvasW || 860), [canvasW]);
+
     const prims = useMemo(
         () => (traces.length || reference
-            ? buildFigure(traces, lo, hi, gap, stacked, reference, overlay)
+            ? buildFigure(traces, lo, hi, gap, stacked, reference, overlay, layout)
             : []),
-        [traces, lo, hi, gap, stacked, reference, overlay],
+        [traces, lo, hi, gap, stacked, reference, overlay, layout],
     );
 
     // Repaint whenever the figure changes
+    useEffect(() => {
+        const el = wrapRef.current;
+        if (!el) return;
+        const measure = () => {
+            const w = el.getBoundingClientRect().width;
+            if (w > 0) setCanvasW(Math.round(w));
+        };
+        measure();
+        // ResizeObserver catches container changes; the window listener is the
+        // fallback for environments where RO delivery is deferred or throttled
+        // (it rides the rendering tick, which some browsers stall in background
+        // tabs). Either firing is enough.
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        window.addEventListener("resize", measure);
+        window.addEventListener("orientationchange", measure);
+        return () => {
+            ro.disconnect();
+            window.removeEventListener("resize", measure);
+            window.removeEventListener("orientationchange", measure);
+        };
+    }, [traces.length, reference]);
+
     const paint = useCallback(() => {
-        if (canvasRef.current && prims.length) paintCanvas(canvasRef.current, prims, 2);
-    }, [prims]);
+        const c = canvasRef.current;
+        if (!c || !prims.length) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 3);
+        paintCanvas(c, prims, layout.W, layout.H, dpr);
+    }, [prims, layout]);
 
     useEffect(() => {
         paint();
@@ -586,7 +687,10 @@ export function XrdPlotter() {
 
     function exportPNG() {
         const cv = document.createElement("canvas");
-        paintCanvas(cv, prims, 2.6);           // ~3150 px wide → >900 dpi at 85 mm
+        // Print geometry, never the on-screen one — a phone window must not
+        // produce a phone-sized figure.
+        paintCanvas(cv, buildFigure(traces, lo, hi, gap, stacked, reference, overlay, PRINT_LAYOUT),
+            PRINT_LAYOUT.W, PRINT_LAYOUT.H, 2.6);
         const a = document.createElement("a");
         a.href = cv.toDataURL("image/png");
         a.download = `AP-Lab_XRD_${stamp()}.png`;
@@ -594,7 +698,12 @@ export function XrdPlotter() {
     }
 
     function exportSVG() {
-        const blob = new Blob([toSVG(prims)], { type: "image/svg+xml" });
+        const svg = toSVG(
+            buildFigure(traces, lo, hi, gap, stacked, reference, overlay, PRINT_LAYOUT),
+            PRINT_LAYOUT.W,
+            PRINT_LAYOUT.H,
+        );
+        const blob = new Blob([svg], { type: "image/svg+xml" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -605,10 +714,11 @@ export function XrdPlotter() {
 
     function exportPDF() {
         const cv = document.createElement("canvas");
-        paintCanvas(cv, prims, 2.6);
+        paintCanvas(cv, buildFigure(traces, lo, hi, gap, stacked, reference, overlay, PRINT_LAYOUT),
+            PRINT_LAYOUT.W, PRINT_LAYOUT.H, 2.6);
         const img = cv.toDataURL("image/png");
         const widthMM = 85;
-        const heightMM = (widthMM * H) / W;
+        const heightMM = (widthMM * PRINT_LAYOUT.H) / PRINT_LAYOUT.W;
         const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [widthMM, heightMM] });
         pdf.addImage(img, "PNG", 0, 0, widthMM, heightMM);
         pdf.save(`AP-Lab_XRD_${stamp()}.pdf`);
@@ -651,28 +761,45 @@ export function XrdPlotter() {
                         handleFiles(e.dataTransfer.files);
                     }}
                 >
-                    {empty ? (
-                        <button
-                            type="button"
-                            onClick={() => fileRef.current?.click()}
-                            className="w-full h-[380px] rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-3 text-slate-500 hover:border-orange-400 hover:text-orange-500 transition-colors"
-                        >
-                            {busy ? (
-                                <Loader2 className="h-8 w-8 animate-spin" />
-                            ) : (
-                                <Upload className="h-8 w-8" />
+                    <div ref={wrapRef} className="w-full">
+                        {empty ? (
+                            <button
+                                type="button"
+                                onClick={() => fileRef.current?.click()}
+                                className="w-full h-[380px] rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-3 text-slate-500 hover:border-orange-400 hover:text-orange-500 transition-colors"
+                            >
+                                {busy ? (
+                                    <Loader2 className="h-8 w-8 animate-spin" />
+                                ) : (
+                                    <Upload className="h-8 w-8" />
+                                )}
+                                <span className="text-sm font-semibold">Drop .xy scans here</span>
+                                <span className="text-xs text-center px-4">
+                                    Rigaku / Bruker / PANalytical two-column exports · up to 8 traces
+                                </span>
+                            </button>
+                        ) : (
+                            <canvas ref={canvasRef} className="block max-w-full" />
+                        )}
+                    </div>
+
+                    {/* On narrow screens the legend leaves the figure and becomes
+                        real DOM text, which stays crisp at any pixel density. */}
+                    {!empty && !layout.legendInPlot && (
+                        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+                            {traces.map((t) => (
+                                <span key={`leg-${t.id}`} className="inline-flex items-center gap-1.5 text-[11px] text-slate-700">
+                                    <span className="h-[3px] w-4 rounded-full shrink-0" style={{ background: t.color }} />
+                                    <span className="truncate max-w-[190px]">{t.label}</span>
+                                </span>
+                            ))}
+                            {reference?.visible && (
+                                <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-700">
+                                    <span className="h-3 w-[2px] rounded bg-slate-500 shrink-0" />
+                                    <span className="truncate max-w-[190px]">Simulated · {reference.formula}</span>
+                                </span>
                             )}
-                            <span className="text-sm font-semibold">Drop .xy scans here</span>
-                            <span className="text-xs">
-                                Rigaku / Bruker / PANalytical two-column exports · up to 8 traces
-                            </span>
-                        </button>
-                    ) : (
-                        <canvas
-                            ref={canvasRef}
-                            className="w-full h-auto block"
-                            style={{ aspectRatio: `${W} / ${H}` }}
-                        />
+                        </div>
                     )}
                 </div>
 
