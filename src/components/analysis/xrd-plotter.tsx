@@ -470,11 +470,20 @@ export function XrdPlotter() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editValue, setEditValue] = useState("");
     const [canvasW, setCanvasW] = useState(0);
+    const [showHelp, setShowHelp] = useState(false);
+    const [exportToast, setExportToast] = useState<{ msg: string; t: number } | null>(null);
     const fileRef = useRef<HTMLInputElement | null>(null);
     const cifRef = useRef<HTMLInputElement | null>(null);
 
     // Everything downstream of the figure works on active traces only.
     const visibleTraces = useMemo(() => traces.filter((t) => t.visible), [traces]);
+
+    // Auto-dismiss export toast after 3s
+    useEffect(() => {
+        if (!exportToast) return;
+        const timer = setTimeout(() => setExportToast(null), 3000);
+        return () => clearTimeout(timer);
+    }, [exportToast]);
 
     // ---- 2θ range guard ---------------------------------------------------
     // An inverted or half-typed range used to render a blank white figure with
@@ -894,9 +903,11 @@ export function XrdPlotter() {
         paintCanvas(cv, buildFigure(visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, PRINT_LAYOUT),
             PRINT_LAYOUT.W, PRINT_LAYOUT.H, 2.6);
         const a = document.createElement("a");
+        const fname = `AP-Lab_XRD_${stamp()}.png`;
         a.href = cv.toDataURL("image/png");
-        a.download = `AP-Lab_XRD_${stamp()}.png`;
+        a.download = fname;
         a.click();
+        setExportToast({ msg: `✓ Downloaded ${fname}`, t: Date.now() });
     }
 
     function exportSVG() {
@@ -908,10 +919,12 @@ export function XrdPlotter() {
         const blob = new Blob([svg], { type: "image/svg+xml" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
+        const fname = `AP-Lab_XRD_${stamp()}.svg`;
         a.href = url;
-        a.download = `AP-Lab_XRD_${stamp()}.svg`;
+        a.download = fname;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
+        setExportToast({ msg: `✓ Downloaded ${fname}`, t: Date.now() });
     }
 
     function exportPDF() {
@@ -923,7 +936,9 @@ export function XrdPlotter() {
         const heightMM = (widthMM * PRINT_LAYOUT.H) / PRINT_LAYOUT.W;
         const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [widthMM, heightMM] });
         pdf.addImage(img, "PNG", 0, 0, widthMM, heightMM);
-        pdf.save(`AP-Lab_XRD_${stamp()}.pdf`);
+        const fname = `AP-Lab_XRD_${stamp()}.pdf`;
+        pdf.save(fname);
+        setExportToast({ msg: `✓ Downloaded ${fname}`, t: Date.now() });
     }
 
     function exportCSV() {
@@ -937,10 +952,12 @@ export function XrdPlotter() {
         const blob = new Blob([blocks.join("\n\n")], { type: "text/csv" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
+        const fname = `AP-Lab_XRD_${stamp()}.csv`;
         a.href = url;
-        a.download = `AP-Lab_XRD_${stamp()}.csv`;
+        a.download = fname;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
+        setExportToast({ msg: `✓ Downloaded ${fname}`, t: Date.now() });
     }
 
     const empty = traces.length === 0 && !reference;
@@ -952,6 +969,54 @@ export function XrdPlotter() {
             {error && (
                 <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
                     {error}
+                </div>
+            )}
+
+            {/* Top actions bar */}
+            <div className="flex flex-wrap items-center gap-3">
+                <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={busy}
+                    className="flex items-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-40 px-3 py-2 text-xs font-bold text-white transition-colors"
+                >
+                    <Upload className="h-3.5 w-3.5" /> Load scan from file
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setShowHelp(!showHelp)}
+                    title="Keyboard shortcuts and tips"
+                    className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-2 text-xs text-slate-400 hover:text-white hover:border-orange-500/60 transition-colors"
+                >
+                    <span className="text-[13px] font-semibold">?</span> Help
+                </button>
+            </div>
+
+            {/* Help card */}
+            {showHelp && (
+                <div className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-4 space-y-2.5">
+                    <h3 className="text-xs font-bold text-slate-300">Keyboard shortcuts & tips</h3>
+                    <ul className="space-y-1.5 text-[11px] text-slate-400 leading-relaxed">
+                        <li>
+                            <strong className="text-slate-200">Rename:</strong> Double-click a label or press Enter when focused
+                        </li>
+                        <li>
+                            <strong className="text-slate-200">Readout:</strong> Hover the plot to see 2θ and counts at your cursor
+                        </li>
+                        <li>
+                            <strong className="text-slate-200">Reorder:</strong> Drag the grip handle left of each trace
+                        </li>
+                        <li>
+                            <strong className="text-slate-200">Hide/Show:</strong> Click the eye icon or the legend chip to toggle visibility
+                        </li>
+                    </ul>
+                </div>
+            )}
+
+            {/* Export toast */}
+            {exportToast && (
+                <div className="fixed bottom-4 right-4 rounded-lg border border-green-500/40 bg-green-950/90 backdrop-blur-sm px-4 py-3 text-sm text-green-200 shadow-xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {exportToast.msg}
                 </div>
             )}
 
@@ -1266,18 +1331,22 @@ export function XrdPlotter() {
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <button type="button" onClick={exportPNG} disabled={nothingVisible}
+                            title="Raster 2.6× — 940 dpi at 85 mm"
                             className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors disabled:opacity-40">
                             <ImageIcon className="h-3.5 w-3.5" /> PNG
                         </button>
                         <button type="button" onClick={exportSVG} disabled={nothingVisible}
+                            title="Vector 1210×760 — editable curves"
                             className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors disabled:opacity-40">
                             <FileText className="h-3.5 w-3.5" /> SVG
                         </button>
                         <button type="button" onClick={exportPDF} disabled={nothingVisible}
+                            title="Print layout — 85 mm width"
                             className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors disabled:opacity-40">
                             <Download className="h-3.5 w-3.5" /> PDF 85 mm
                         </button>
                         <button type="button" onClick={exportCSV} disabled={nothingVisible}
+                            title="Two-column 2θ, intensity — all traces"
                             className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2 py-2 text-[11px] font-semibold text-slate-200 hover:border-orange-500/60 hover:text-white transition-colors disabled:opacity-40">
                             <Download className="h-3.5 w-3.5" /> CSV
                         </button>

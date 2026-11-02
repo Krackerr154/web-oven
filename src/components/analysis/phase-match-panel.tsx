@@ -87,7 +87,7 @@ export function PhaseMatchPanel({
                     <p className="text-[10px] text-slate-500 mt-0.5">
                         {referenceLabel
                             ? `Compared against ${referenceLabel} · peak-list search–match`
-                            : "Load a CIF reference first"}
+                            : "Drag a .cif file here or use 'Add CIF pattern' to compare scans against a reference structure"}
                     </p>
                 </div>
                 <button
