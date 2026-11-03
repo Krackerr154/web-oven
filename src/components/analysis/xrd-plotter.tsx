@@ -58,8 +58,6 @@ type Layout = {
     W: number;
     H: number;
     M: { l: number; r: number; t: number; b: number };
-    xMajor: number;
-    xMinor: number;
     tickFont: number;
     titleFont: number;
     legendFont: number;
@@ -68,12 +66,27 @@ type Layout = {
     showHkl: boolean;
 };
 
+/**
+ * Major tick step for a 2θ span, on a 1-2-5 progression.
+ *
+ * A fixed 10° step is only correct on a full 5–80° pattern. Once the plot can
+ * be zoomed, a 15° window holding one labelled tick reads as an unlabelled
+ * axis. The step is chosen so roughly `target` majors land on the axis,
+ * whatever the span.
+ */
+function niceStep(span: number, target = 8): number {
+    if (!Number.isFinite(span) || span <= 0) return 10;
+    const raw = span / target;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const norm = raw / mag;
+    const mult = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10;
+    return mult * mag;
+}
+
 const PRINT_LAYOUT: Layout = {
     W: 1210,
     H: 760,
     M: { l: 86, r: 30, t: 34, b: 88 },
-    xMajor: 10,
-    xMinor: 2,
     tickFont: 13,
     titleFont: 15,
     legendFont: 12,
@@ -89,7 +102,6 @@ function screenLayout(cssW: number): Layout {
         return {
             W: w, H: Math.round(w * 0.62),
             M: { l: 78, r: 24, t: 26, b: 76 },
-            xMajor: 10, xMinor: 2,
             tickFont: 14, titleFont: 15, legendFont: 12.5, hklFont: 10,
             legendInPlot: true, showHkl: true,
         };
@@ -98,7 +110,6 @@ function screenLayout(cssW: number): Layout {
         return {
             W: w, H: Math.round(w * 0.66),
             M: { l: 62, r: 16, t: 22, b: 70 },
-            xMajor: 10, xMinor: 2,
             tickFont: 12, titleFont: 13, legendFont: 11.5, hklFont: 9,
             legendInPlot: true, showHkl: true,
         };
@@ -106,7 +117,6 @@ function screenLayout(cssW: number): Layout {
     return {
         W: w, H: Math.round(w * 0.92),
         M: { l: 46, r: 12, t: 16, b: 58 },
-        xMajor: 10, xMinor: 5,
         tickFont: 11.5, titleFont: 12, legendFont: 11, hklFont: 0,
         legendInPlot: false, showHkl: false,
     };
@@ -214,17 +224,29 @@ function buildFigure(
     out.push({ t: "rect", x: 0, y: 0, w: W, h: H, stroke: "none", sw: 0, fill: "#ffffff" });
     out.push({ t: "rect", x: M.l, y: M.t, w: PW, h: PH, stroke: "#111827", sw: 1.1 });
 
-    // X ticks
-    const majorX = L.xMajor;
-    const minorX = L.xMinor;
+    // X ticks — step follows the visible span so a zoomed window stays labelled.
+    // Labels get decimals once the step drops below 1°, otherwise a 0.5° step
+    // would print 20, 20, 21, 21 and read as broken.
+    const span = hi - lo;
+    const majorX = niceStep(span);
+    const minorX = majorX / 5;
+    const decimals = majorX >= 1 ? 0 : majorX >= 0.1 ? 1 : 2;
+    // Offset traces on a zoomed window can carry 3+ digit labels; skip a label
+    // rather than let two of them collide.
+    let lastLabelX = -1e9;
     for (let v = Math.ceil(lo / minorX) * minorX; v <= hi + 1e-6; v += minorX) {
-        const isMajor = Math.abs(v % majorX) < 1e-6;
         const px = X(v);
+        // Floating point drift on repeated addition: snap the multiple test.
+        const isMajor = Math.abs(v / majorX - Math.round(v / majorX)) < 1e-6;
         const len = isMajor ? 7 : 4;
         out.push({ t: "line", x1: px, y1: M.t + PH, x2: px, y2: M.t + PH - len, stroke: "#111827", w: 1 });
         if (isMajor) {
+            const label = v.toFixed(decimals);
+            const approxW = label.length * L.tickFont * 0.58 + 6;
+            if (px - approxW / 2 < lastLabelX) continue;
+            lastLabelX = px + approxW / 2;
             out.push({
-                t: "text", x: px, y: M.t + PH + 9, s: v.toFixed(0), size: L.tickFont,
+                t: "text", x: px, y: M.t + PH + 9, s: label, size: L.tickFont,
                 anchor: "middle", baseline: "top", fill: "#111827",
             });
         }
