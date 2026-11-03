@@ -753,8 +753,10 @@ export function XrdPlotter() {
                 if (nextLo < min) nextLo = min;
                 if (nextLo + span > max) nextLo = max - span;
                 if (nextLo < min) nextLo = min;
-                setLo(nextLo);
-                setHi(Math.min(nextLo + span, max));
+                // Same 0.01° rounding as zoom: the fields are read by humans.
+                const round2 = (v: number) => Math.round(v * 100) / 100;
+                setLo(round2(nextLo));
+                setHi(round2(Math.min(nextLo + span, max)));
                 setLoDraft(null);
                 setHiDraft(null);
                 return;
