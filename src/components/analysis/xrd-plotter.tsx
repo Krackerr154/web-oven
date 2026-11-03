@@ -490,6 +490,18 @@ export function XrdPlotter() {
     const [showHelp, setShowHelp] = useState(false);
     const [exportToast, setExportToast] = useState<{ msg: string; t: number } | null>(null);
     const [dragOverId, setDragOverId] = useState<string | null>(null);
+    // Drag-to-zoom / shift-drag pan. The live rectangle is mirrored into a ref
+    // so the pointer handlers can read the current gesture without waiting for
+    // a re-render; state drives the repaint.
+    const [zoomDrag, setZoomDrag] = useState<{
+        startX: number;
+        startY: number;
+        curX: number;
+        curY: number;
+        pan: boolean;
+        moved: boolean;
+    } | null>(null);
+    const zoomDragRef = useRef<typeof zoomDrag>(null);
     const fileRef = useRef<HTMLInputElement | null>(null);
     const cifRef = useRef<HTMLInputElement | null>(null);
 
@@ -591,36 +603,179 @@ export function XrdPlotter() {
         paint();
     }, [paint]);
 
+    // ---- legend hit test --------------------------------------------------
+    // The legend is drawn INSIDE the plot rectangle, so it overlaps the
+    // drag-to-zoom area. Both handlers must agree on where it is or clicking a
+    // legend entry would also start a zoom band.
+    const legendSlotAt = useCallback(
+        (cx: number, cy: number): Trace | null => {
+            const L = currentLayoutRef.current;
+            const prims = currentPrimsRef.current;
+            if (!L || !L.legendInPlot || !prims.length) return null;
+            const PW = L.W - L.M.l - L.M.r;
+            const lx = L.M.l + PW - 244;
+            for (const p of prims) {
+                if (p.t !== "text" || !p.data?.traceId) continue;
+                const ly = L.M.t + 18 + (p.data.legendIndex ?? 0) * 17;
+                if (cx >= lx && cx <= lx + 240 && cy >= ly - 7 && cy <= ly + 7) {
+                    return traces.find((t) => t.id === p.data!.traceId) ?? null;
+                }
+            }
+            return null;
+        },
+        [traces],
+    );
+
     // ---- legend click to toggle visibility -------------------------------
     const handleLegendClick = useCallback(
         (e: React.PointerEvent<HTMLCanvasElement>) => {
             const c = canvasRef.current;
-            const prims = currentPrimsRef.current;
             const L = currentLayoutRef.current;
-            if (!c || !prims.length || !L || !L.legendInPlot) return;
+            if (!c || !L || !L.legendInPlot) return;
+            const rect = c.getBoundingClientRect();
+            const hit = legendSlotAt(e.clientX - rect.left, e.clientY - rect.top);
+            if (!hit) return;
+            setTraces((prev) =>
+                prev.map((t) => (t.id === hit.id ? { ...t, visible: !t.visible } : t)),
+            );
+        },
+        [legendSlotAt],
+    );
 
+    // ---- drag-to-zoom / shift-drag pan / double-click reset ----------------
+    // Mapping helpers. The plot area is M.l..M.l+PW horizontally, and 2θ runs
+    // viewLo..viewHi across it, so pixel↔angle is a straight lerp.
+    const pxToTwoTheta = useCallback(
+        (px: number) => {
+            const { M, W } = layout;
+            const PW = W - M.l - M.r;
+            const f = (px - M.l) / PW;
+            return viewLo + f * (viewHi - viewLo);
+        },
+        [layout, viewLo, viewHi],
+    );
+
+    // Clamp to the measured extent so a zoom can never strand the user in an
+    // empty angle range with no data and no way to see what happened.
+    const clampRange = useCallback(
+        (a: number, b: number) => {
+            const { min, max } = dataExtent;
+            let next = Math.min(a, b);
+            let hiNext = Math.max(a, b);
+            if (hiNext - next < 0.05) return null; // degenerate: a click, not a drag
+            next = Math.max(min, next);
+            hiNext = Math.min(max, hiNext);
+            if (hiNext - next < 0.05) return null;
+            return [next, hiNext] as const;
+        },
+        [dataExtent],
+    );
+
+    const resetZoom = useCallback(() => {
+        setLo(dataExtent.min);
+        setHi(dataExtent.max);
+        setLoDraft(null);
+        setHiDraft(null);
+    }, [dataExtent]);
+
+    const onZoomDown = useCallback(
+        (e: React.PointerEvent<HTMLCanvasElement>) => {
+            const c = canvasRef.current;
+            const L = currentLayoutRef.current;
+            if (!c || !L || !traces.length) return;
             const rect = c.getBoundingClientRect();
             const cx = e.clientX - rect.left;
             const cy = e.clientY - rect.top;
+            const { M, W, H } = L;
+            const PW = W - M.l - M.r;
+            const PH = H - M.t - M.b;
+            // Only inside the plot area — the legend and margins stay inert.
+            if (cx < M.l || cx > M.l + PW || cy < M.t || cy > M.t + PH) return;
+            // A press on the legend is a visibility toggle, not a zoom start.
+            if (legendSlotAt(cx, cy)) return;
 
-            // Find legend text primitives within click radius
-            const lx = L.M.l + (L.W - L.M.l - L.M.r) - 244;
-            for (const p of prims) {
-                if (p.t !== "text" || !p.data?.traceId) continue;
-                const ly = L.M.t + 18 + (p.data.legendIndex ?? 0) * 17;
-                // Hit box: line + text, roughly 240px wide × 14px tall
-                if (cx >= lx && cx <= lx + 240 && cy >= ly - 7 && cy <= ly + 7) {
-                    // Toggle visibility
-                    setTraces((prev) =>
-                        prev.map((t) =>
-                            t.id === p.data!.traceId ? { ...t, visible: !t.visible } : t
-                        )
-                    );
-                    return;
-                }
-            }
+            const drag = {
+                startX: cx,
+                startY: cy,
+                curX: cx,
+                curY: cy,
+                pan: e.shiftKey,
+                moved: false,
+            };
+            setHover(null); // the readout would sit under the rubber band
+            setZoomDrag(drag);
+            zoomDragRef.current = drag;
+            // Capture so a drag that leaves the canvas still completes.
+            c.setPointerCapture?.(e.pointerId);
         },
-        []
+        [traces.length, legendSlotAt],
+    );
+
+    const onZoomMove = useCallback(
+        (e: React.PointerEvent<HTMLCanvasElement>) => {
+            const cur = zoomDragRef.current;
+            if (!cur) return;
+            const c = canvasRef.current;
+            if (!c) return;
+            const rect = c.getBoundingClientRect();
+            const cx = e.clientX - rect.left;
+            const cy = e.clientY - rect.top;
+            const next = {
+                ...cur,
+                curX: cx,
+                curY: cy,
+                moved: cur.moved || Math.abs(cx - cur.startX) > 2,
+            };
+            zoomDragRef.current = next;
+            setZoomDrag(next);
+        },
+        [],
+    );
+
+    const onZoomUp = useCallback(
+        (e: React.PointerEvent<HTMLCanvasElement>) => {
+            const cur = zoomDragRef.current;
+            zoomDragRef.current = null;
+            setZoomDrag(null);
+            if (!cur) return;
+            canvasRef.current?.releasePointerCapture?.(e.pointerId);
+            if (!cur.moved) return; // a plain click: leave the view alone
+
+            if (cur.pan) {
+                // Shift-drag pans: shift the window by the dragged pixel span,
+                // keeping its width. Clamped to the measured extent.
+                const { M, W } = layout;
+                const PW = W - M.l - M.r;
+                const span = viewHi - viewLo;
+                const delta = ((cur.startX - cur.curX) / PW) * span;
+                const { min, max } = dataExtent;
+                let nextLo = viewLo + delta;
+                if (nextLo < min) nextLo = min;
+                if (nextLo + span > max) nextLo = max - span;
+                if (nextLo < min) nextLo = min;
+                setLo(nextLo);
+                setHi(Math.min(nextLo + span, max));
+                setLoDraft(null);
+                setHiDraft(null);
+                return;
+            }
+
+            const a = pxToTwoTheta(cur.startX);
+            const b = pxToTwoTheta(cur.curX);
+            const range = clampRange(a, b);
+            if (!range) return;
+            // Round to 0.01° so the side-panel fields read cleanly instead of
+            // showing 9.27318462.
+            const [nextLo, nextHi] = [
+                Math.round(range[0] * 100) / 100,
+                Math.round(range[1] * 100) / 100,
+            ];
+            setLo(nextLo);
+            setHi(nextHi);
+            setLoDraft(null);
+            setHiDraft(null);
+        },
+        [layout, viewLo, viewHi, dataExtent, pxToTwoTheta, clampRange],
     );
 
     // ---- cursor readout ---------------------------------------------------
@@ -669,6 +824,72 @@ export function XrdPlotter() {
         if (!ctx) return;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, layout.W, layout.H);
+
+        // ---- zoom / pan rectangle -----------------------------------------
+        // Drawn before the early return so the rubber band is visible even
+        // though no hover readout is active during a drag.
+        if (zoomDrag && zoomDrag.moved) {
+            const { M } = layout;
+            const PW = layout.W - M.l - M.r;
+            const PH = layout.H - M.t - M.b;
+            const x0 = Math.max(M.l, Math.min(zoomDrag.startX, zoomDrag.curX));
+            const x1 = Math.min(M.l + PW, Math.max(zoomDrag.startX, zoomDrag.curX));
+
+            if (zoomDrag.pan) {
+                // Pan: a vertical cursor plus the px→degrees shift, so the user
+                // can see how far the window is travelling before releasing.
+                ctx.strokeStyle = "rgba(249,115,22,0.9)";
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([5, 3]);
+                ctx.beginPath();
+                ctx.moveTo(zoomDrag.curX, M.t);
+                ctx.lineTo(zoomDrag.curX, M.t + PH);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                const span = viewHi - viewLo;
+                const delta = ((zoomDrag.startX - zoomDrag.curX) / PW) * span;
+                const label = `pan ${delta >= 0 ? "+" : "−"}${Math.abs(delta).toFixed(2)}°`;
+                ctx.font = "600 11px system-ui, -apple-system, sans-serif";
+                const tw = ctx.measureText(label).width;
+                const lx = Math.min(Math.max(zoomDrag.curX + 8, M.l + 2), M.l + PW - tw - 10);
+                ctx.fillStyle = "rgba(249,115,22,0.95)";
+                ctx.beginPath();
+                ctx.roundRect(lx - 4, M.t + 4, tw + 8, 17, 3);
+                ctx.fill();
+                ctx.fillStyle = "#FFFFFF";
+                ctx.textAlign = "left";
+                ctx.textBaseline = "middle";
+                ctx.fillText(label, lx, M.t + 13);
+            } else {
+                // Zoom: shaded band plus the resulting angle range.
+                ctx.fillStyle = "rgba(249,115,22,0.14)";
+                ctx.fillRect(x0, M.t, x1 - x0, PH);
+                ctx.strokeStyle = "rgba(249,115,22,0.95)";
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 3]);
+                ctx.strokeRect(x0, M.t, x1 - x0, PH);
+                ctx.setLineDash([]);
+
+                const from = pxToTwoTheta(x0);
+                const to = pxToTwoTheta(x1);
+                const label = `${from.toFixed(2)}° – ${to.toFixed(2)}°`;
+                ctx.font = "600 11px system-ui, -apple-system, sans-serif";
+                const tw = ctx.measureText(label).width;
+                const lx = Math.min(Math.max((x0 + x1) / 2 - tw / 2, M.l + 2), M.l + PW - tw - 10);
+                ctx.fillStyle = "rgba(249,115,22,0.95)";
+                ctx.beginPath();
+                ctx.roundRect(lx - 5, M.t + 4, tw + 10, 17, 3);
+                ctx.fill();
+                ctx.fillStyle = "#FFFFFF";
+                ctx.textAlign = "left";
+                ctx.textBaseline = "middle";
+                ctx.fillText(label, lx, M.t + 13);
+            }
+            ctx.textAlign = "left";
+            ctx.textBaseline = "alphabetic";
+        }
+
         if (!hover) return;
 
         const { M } = layout;
@@ -745,7 +966,7 @@ export function XrdPlotter() {
             ctx.fillText(Math.round(r.counts).toLocaleString(), bx + boxW - 8, y);
             ctx.textAlign = "left";
         });
-    }, [hover, layout, visibleTraces.length]);
+    }, [hover, layout, visibleTraces.length, zoomDrag, pxToTwoTheta, viewLo, viewHi]);
 
     // A readout holds label text copied at hover time; clear it when the traces
     // change so it can never show a name that has since been edited or removed.
@@ -1058,6 +1279,22 @@ export function XrdPlotter() {
                     <h3 className="text-xs font-bold text-slate-300">Keyboard shortcuts & tips</h3>
                     <ul className="space-y-1.5 text-[11px] text-slate-400 leading-relaxed">
                         <li>
+                            <strong className="text-slate-200">Zoom:</strong> Drag a box on the plot to
+                            look at that 2θ window
+                        </li>
+                        <li>
+                            <strong className="text-slate-200">Pan:</strong> Hold Shift and drag to
+                            slide the window sideways
+                        </li>
+                        <li>
+                            <strong className="text-slate-200">Reset zoom:</strong> Double-click the
+                            plot, or press Reset beside the range fields
+                        </li>
+                        <li>
+                            <strong className="text-slate-200">Legend:</strong> Click an entry to hide
+                            or show that trace
+                        </li>
+                        <li>
                             <strong className="text-slate-200">Rename:</strong> Double-click a label or press Enter when focused
                         </li>
                         <li>
@@ -1065,9 +1302,6 @@ export function XrdPlotter() {
                         </li>
                         <li>
                             <strong className="text-slate-200">Reorder:</strong> Drag the grip handle left of each trace
-                        </li>
-                        <li>
-                            <strong className="text-slate-200">Hide/Show:</strong> Click the eye icon or the legend chip to toggle visibility
                         </li>
                     </ul>
                 </div>
@@ -1111,12 +1345,22 @@ export function XrdPlotter() {
                             <>
                                 <canvas
                                     ref={canvasRef}
-                                    className="block max-w-full cursor-crosshair"
-                                    onPointerMove={handleHover}
-                                    onPointerDown={(e) => {
-                                        handleHover(e);
-                                        handleLegendClick(e);
+                                    className="block max-w-full cursor-crosshair touch-pan-y"
+                                    title="Drag to zoom · Shift-drag to pan · Double-click to reset"
+                                    onPointerMove={(e) => {
+                                        if (!zoomDragRef.current) handleHover(e);
+                                        onZoomMove(e);
                                     }}
+                                    onPointerDown={(e) => {
+                                        // Legend first: its hit box sits inside the
+                                        // margins, which the zoom handler ignores.
+                                        handleLegendClick(e);
+                                        handleHover(e);
+                                        onZoomDown(e);
+                                    }}
+                                    onPointerUp={onZoomUp}
+                                    onPointerCancel={onZoomUp}
+                                    onDoubleClick={resetZoom}
                                     onPointerLeave={() => setHover(null)}
                                 />
                                 <canvas
@@ -1378,6 +1622,20 @@ export function XrdPlotter() {
                                         onBlur={() => setHiDraft(null)}
                                         className={`w-full rounded-md bg-slate-950 border px-2 py-1 text-xs text-white ${rangeInvalid ? "border-amber-500/70" : "border-slate-700"}`}
                                     />
+                                </div>
+                                <div className="flex items-center justify-between -mt-1">
+                                    <p className="text-[10px] text-slate-500">
+                                        Drag on the plot to zoom, shift-drag to pan, double-click to
+                                        reset.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={resetZoom}
+                                        title="Show the full measured range again"
+                                        className="shrink-0 rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-400 hover:text-white hover:border-orange-500/60 transition-colors"
+                                    >
+                                        Reset
+                                    </button>
                                 </div>
                                 {rangeInvalid && (
                                     <p className="text-[10px] leading-relaxed text-amber-300">
