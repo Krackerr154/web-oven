@@ -45,6 +45,14 @@ export type SessionSettings = {
     hi: number;
     gap: number;
     stacked: boolean;
+    /**
+     * Legend placement as a fraction of the reachable plot area: 0 = flush
+     * left/top, 1 = flush right/bottom. Fractions rather than pixels so a
+     * position dragged on a 1600 px screen still lands correctly on a phone,
+     * and so the same value maps onto the print layout for exports.
+     * Absent or null means automatic corner selection.
+     */
+    legendPos?: { fx: number; fy: number } | null;
 };
 
 export type StoredSession = {

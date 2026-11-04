@@ -37,7 +37,12 @@ type Trace = {
 
 type Prim =
     | { t: "line"; x1: number; y1: number; x2: number; y2: number; stroke: string; w: number; opacity?: number }
-    | { t: "rect"; x: number; y: number; w: number; h: number; stroke: string; sw: number; fill?: string; opacity?: number; rx?: number }
+    | {
+        t: "rect"; x: number; y: number; w: number; h: number; stroke: string; sw: number; fill?: string;
+        opacity?: number; rx?: number;
+        /** Set on the legend backing panel so the drag/drop hit test can find it. */
+        data?: { legendPanel?: { x: number; y: number; w: number; h: number } };
+    }
     | { t: "poly"; pts: Array<[number, number]>; stroke: string; w: number }
     | {
         t: "text"; x: number; y: number; s: string; size: number; weight?: number;
@@ -85,6 +90,40 @@ function textWidth(s: string, size: number): number {
         else w += 0.56;
     }
     return w * size;
+}
+
+const clamp01 = (v: number) => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0);
+
+/**
+ * Snap a legend fraction to whichever corner is within `tol` of it.
+ *
+ * Distance is measured in context px, not fraction units, because the reachable
+ * range differs per axis: 6 % of a 790 px-wide range is 47 px but 6 % of a
+ * 451 px-tall one is 27 px, so a single fractional tolerance would snap eagerly
+ * on one axis and never on the other.
+ */
+function snapLegendPos(
+    pos: { fx: number; fy: number },
+    spanX: number,
+    spanY: number,
+    tol = 26,
+): { fx: number; fy: number } {
+    const corners: Array<{ fx: number; fy: number }> = [
+        { fx: 0, fy: 0 }, { fx: 1, fy: 0 },
+        { fx: 0, fy: 1 }, { fx: 1, fy: 1 },
+    ];
+    let best = pos;
+    let bestD = Infinity;
+    for (const c of corners) {
+        const dx = (pos.fx - c.fx) * spanX;
+        const dy = (pos.fy - c.fy) * spanY;
+        const d = Math.hypot(dx, dy);
+        if (d < tol && d < bestD) {
+            bestD = d;
+            best = c;
+        }
+    }
+    return best;
 }
 
 const PALETTE = [
@@ -241,6 +280,12 @@ function buildFigure(
      * Exports pass nothing and keep the tighter "only what is plotted" legend.
      */
     legendTraces?: Trace[],
+    /**
+     * Manual legend placement, as a fraction of the reachable area. Null means
+     * automatic corner selection. Exports receive the same value, so a figure
+     * you dragged the legend on comes out with the legend where you left it.
+     */
+    legendPos: { fx: number; fy: number } | null = null,
 ): Prim[] {
     const out: Prim[] = [];
     const { W, H, M } = L;
@@ -461,45 +506,64 @@ function buildFigure(
         const maxPanelW = PW - 8;
         const panelWClamped = Math.min(panelW, maxPanelW);
 
-        // ── Corner selection ──
-        // Sample the four candidate corners and pick the one whose area holds
-        // the fewest data points. Deterministic: ties go top-right, which is
-        // where the legend has always been.
-        const candidates: { x: number; y: number; name: string }[] = [
-            { x: M.l + PW - panelWClamped - 4, y: M.t + 4, name: "tr" },
-            { x: M.l + 4, y: M.t + 4, name: "tl" },
-            { x: M.l + PW - panelWClamped - 4, y: M.t + PH - panelH - 4, name: "br" },
-            { x: M.l + 4, y: M.t + PH - panelH - 4, name: "bl" },
-        ];
-        // A cheap occupancy test: for each visible trace, count how many of its
-        // points fall inside the candidate box. The curve occupies the box only
-        // where its own x/y lands there, so this is the same question the eye
-        // asks. Sampling every 12th point keeps it to a few thousand compares.
-        const occupancy = candidates.map((c) => {
-            let hits = 0;
-            for (const t of traces) {
-                const scale = stacked ? (Math.max(...t.y) || 1) : globalMax;
-                const i = traces.indexOf(t);
-                const base = base0 + (stacked ? (n - 1 - i) * step : 0);
-                for (let k = 0; k < t.x.length; k += 12) {
-                    const xv = t.x[k];
-                    if (xv < lo || xv > hi) continue;
-                    const px = X(xv);
-                    if (px < c.x || px > c.x + panelWClamped) continue;
-                    const py = Y(base + t.y[k] / scale);
-                    if (py < c.y || py > c.y + panelH) continue;
-                    hits++;
-                }
+        // ── Placement ──
+        // Reachable range for the panel origin: the plot inset by 2 px on each
+        // side, minus the panel's own size.
+        const minX = M.l + 2, maxX = M.l + PW - panelWClamped - 2;
+        const minY = M.t + 2, maxY = M.t + PH - panelH - 2;
+
+        let panelX: number;
+        let panelY: number;
+
+        if (legendPos) {
+            // Manual placement. The fraction is mapped onto the reachable range
+            // for THIS layout, so a position chosen on a wide canvas still lands
+            // inside a narrow one, and the same fraction reproduces the position
+            // in the print geometry.
+            panelX = minX + clamp01(legendPos.fx) * (maxX - minX);
+            panelY = minY + clamp01(legendPos.fy) * (maxY - minY);
+        } else {
+            // Automatic: sample the four corners and take the emptiest. Ties go
+            // top-right, which is where the legend has always been.
+            const candidates: { x: number; y: number }[] = [
+                { x: maxX, y: minY }, // top-right
+                { x: minX, y: minY }, // top-left
+                { x: maxX, y: maxY }, // bottom-right
+                { x: minX, y: maxY }, // bottom-left
+            ];
+            // A cheap occupancy test: for each trace, count how many of its
+            // points fall inside the candidate box. The curve occupies the box
+            // only where its own x/y lands there, so this asks the same question
+            // the eye asks. Sampling every 12th point keeps it to a few thousand
+            // compares.
+            const occupancy = candidates.map((c) => {
+                let hits = 0;
+                traces.forEach((t, i) => {
+                    const scale = stacked ? (Math.max(...t.y) || 1) : globalMax;
+                    const base = base0 + (stacked ? (n - 1 - i) * step : 0);
+                    for (let k = 0; k < t.x.length; k += 12) {
+                        const xv = t.x[k];
+                        if (xv < lo || xv > hi) continue;
+                        const px = X(xv);
+                        if (px < c.x || px > c.x + panelWClamped) continue;
+                        const py = Y(base + t.y[k] / scale);
+                        if (py < c.y || py > c.y + panelH) continue;
+                        hits++;
+                    }
+                });
+                return hits;
+            });
+            let best = 0;
+            for (let i = 1; i < candidates.length; i++) {
+                if (occupancy[i] < occupancy[best]) best = i;
             }
-            return hits;
-        });
-        let best = 0;
-        for (let i = 1; i < candidates.length; i++) {
-            if (occupancy[i] < occupancy[best]) best = i;
+            panelX = candidates[best].x;
+            panelY = candidates[best].y;
         }
-        const chosen = candidates[best];
-        const panelX = Math.max(M.l + 2, Math.min(chosen.x, M.l + PW - panelWClamped - 2));
-        const panelY = Math.max(M.t + 2, Math.min(chosen.y, M.t + PH - panelH - 2));
+
+        // Final guard: never paint outside the plot, whatever the fraction says.
+        panelX = Math.max(minX, Math.min(panelX, maxX));
+        panelY = Math.max(minY, Math.min(panelY, maxY));
 
         // ── Backing panel ──
         // Opaque enough that curves behind it read as a faint ghost rather than
@@ -508,6 +572,7 @@ function buildFigure(
         out.push({
             t: "rect", x: panelX, y: panelY, w: panelWClamped, h: panelH,
             stroke: "#CBD5E1", sw: 0.8, fill: "#FFFFFF", opacity: 0.93, rx: 3,
+            data: { legendPanel: { x: panelX, y: panelY, w: panelWClamped, h: panelH } },
         });
 
         // ── Rows ──
@@ -711,6 +776,23 @@ export function XrdPlotter() {
     const [showHelp, setShowHelp] = useState(false);
     const [exportToast, setExportToast] = useState<{ msg: string; t: number } | null>(null);
     const [dragOverId, setDragOverId] = useState<string | null>(null);
+    // ---- draggable legend ---------------------------------------------------
+    // legendPos is the committed placement (null = automatic corner choice).
+    // legendDrag is the live gesture; it suppresses the click-to-toggle once the
+    // pointer has travelled far enough to count as a drag.
+    const [legendPos, setLegendPos] = useState<{ fx: number; fy: number } | null>(null);
+    const [legendDrag, setLegendDrag] = useState<{
+        /** Pointer offset inside the panel when the drag started, in canvas px. */
+        grabDX: number;
+        grabDY: number;
+        /** Pointer position at grab time, for the click-vs-drag threshold. */
+        startPx: number;
+        startPy: number;
+        curX: number;
+        curY: number;
+        moved: boolean;
+    } | null>(null);
+    const legendDragRef = useRef<typeof legendDrag>(null);
     // ---- local persistence -------------------------------------------------
     // The working session is autosaved; named saves are explicit user actions.
     // `restored` gates the autosave effect so an empty first render cannot
@@ -770,6 +852,7 @@ export function XrdPlotter() {
                     setHi(session.settings.hi);
                     setGap(session.settings.gap);
                     setStacked(session.settings.stacked);
+            setLegendPos(session.settings.legendPos ?? null);
                     setReference(session.reference ?? null);
                     setSavedAt(session.savedAt);
                 }
@@ -825,7 +908,7 @@ export function XrdPlotter() {
                         x: Float64Array.from(t.x),
                         y: Float64Array.from(t.y),
                     })),
-                    settings: { lo, hi, gap, stacked },
+                    settings: { lo, hi, gap, stacked, legendPos },
                     reference,
                 };
                 await saveCurrent(payload);
@@ -839,7 +922,7 @@ export function XrdPlotter() {
             }
         }, 800);
         return () => clearTimeout(timer);
-    }, [restored, traces, lo, hi, gap, stacked, reference]);
+    }, [restored, traces, lo, hi, gap, stacked, reference, legendPos]);
 
     // Auto-dismiss export toast after 3s
     useEffect(() => {
@@ -893,9 +976,19 @@ export function XrdPlotter() {
 
     const prims = useMemo(
         () => (traces.length || reference
-            ? buildFigure(visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, layout, traces)
+            ? buildFigure(
+                visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, layout, traces,
+                // While dragging, follow the pointer; otherwise use the committed
+                // fraction so the panel lands back where the user left it.
+                legendDragRef.current?.moved
+                    ? {
+                        fx: clamp01((legendDragRef.current.curX - (layout.M.l + 2)) / Math.max(1, layout.W - layout.M.l - layout.M.r - 4)),
+                        fy: clamp01((legendDragRef.current.curY - (layout.M.t + 2)) / Math.max(1, layout.H - layout.M.t - layout.M.b - 4)),
+                    }
+                    : legendPos,
+            )
             : []),
-        [visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, layout, traces],
+        [visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, layout, traces, legendPos, legendDrag],
     );
 
     // Repaint whenever the figure changes
@@ -960,6 +1053,96 @@ export function XrdPlotter() {
             return null;
         },
         [traces],
+    );
+
+    // ---- legend panel hit test ---------------------------------------------
+    // Returns the panel rect if the pointer is anywhere on it, including the
+    // padding. Before this, a press on the panel's inner margin fell through to
+    // the zoom handler and started a rubber band.
+    const legendPanelAt = useCallback((cx: number, cy: number) => {
+        const prims = currentPrimsRef.current;
+        for (const p of prims) {
+            if (p.t !== "rect" || !p.data?.legendPanel) continue;
+            const r = p.data.legendPanel;
+            if (cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h) return r;
+        }
+        return null;
+    }, []);
+
+    // ---- legend drag --------------------------------------------------------
+    const onLegendDown = useCallback(
+        (e: React.PointerEvent<HTMLCanvasElement>): boolean => {
+            const c = canvasRef.current;
+            const L = currentLayoutRef.current;
+            if (!c || !L) return false;
+            const rect = c.getBoundingClientRect();
+            const cx = e.clientX - rect.left;
+            const cy = e.clientY - rect.top;
+            const panel = legendPanelAt(cx, cy);
+            if (!panel) return false;
+
+            const start = {
+                grabDX: cx - panel.x,
+                grabDY: cy - panel.y,
+                startPx: cx,
+                startPy: cy,
+                curX: panel.x,
+                curY: panel.y,
+                moved: false,
+            };
+            setLegendDrag(start);
+            legendDragRef.current = start;
+            setHover(null);
+            c.setPointerCapture?.(e.pointerId);
+            return true;
+        },
+        [legendPanelAt],
+    );
+
+    const onLegendMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+        const cur = legendDragRef.current;
+        if (!cur) return;
+        const c = canvasRef.current;
+        if (!c) return;
+        const rect = c.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        const next = {
+            ...cur,
+            curX: cx - cur.grabDX,
+            curY: cy - cur.grabDY,
+            // Distance from the ORIGINAL grab point, not the last frame: a slow
+            // drag accumulating 2 px per frame would otherwise never register.
+            moved: cur.moved || Math.hypot(cx - cur.startPx, cy - cur.startPy) > 4,
+        };
+        legendDragRef.current = next;
+        setLegendDrag(next);
+    }, []);
+
+    const onLegendUp = useCallback(
+        (e: React.PointerEvent<HTMLCanvasElement>) => {
+            const cur = legendDragRef.current;
+            legendDragRef.current = null;
+            setLegendDrag(null);
+            if (!cur) return false;
+            canvasRef.current?.releasePointerCapture?.(e.pointerId);
+            if (!cur.moved) return false; // it was a click: let the toggle run
+
+            const L = currentLayoutRef.current;
+            if (!L) return true;
+            const { M, W, H } = L;
+            const PW = W - M.l - M.r;
+            const PH = H - M.t - M.b;
+            // Reachable span differs per axis, so the fraction is computed
+            // against each axis separately rather than assuming a square.
+            const spanX = PW - 4;
+            const spanY = PH - 4;
+            const fx = clamp01((cur.curX - (M.l + 2)) / Math.max(1, spanX));
+            const fy = clamp01((cur.curY - (M.t + 2)) / Math.max(1, spanY));
+            setLegendPos(snapLegendPos({ fx, fy }, spanX, spanY));
+            return true;
+        },
+        [],
     );
 
     // ---- legend click to toggle visibility -------------------------------
@@ -1519,7 +1702,7 @@ export function XrdPlotter() {
         const cv = document.createElement("canvas");
         // Print geometry, never the on-screen one — a phone window must not
         // produce a phone-sized figure.
-        paintCanvas(cv, buildFigure(visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, PRINT_LAYOUT),
+        paintCanvas(cv, buildFigure(visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, PRINT_LAYOUT, undefined, legendPos),
             PRINT_LAYOUT.W, PRINT_LAYOUT.H, 2.6);
         const a = document.createElement("a");
         const fname = `AP-Lab_XRD_${stamp()}.png`;
@@ -1531,7 +1714,7 @@ export function XrdPlotter() {
 
     function exportSVG() {
         const svg = toSVG(
-            buildFigure(visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, PRINT_LAYOUT),
+            buildFigure(visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, PRINT_LAYOUT, undefined, legendPos),
             PRINT_LAYOUT.W,
             PRINT_LAYOUT.H,
         );
@@ -1548,7 +1731,7 @@ export function XrdPlotter() {
 
     function exportPDF() {
         const cv = document.createElement("canvas");
-        paintCanvas(cv, buildFigure(visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, PRINT_LAYOUT),
+        paintCanvas(cv, buildFigure(visibleTraces, viewLo, viewHi, gap, stacked, reference, overlay, PRINT_LAYOUT, undefined, legendPos),
             PRINT_LAYOUT.W, PRINT_LAYOUT.H, 2.6);
         const img = cv.toDataURL("image/png");
         const widthMM = 85;
@@ -1598,7 +1781,7 @@ export function XrdPlotter() {
                     x: Float64Array.from(t.x),
                     y: Float64Array.from(t.y),
                 })),
-                settings: { lo, hi, gap, stacked },
+                settings: { lo, hi, gap, stacked, legendPos },
                 reference,
             };
             await saveNamed(name, payload);
@@ -1643,6 +1826,7 @@ export function XrdPlotter() {
             setHi(session.settings.hi);
             setGap(session.settings.gap);
             setStacked(session.settings.stacked);
+            setLegendPos(session.settings.legendPos ?? null);
             setReference(session.reference ?? null);
             // A restored session invalidates any phase scores computed against
             // the previous traces, so clear them rather than show stale numbers.
@@ -1887,7 +2071,8 @@ export function XrdPlotter() {
                         </li>
                         <li>
                             <strong className="text-slate-200">Legend:</strong> Click an entry to hide
-                            or show that trace
+                            or show that trace. Drag the legend box to move it; it snaps to a
+                            corner. Double-click it to return to auto placement.
                         </li>
                         <li>
                             <strong className="text-slate-200">Saving:</strong> Your scans and plot
@@ -1946,21 +2131,47 @@ export function XrdPlotter() {
                                 <canvas
                                     ref={canvasRef}
                                     className="block max-w-full cursor-crosshair touch-pan-y"
-                                    title="Drag to zoom · Shift-drag to pan · Double-click to reset"
+                                    title="Drag to zoom · Shift-drag to pan · Double-click to reset · Drag the legend to move it"
                                     onPointerMove={(e) => {
+                                        if (legendDragRef.current) {
+                                            onLegendMove(e);
+                                            return;
+                                        }
                                         if (!zoomDragRef.current) handleHover(e);
                                         onZoomMove(e);
                                     }}
                                     onPointerDown={(e) => {
-                                        // Legend first: its hit box sits inside the
-                                        // margins, which the zoom handler ignores.
+                                        // Order matters: the legend sits inside the
+                                        // plot rect, so its hit test must run before
+                                        // the zoom handler or a press on the panel
+                                        // starts a rubber band.
+                                        if (onLegendDown(e)) return;
                                         handleLegendClick(e);
                                         handleHover(e);
                                         onZoomDown(e);
                                     }}
-                                    onPointerUp={onZoomUp}
-                                    onPointerCancel={onZoomUp}
-                                    onDoubleClick={resetZoom}
+                                    onPointerUp={(e) => {
+                                        if (onLegendUp(e)) return;
+                                        onZoomUp(e);
+                                    }}
+                                    onPointerCancel={(e) => {
+                                        if (onLegendUp(e)) return;
+                                        onZoomUp(e);
+                                    }}
+                                    onDoubleClick={(e) => {
+                                        // Double-clicking the legend restores automatic
+                                        // placement; double-clicking the plot resets the
+                                        // zoom. Two different resets on one surface.
+                                        const c = canvasRef.current;
+                                        if (c) {
+                                            const r = c.getBoundingClientRect();
+                                            if (legendPanelAt(e.clientX - r.left, e.clientY - r.top)) {
+                                                setLegendPos(null);
+                                                return;
+                                            }
+                                        }
+                                        resetZoom();
+                                    }}
                                     onPointerLeave={() => setHover(null)}
                                 />
                                 <canvas
@@ -2228,14 +2439,26 @@ export function XrdPlotter() {
                                         Drag on the plot to zoom, shift-drag to pan, double-click to
                                         reset.
                                     </p>
-                                    <button
-                                        type="button"
-                                        onClick={resetZoom}
-                                        title="Show the full measured range again"
-                                        className="shrink-0 rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-400 hover:text-white hover:border-orange-500/60 transition-colors"
-                                    >
-                                        Reset
-                                    </button>
+                                    <div className="flex shrink-0 items-center gap-1">
+                                        {legendPos && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setLegendPos(null)}
+                                                title="Return the legend to automatic corner placement"
+                                                className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-400 hover:border-orange-500/60 hover:text-white transition-colors"
+                                            >
+                                                Legend auto
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={resetZoom}
+                                            title="Show the full measured range again"
+                                            className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-400 hover:text-white hover:border-orange-500/60 transition-colors"
+                                        >
+                                            Reset
+                                        </button>
+                                    </div>
                                 </div>
                                 {rangeInvalid && (
                                     <p className="text-[10px] leading-relaxed text-amber-300">
