@@ -6,7 +6,13 @@ import { detectPeaks, matchPhase, type Peak } from "@/lib/xrd/phase-match";
 import { PhaseMatchPanel, type ScanMatch } from "@/components/analysis/phase-match-panel";
 import {
     Upload, X, Download, FileText, Image as ImageIcon, Loader2, GripVertical, Eye, EyeOff, FlaskConical,
+    Save, FolderOpen, Trash2, History,
 } from "lucide-react";
+import {
+    saveCurrent, loadCurrent, clearCurrent, saveNamed, listNamed, loadByKey, deleteByKey,
+    requestPersistentStorage, storageEstimate,
+    type StoredSession, type StoredTrace,
+} from "@/lib/xrd-session";
 
 /* ────────────────────────────────────────────────────────────────────────────
    Types
@@ -512,6 +518,19 @@ export function XrdPlotter() {
     const [showHelp, setShowHelp] = useState(false);
     const [exportToast, setExportToast] = useState<{ msg: string; t: number } | null>(null);
     const [dragOverId, setDragOverId] = useState<string | null>(null);
+    // ---- local persistence -------------------------------------------------
+    // The working session is autosaved; named saves are explicit user actions.
+    // `restored` gates the autosave effect so an empty first render cannot
+    // overwrite a saved session before it has been read back.
+    const [restored, setRestored] = useState(false);
+    const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+    const [savedAt, setSavedAt] = useState<number | null>(null);
+    const [savedList, setSavedList] = useState<StoredSession[]>([]);
+    const [showSaved, setShowSaved] = useState(false);
+    const [saveName, setSaveName] = useState("");
+    const [persisted, setPersisted] = useState<boolean | null>(null);
+    const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null);
+    const [persistError, setPersistError] = useState<string | null>(null);
     // Drag-to-zoom / shift-drag pan. The live rectangle is mirrored into a ref
     // so the pointer handlers can read the current gesture without waiting for
     // a re-render; state drives the repaint.
@@ -526,9 +545,108 @@ export function XrdPlotter() {
     const zoomDragRef = useRef<typeof zoomDrag>(null);
     const fileRef = useRef<HTMLInputElement | null>(null);
     const cifRef = useRef<HTMLInputElement | null>(null);
+    const saveNameRef = useRef<HTMLInputElement | null>(null);
 
     // Everything downstream of the figure works on active traces only.
     const visibleTraces = useMemo(() => traces.filter((t) => t.visible), [traces]);
+
+    // ---- restore on mount --------------------------------------------------
+    // Read back the autosaved session once. IndexedDB keeps Float64Arrays as
+    // arrays of doubles, so the trace is rebuilt with its original numeric
+    // precision — no CSV round-trip, no loss of the 5th decimal.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const session = await loadCurrent();
+                if (cancelled) return;
+                if (session) {
+                    const restoredTraces: Trace[] = session.traces.map((t) => ({
+                        id: t.id,
+                        label: t.label,
+                        fileName: t.fileName,
+                        color: t.color,
+                        visible: t.visible,
+                        peak2Theta: t.peak2Theta,
+                        peakIntensity: t.peakIntensity,
+                        x: Array.from(t.x),
+                        y: Array.from(t.y),
+                    }));
+                    setTraces(restoredTraces);
+                    setLo(session.settings.lo);
+                    setHi(session.settings.hi);
+                    setGap(session.settings.gap);
+                    setStacked(session.settings.stacked);
+                    setReference(session.reference ?? null);
+                    setSavedAt(session.savedAt);
+                }
+                const list = await listNamed();
+                if (!cancelled) setSavedList(list);
+                const est = await storageEstimate();
+                if (!cancelled) setStorage(est);
+                const ok = await requestPersistentStorage();
+                if (!cancelled) setPersisted(ok);
+            } catch (e) {
+                // Private mode, disabled storage, or a blocked upgrade. The
+                // plotter must still work; it just will not remember.
+                if (!cancelled) {
+                    setPersistError(
+                        e instanceof Error ? e.message : "Local saving is unavailable in this browser",
+                    );
+                }
+            } finally {
+                if (!cancelled) setRestored(true);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    // ---- autosave ----------------------------------------------------------
+    // Debounced: a session write copies up to 8 × 7,500 doubles, so it must not
+    // run on every pointer move while the user drags the offset slider.
+    useEffect(() => {
+        if (!restored) return;
+        if (traces.length === 0 && !reference) {
+            // Everything was removed on purpose: clear the autosave so the
+            // deleted scans do not come back on the next reload.
+            clearCurrent().catch(() => {});
+            setSavedAt(null);
+            setSaveState("idle");
+            return;
+        }
+        setSaveState("saving");
+        const timer = setTimeout(async () => {
+            try {
+                const payload = {
+                    savedAt: Date.now(),
+                    traces: traces.map<StoredTrace>((t) => ({
+                        id: t.id,
+                        label: t.label,
+                        fileName: t.fileName,
+                        color: t.color,
+                        visible: t.visible,
+                        peak2Theta: t.peak2Theta,
+                        peakIntensity: t.peakIntensity,
+                        x: Float64Array.from(t.x),
+                        y: Float64Array.from(t.y),
+                    })),
+                    settings: { lo, hi, gap, stacked },
+                    reference,
+                };
+                await saveCurrent(payload);
+                setSaveState("saved");
+                setSavedAt(payload.savedAt);
+            } catch (e) {
+                setSaveState("error");
+                setPersistError(
+                    e instanceof Error ? e.message : "Could not save this session locally",
+                );
+            }
+        }, 800);
+        return () => clearTimeout(timer);
+    }, [restored, traces, lo, hi, gap, stacked, reference]);
 
     // Auto-dismiss export toast after 3s
     useEffect(() => {
@@ -1266,6 +1384,98 @@ export function XrdPlotter() {
     }
 
     const empty = traces.length === 0 && !reference;
+
+    // ---- named saves -------------------------------------------------------
+    async function handleSaveNamed() {
+        const name = saveName.trim() || defaultSaveName();
+        try {
+            const payload = {
+                savedAt: Date.now(),
+                traces: traces.map<StoredTrace>((t) => ({
+                    id: t.id,
+                    label: t.label,
+                    fileName: t.fileName,
+                    color: t.color,
+                    visible: t.visible,
+                    peak2Theta: t.peak2Theta,
+                    peakIntensity: t.peakIntensity,
+                    x: Float64Array.from(t.x),
+                    y: Float64Array.from(t.y),
+                })),
+                settings: { lo, hi, gap, stacked },
+                reference,
+            };
+            await saveNamed(name, payload);
+            const list = await listNamed();
+            setSavedList(list);
+            const est = await storageEstimate();
+            setStorage(est);
+            setSaveName("");
+            setPersisted(await requestPersistentStorage());
+            setExportToast({ msg: `✓ Saved “${name}” in this browser`, t: Date.now() });
+        } catch (e) {
+            setPersistError(e instanceof Error ? e.message : "Could not save this session");
+        }
+    }
+
+    /** Names a save after the loaded traces, so the default is not just a date. */
+    function defaultSaveName() {
+        const labels = traces.map((t) => t.label).filter(Boolean);
+        if (labels.length === 0) return `Session ${new Date().toLocaleDateString()}`;
+        if (labels.length === 1) return labels[0].slice(0, 60);
+        return `${labels[0].slice(0, 40)} +${labels.length - 1}`;
+    }
+
+    async function handleLoadSaved(key: string) {
+        try {
+            const session = await loadByKey(key);
+            if (!session) return;
+            setTraces(
+                session.traces.map((t) => ({
+                    id: t.id,
+                    label: t.label,
+                    fileName: t.fileName,
+                    color: t.color,
+                    visible: t.visible,
+                    peak2Theta: t.peak2Theta,
+                    peakIntensity: t.peakIntensity,
+                    x: Array.from(t.x),
+                    y: Array.from(t.y),
+                })),
+            );
+            setLo(session.settings.lo);
+            setHi(session.settings.hi);
+            setGap(session.settings.gap);
+            setStacked(session.settings.stacked);
+            setReference(session.reference ?? null);
+            // A restored session invalidates any phase scores computed against
+            // the previous traces, so clear them rather than show stale numbers.
+            setMatchResults(null);
+            setSelectedMatchId(null);
+            setShowSaved(false);
+            setExportToast({ msg: `✓ Loaded “${session.name ?? "session"}”`, t: Date.now() });
+        } catch (e) {
+            setPersistError(e instanceof Error ? e.message : "Could not load that session");
+        }
+    }
+
+    async function handleDeleteSaved(key: string, name?: string) {
+        const label = name ?? "this session";
+        if (!window.confirm(`Delete “${label}” from this browser? This cannot be undone.`)) return;
+        try {
+            await deleteByKey(key);
+            setSavedList(await listNamed());
+            setStorage(await storageEstimate());
+        } catch (e) {
+            setPersistError(e instanceof Error ? e.message : "Could not delete that session");
+        }
+    }
+
+    function bytesLabel(n: number) {
+        if (n < 1024) return `${n} B`;
+        if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+        return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+    }
     // Nothing on the figure: every scan hidden and no reference to show either.
     const nothingVisible = visibleTraces.length === 0 && !reference?.visible;
 
@@ -1295,7 +1505,172 @@ export function XrdPlotter() {
                 >
                     <span className="text-[13px] font-semibold">?</span> Help
                 </button>
+
+                {/* Session controls. Autosave means the working state survives a
+                    reload without any action; the buttons exist for naming a
+                    session, coming back to it later, and clearing it. */}
+                {!empty && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            // Open the panel rather than save silently: a save
+                            // the user cannot name is one they cannot find again.
+                            setShowSaved(true);
+                            requestAnimationFrame(() => saveNameRef.current?.focus());
+                        }}
+                        title="Save this session under a name in this browser"
+                        className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-2 text-xs text-slate-300 hover:text-white hover:border-orange-500/60 transition-colors"
+                    >
+                        <Save className="h-3.5 w-3.5" /> Save
+                    </button>
+                )}
+                <button
+                    type="button"
+                    onClick={() => setShowSaved((v) => !v)}
+                    title="Saved sessions in this browser"
+                    aria-expanded={showSaved}
+                    className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-2 text-xs text-slate-400 hover:text-white hover:border-orange-500/60 transition-colors"
+                >
+                    <History className="h-3.5 w-3.5" /> Sessions
+                    {savedList.length > 0 && (
+                        <span className="rounded-full bg-slate-700 px-1.5 text-[10px] font-bold text-slate-300">
+                            {savedList.length}
+                        </span>
+                    )}
+                </button>
+
+                {/* Autosave indicator. Shows the real state, not a decoration:
+                    "saving" while the debounce is in flight, "error" in red. */}
+                {savedAt && (
+                    <span
+                        className={`ml-auto text-[10px] ${
+                            saveState === "error"
+                                ? "text-red-400"
+                                : saveState === "saving"
+                                    ? "text-slate-500"
+                                    : "text-slate-500"
+                        }`}
+                        title="The loaded scans and plot settings are kept in this browser only"
+                    >
+                        {saveState === "saving"
+                            ? "Saving…"
+                            : saveState === "error"
+                                ? "Not saved"
+                                : `Saved ${new Date(savedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+                    </span>
+                )}
             </div>
+
+            {/* Browser-storage warning: shown only when it actually fails. */}
+            {persistError && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+                    <span>
+                        {persistError}. The plotter still works, but this session will not be
+                        remembered after a reload — IndexedDB is blocked in private windows and
+                        some locked-down browsers.
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => setPersistError(null)}
+                        className="ml-auto shrink-0 text-amber-400 hover:text-amber-200"
+                        aria-label="Dismiss"
+                    >
+                        <X className="h-3.5 w-3.5" />
+                    </button>
+                </div>
+            )}
+
+            {/* Saved sessions panel */}
+            {showSaved && (
+                <div className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-4 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-xs font-bold text-slate-300">Sessions in this browser</h3>
+                        <span className="text-[10px] text-slate-500">
+                            {persisted === false
+                                ? "Storage not pinned — the browser may clear this under pressure"
+                                : persisted
+                                    ? "Storage pinned — safer against eviction"
+                                    : ""}
+                            {storage && storage.quota > 0
+                                ? ` · ${bytesLabel(storage.usage)} of ${bytesLabel(storage.quota)} used`
+                                : ""}
+                        </span>
+                    </div>
+
+                    {!empty && (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <input
+                                ref={saveNameRef}
+                                value={saveName}
+                                onChange={(e) => setSaveName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        handleSaveNamed();
+                                    }
+                                }}
+                                placeholder={defaultSaveName()}
+                                maxLength={80}
+                                className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none"
+                            />
+                            <button
+                                type="button"
+                                onClick={handleSaveNamed}
+                                className="flex items-center gap-1.5 rounded-md bg-orange-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-orange-500 transition-colors"
+                            >
+                                <Save className="h-3.5 w-3.5" /> Save as
+                            </button>
+                        </div>
+                    )}
+
+                    {savedList.length === 0 ? (
+                        <p className="text-[11px] text-slate-500">
+                            No named sessions yet. The working session is saved automatically, so a
+                            reload brings back whatever is on the plot right now.
+                        </p>
+                    ) : (
+                        <ul className="divide-y divide-slate-800/70">
+                            {savedList.map((s) => (
+                                <li key={s.key} className="flex items-center gap-2 py-2">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="truncate text-xs text-slate-200">
+                                            {s.name ?? "Untitled"}
+                                        </div>
+                                        <div className="text-[10px] text-slate-500">
+                                            {s.traces.length} trace{s.traces.length === 1 ? "" : "s"} ·{" "}
+                                            {new Date(s.savedAt).toLocaleString([], {
+                                                day: "2-digit",
+                                                month: "short",
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                            })}
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleLoadSaved(s.key)}
+                                        title={`Load ${s.name ?? "this session"}`}
+                                        className="flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-[11px] text-slate-300 hover:border-orange-500/60 hover:text-white transition-colors"
+                                    >
+                                        <FolderOpen className="h-3 w-3" /> Load
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDeleteSaved(s.key, s.name)}
+                                        title={`Delete ${s.name ?? "this session"}`}
+                                        className="grid h-6 w-6 place-items-center rounded text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    <p className="text-[10px] leading-relaxed text-slate-500">
+                        Nothing here is uploaded. Scans stay in this browser profile, on this device.
+                    </p>
+                </div>
+            )}
 
             {/* Help card */}
             {showHelp && (
@@ -1317,6 +1692,11 @@ export function XrdPlotter() {
                         <li>
                             <strong className="text-slate-200">Legend:</strong> Click an entry to hide
                             or show that trace
+                        </li>
+                        <li>
+                            <strong className="text-slate-200">Saving:</strong> Your scans and plot
+                            settings are autosaved in this browser — a reload brings them back. Use
+                            Save to keep a named copy.
                         </li>
                         <li>
                             <strong className="text-slate-200">Rename:</strong> Double-click a label or press Enter when focused
