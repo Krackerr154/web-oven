@@ -70,10 +70,14 @@ export function SupervisorPicker({ value, onChange }: Props) {
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
         if (!q) return rows;
+        // Only test the NIP when the query actually contains digits: stripping
+        // the non-digits from a text query yields "", and String.includes("")
+        // is true for every row, which silently disabled the whole filter.
+        const digits = q.replace(/\D/g, "");
         return rows.filter(
             (r) =>
                 r.name.toLowerCase().includes(q) ||
-                r.nip.includes(q.replace(/\D/g, "")) ||
+                (digits.length > 0 && r.nip.includes(digits)) ||
                 (r.researchGroup ?? "").toLowerCase().includes(q),
         );
     }, [rows, query]);
