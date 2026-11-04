@@ -37,14 +37,55 @@ type Trace = {
 
 type Prim =
     | { t: "line"; x1: number; y1: number; x2: number; y2: number; stroke: string; w: number; opacity?: number }
-    | { t: "rect"; x: number; y: number; w: number; h: number; stroke: string; sw: number; fill?: string }
+    | { t: "rect"; x: number; y: number; w: number; h: number; stroke: string; sw: number; fill?: string; opacity?: number; rx?: number }
     | { t: "poly"; pts: Array<[number, number]>; stroke: string; w: number }
     | {
         t: "text"; x: number; y: number; s: string; size: number; weight?: number;
         anchor?: "start" | "middle" | "end"; baseline?: "top" | "middle" | "bottom" | "alphabetic";
         fill: string; rotate?: number; opacity?: number;
-        data?: { traceId?: string; legendIndex?: number };
+        data?: {
+            traceId?: string;
+            legendIndex?: number;
+            /**
+             * The full clickable rectangle for this legend row, in canvas
+             * coordinates. The painter is the only thing that knows where a row
+             * actually landed (corner choice, column, row height), so it records
+             * the rect here and the hit test reads it back. Recomputing legend
+             * geometry in the click handler is how the two drift apart.
+             */
+            hitRect?: { x: number; y: number; w: number; h: number };
+        };
     };
+
+/**
+ * Advance width of a label in the plotting font.
+ *
+ * Factors are Helvetica AFM advance widths per 1000 em, rounded up where the
+ * stack substitute (DejaVu/Liberation) is wider. They are deliberately biased
+ * wide: this sizes the legend panel, so an over-estimate leaves a little margin
+ * while an under-estimate clips the label. Verified against the AFM table — the
+ * only characters that were under-counted were W (0.944) and ° (0.400), both
+ * corrected here.
+ *
+ * `measureText` cannot be used directly: buildFigure also runs for SVG export,
+ * where there is no canvas to measure with.
+ */
+function textWidth(s: string, size: number): number {
+    let w = 0;
+    for (const ch of s) {
+        if (ch === " ") w += 0.28;
+        else if (ch === "W") w += 0.95;
+        else if (ch === "°") w += 0.42;
+        else if ("iljI.,:;'|!".includes(ch)) w += 0.26;
+        else if ("ftr()[]-".includes(ch)) w += 0.36;
+        else if ("mwM".includes(ch)) w += 0.86;
+        else if (ch >= "0" && ch <= "9") w += 0.556;
+        else if (ch >= "A" && ch <= "Z") w += 0.70;
+        else if (ch === "·") w += 0.35;
+        else w += 0.56;
+    }
+    return w * size;
+}
 
 const PALETTE = [
     // Slot 1 used to be #0F172A, which is 2/1/3 RGB away from the axis frame
@@ -355,29 +396,166 @@ function buildFigure(
         }
     }
 
-    // In-plot legend — same order as the list and the stack.
-    // legendTraces keeps hidden entries in place on screen (see signature note).
-    const lx = M.l + PW - 244;
+    // ── In-plot legend ──────────────────────────────────────────────────
+    // Three problems this has to solve at once:
+    //   1. No backing panel, so curves show straight through the text.
+    //   2. Fixed top-right anchor, so with enough traces it lands on data.
+    //   3. One column only, so 8 traces occupy 31 % of the plot height.
+    // The layout is computed first (entries, columns, rect), then the panel is
+    // painted, then the rows. Every row records its own hit rect so the click
+    // handler never has to re-derive this geometry.
     const legendList = legendTraces ?? traces;
-    if (L.legendInPlot) legendList.forEach((t, i) => {
-        const ly = M.t + 18 + i * 17;
-        const opacity = t.visible ? 1 : 0.35;
-        out.push({ t: "line", x1: lx, y1: ly, x2: lx + 18, y2: ly, stroke: t.color, w: 2, opacity });
-        out.push({
-            t: "text", x: lx + 24, y: ly + 0.5, s: t.label, size: L.legendFont,
-            anchor: "start", baseline: "middle", fill: "#1F2937", opacity,
-            data: { traceId: t.id, legendIndex: i },
-        });
-    });
+    const legendEntries = [
+        ...legendList.map((t, i) => ({
+            id: t.id,
+            label: t.label,
+            color: t.color,
+            opacity: t.visible ? 1 : 0.35,
+            index: i,
+            isRef: false,
+        })),
+        ...(hasRef && reference
+            ? [{
+                id: "__reference__",
+                label: `Simulated · ${reference.formula}`,
+                color: "#334155",
+                opacity: 1,
+                index: legendList.length,
+                isRef: true,
+            }]
+            : []),
+    ];
 
-    // Legend entry for the simulated reference
-    if (L.legendInPlot && hasRef && reference) {
-        const ly = M.t + 18 + legendList.length * 17;
-        out.push({ t: "line", x1: lx + 6, y1: ly - 5, x2: lx + 6, y2: ly + 5, stroke: "#334155", w: 1.2 });
-        out.push({
-            t: "text", x: lx + 24, y: ly + 0.5, s: `Simulated · ${reference.formula}`, size: L.legendFont,
-            anchor: "start", baseline: "middle", fill: "#1F2937",
+    if (L.legendInPlot && legendEntries.length > 0) {
+        const SWATCH = 18;          // line length before the text
+        const GAP = 6;              // swatch → text
+        const PAD_X = 7;            // panel inner padding, left and right
+        const PAD_Y = 5;
+        const ROW_H = Math.round(L.legendFont + 4.5); // 17 px at 12.5 pt
+        const COL_GAP = 14;
+
+        const textW = legendEntries.map((e) => textWidth(e.label, L.legendFont));
+        const rowW = textW.map((w) => SWATCH + GAP + w);
+
+        // Two columns once a single column would eat more than a quarter of the
+        // plot height. Below that, one column reads better.
+        const singleColH = legendEntries.length * ROW_H + PAD_Y * 2;
+        const budgetH = PH * 0.25;
+        const cols = singleColH > budgetH && legendEntries.length > 4 ? 2 : 1;
+        const rowsPerCol = Math.ceil(legendEntries.length / cols);
+
+        // Per-column width, so a long label does not force the short column wide.
+        const colW: number[] = [];
+        for (let c = 0; c < cols; c++) {
+            let w = 0;
+            for (let i = c * rowsPerCol; i < Math.min((c + 1) * rowsPerCol, legendEntries.length); i++) {
+                if (rowW[i] > w) w = rowW[i];
+            }
+            colW.push(w);
+        }
+        const panelW = colW.reduce((a, b) => a + b, 0) + COL_GAP * (cols - 1) + PAD_X * 2;
+        const panelH = rowsPerCol * ROW_H + PAD_Y * 2;
+
+        // Never let the panel exceed the plot box; clamp is a last resort that
+        // only triggers on pathological label lengths.
+        const maxPanelW = PW - 8;
+        const panelWClamped = Math.min(panelW, maxPanelW);
+
+        // ── Corner selection ──
+        // Sample the four candidate corners and pick the one whose area holds
+        // the fewest data points. Deterministic: ties go top-right, which is
+        // where the legend has always been.
+        const candidates: { x: number; y: number; name: string }[] = [
+            { x: M.l + PW - panelWClamped - 4, y: M.t + 4, name: "tr" },
+            { x: M.l + 4, y: M.t + 4, name: "tl" },
+            { x: M.l + PW - panelWClamped - 4, y: M.t + PH - panelH - 4, name: "br" },
+            { x: M.l + 4, y: M.t + PH - panelH - 4, name: "bl" },
+        ];
+        // A cheap occupancy test: for each visible trace, count how many of its
+        // points fall inside the candidate box. The curve occupies the box only
+        // where its own x/y lands there, so this is the same question the eye
+        // asks. Sampling every 12th point keeps it to a few thousand compares.
+        const occupancy = candidates.map((c) => {
+            let hits = 0;
+            for (const t of traces) {
+                const scale = stacked ? (Math.max(...t.y) || 1) : globalMax;
+                const i = traces.indexOf(t);
+                const base = base0 + (stacked ? (n - 1 - i) * step : 0);
+                for (let k = 0; k < t.x.length; k += 12) {
+                    const xv = t.x[k];
+                    if (xv < lo || xv > hi) continue;
+                    const px = X(xv);
+                    if (px < c.x || px > c.x + panelWClamped) continue;
+                    const py = Y(base + t.y[k] / scale);
+                    if (py < c.y || py > c.y + panelH) continue;
+                    hits++;
+                }
+            }
+            return hits;
         });
+        let best = 0;
+        for (let i = 1; i < candidates.length; i++) {
+            if (occupancy[i] < occupancy[best]) best = i;
+        }
+        const chosen = candidates[best];
+        const panelX = Math.max(M.l + 2, Math.min(chosen.x, M.l + PW - panelWClamped - 2));
+        const panelY = Math.max(M.t + 2, Math.min(chosen.y, M.t + PH - panelH - 2));
+
+        // ── Backing panel ──
+        // Opaque enough that curves behind it read as a faint ghost rather than
+        // striking through the labels, translucent enough that the reader can
+        // see there is data underneath and the legend is not a plot area.
+        out.push({
+            t: "rect", x: panelX, y: panelY, w: panelWClamped, h: panelH,
+            stroke: "#CBD5E1", sw: 0.8, fill: "#FFFFFF", opacity: 0.93, rx: 3,
+        });
+
+        // ── Rows ──
+        let colX = panelX + PAD_X;
+        for (let c = 0; c < cols; c++) {
+            for (let r = 0; r < rowsPerCol; r++) {
+                const idx = c * rowsPerCol + r;
+                const e = legendEntries[idx];
+                if (!e) continue;
+                const rowY = panelY + PAD_Y + r * ROW_H;
+                const cy = rowY + ROW_H / 2;
+
+                if (e.isRef) {
+                    // Vertical tick, matching the stick pattern's mark
+                    out.push({
+                        t: "line", x1: colX + 6, y1: cy - 5, x2: colX + 6, y2: cy + 5,
+                        stroke: e.color, w: 1.2, opacity: e.opacity,
+                    });
+                } else {
+                    out.push({
+                        t: "line", x1: colX, y1: cy, x2: colX + SWATCH, y2: cy,
+                        stroke: e.color, w: 2, opacity: e.opacity,
+                    });
+                }
+                out.push({
+                    t: "text",
+                    x: colX + SWATCH + GAP,
+                    y: cy + 0.5,
+                    s: e.label,
+                    size: L.legendFont,
+                    anchor: "start",
+                    baseline: "middle",
+                    fill: "#1F2937",
+                    opacity: e.opacity,
+                    data: e.isRef
+                        ? undefined
+                        : {
+                            traceId: e.id,
+                            legendIndex: e.index,
+                            // The whole row is the target, full panel width of
+                            // its column: a 12 px-tall text line is a poor tap
+                            // target on a phone.
+                            hitRect: { x: colX, y: rowY, w: colW[c], h: ROW_H },
+                        },
+                });
+            }
+            colX += colW[c] + COL_GAP;
+        }
     }
 
     return out;
@@ -405,11 +583,24 @@ function paintCanvas(
 
     for (const p of prims) {
         if (p.t === "rect") {
+            ctx.globalAlpha = p.opacity ?? 1;
             ctx.fillStyle = p.fill ?? "transparent";
             ctx.strokeStyle = p.stroke;
             ctx.lineWidth = p.sw;
-            if (p.fill) ctx.fillRect(p.x, p.y, p.w, p.h);
-            if (p.stroke !== "none" && p.sw > 0) ctx.strokeRect(p.x, p.y, p.w, p.h);
+            if (p.fill) {
+                ctx.beginPath();
+                // roundRect keeps the legend panel from reading as a plot frame
+                if (p.rx) ctx.roundRect(p.x, p.y, p.w, p.h, p.rx);
+                else ctx.rect(p.x, p.y, p.w, p.h);
+                ctx.fill();
+            }
+            if (p.stroke !== "none" && p.sw > 0) {
+                ctx.beginPath();
+                if (p.rx) ctx.roundRect(p.x, p.y, p.w, p.h, p.rx);
+                else ctx.rect(p.x, p.y, p.w, p.h);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
         } else if (p.t === "line") {
             ctx.globalAlpha = p.opacity ?? 1;
             ctx.beginPath();
@@ -454,7 +645,9 @@ function toSVG(prims: Prim[], W: number, H: number) {
 
     const body = prims.map((p) => {
         if (p.t === "rect") {
-            return `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" fill="${p.fill ?? "none"}" stroke="${p.stroke}" stroke-width="${p.sw}" />`;
+            const op = p.opacity !== undefined && p.opacity < 1 ? ` fill-opacity="${p.opacity}"` : "";
+            const rx = p.rx ? ` rx="${p.rx}"` : "";
+            return `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" fill="${p.fill ?? "none"}" stroke="${p.stroke}" stroke-width="${p.sw}"${op}${rx} />`;
         }
         if (p.t === "line") {
             return `<line x1="${p.x1}" y1="${p.y1}" x2="${p.x2}" y2="${p.y2}" stroke="${p.stroke}" stroke-width="${p.w}" />`;
@@ -747,17 +940,20 @@ export function XrdPlotter() {
     // The legend is drawn INSIDE the plot rectangle, so it overlaps the
     // drag-to-zoom area. Both handlers must agree on where it is or clicking a
     // legend entry would also start a zoom band.
+    //
+    // The geometry is NOT recomputed here. The painter records a hitRect on
+    // every legend row, and this reads it. Recomputing would have to duplicate
+    // the corner choice, column count and row height — three things that now
+    // vary — and the first divergence would toggle the wrong series.
     const legendSlotAt = useCallback(
         (cx: number, cy: number): Trace | null => {
             const L = currentLayoutRef.current;
             const prims = currentPrimsRef.current;
             if (!L || !L.legendInPlot || !prims.length) return null;
-            const PW = L.W - L.M.l - L.M.r;
-            const lx = L.M.l + PW - 244;
             for (const p of prims) {
-                if (p.t !== "text" || !p.data?.traceId) continue;
-                const ly = L.M.t + 18 + (p.data.legendIndex ?? 0) * 17;
-                if (cx >= lx && cx <= lx + 240 && cy >= ly - 7 && cy <= ly + 7) {
+                if (p.t !== "text" || !p.data?.traceId || !p.data.hitRect) continue;
+                const r = p.data.hitRect;
+                if (cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h) {
                     return traces.find((t) => t.id === p.data!.traceId) ?? null;
                 }
             }
