@@ -105,6 +105,44 @@ enum CpdMode {
 
 // ─── Models ──────────────────────────────────────────────────────────
 
+/**
+ * Academic supervisor registry.
+ *
+ * Before this table the supervisor name lived as a free-text string on
+ * ap_users and the NIP lived only in a form's local state, so the two could
+ * disagree on a signed institutional PDF with nothing to catch it. Here the
+ * name and NIP are one row, the NIP is unique, and the form picks a pair
+ * rather than typing two independent strings.
+ *
+ * Sourced from https://chem.itb.ac.id/dosen/. Lecturers whose profile page
+ * carries no NIP are stored with a null nip and cannot be selected as a
+ * signer until an admin fills it in — a missing NIP is recorded as missing,
+ * never invented.
+ */
+model Supervisor {
+  id         String   @id @default(uuid())
+  name       String
+  /** 18-digit ITB NIP, digits only. Null when the source page had none. */
+  nip        String?  @unique
+  email      String?  @unique
+  /** Kelompok Keilmuan / research group, when published. */
+  researchGroup String? @map("research_group")
+  /** One-line research topic from the profile page. */
+  researchTopic String? @map("research_topic")
+  /** Job title, e.g. LEKTOR KEPALA */
+  academicRank  String? @map("academic_rank")
+  /** Profile page the row was scraped from */
+  profileUrl String?  @map("profile_url")
+  active     Boolean  @default(true)
+  /** True when nip was absent at the source, so the UI can ask for it. */
+  nipMissing Boolean  @default(false) @map("nip_missing")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([name])
+  @@map("ap_supervisors")
+}
+
 model User {
   id           String     @id @default(uuid())
   name         String

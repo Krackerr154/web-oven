@@ -23,6 +23,7 @@ import {
   FlaskConical,
   ShieldAlert,
   ClipboardList,
+  GraduationCap,
   Megaphone,
   FileText,
   Microscope,
@@ -72,6 +73,7 @@ const adminNavGroups = [
     title: "Management",
     items: [
       { label: "Users", href: "/admin/users", icon: Users },
+      { label: "Supervisors", href: "/admin/supervisors", icon: GraduationCap },
       { label: "Bookings", href: "/admin/bookings", icon: ListChecks },
       { label: "Instruments", href: "/admin/instruments", icon: Settings },
     ],

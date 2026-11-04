@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import { pdf } from "@react-pdf/renderer";
 import { XrdFormDocument, emptyXrdFormData } from "@/components/xrd-form-pdf";
 import type { XrdFormData } from "@/components/xrd-form-pdf";
+import { SupervisorPicker } from "./supervisor-picker";
 
 export default function XrdFormPage() {
   const { data: session } = useSession();
@@ -346,24 +347,18 @@ export default function XrdFormPage() {
           {/* Supervisor Details */}
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
             <h2 className="text-lg font-semibold text-white mb-5 border-b border-slate-700 pb-3">Supervisor Details</h2>
-            <div className="space-y-1.5 max-w-md">
-              <label className="text-xs font-medium text-slate-400">Main Supervisor NIP</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                name="nipPembimbing"
-                value={formData.nipPembimbing}
-                onChange={(e) => {
-                  // Strictly enforce numbers only
-                  const numericValue = e.target.value.replace(/[^0-9]/g, '');
-                  setFormData(prev => ({ ...prev, nipPembimbing: numericValue }));
-                }}
-                className={inputClass}
-                placeholder="e.g. 197912142008121002"
-              />
-              <p className="text-[10px] text-slate-500">Numeric characters only. Signature name and date are automatically generated.</p>
-            </div>
+            <SupervisorPicker
+              value={formData.nipPembimbing}
+              onChange={(name, nip) =>
+                setFormData(prev => ({
+                  ...prev,
+                  // Name and NIP are set together from one directory row, so a
+                  // form can never print one supervisor's name beside another's NIP.
+                  pembimbing: name ?? prev.pembimbing,
+                  nipPembimbing: nip,
+                }))
+              }
+            />
           </div>
 
           {/* Actions */}
