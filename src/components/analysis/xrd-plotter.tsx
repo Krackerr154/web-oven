@@ -1126,7 +1126,24 @@ export function XrdPlotter() {
             setLegendDrag(null);
             if (!cur) return false;
             canvasRef.current?.releasePointerCapture?.(e.pointerId);
-            if (!cur.moved) return false; // it was a click: let the toggle run
+
+            if (!cur.moved) {
+                // A press on the panel that never travelled is a click on a
+                // legend row: toggle that series. This is applied here rather
+                // than on pointerdown because the panel claims the press before
+                // the toggle can run, and a drag must not toggle anything.
+                const c = canvasRef.current;
+                if (c) {
+                    const r = c.getBoundingClientRect();
+                    const hit = legendSlotAt(e.clientX - r.left, e.clientY - r.top);
+                    if (hit) {
+                        setTraces((prev) =>
+                            prev.map((t) => (t.id === hit.id ? { ...t, visible: !t.visible } : t)),
+                        );
+                    }
+                }
+                return true; // panel press is always handled; never a zoom click
+            }
 
             const L = currentLayoutRef.current;
             if (!L) return true;
@@ -1141,22 +1158,6 @@ export function XrdPlotter() {
             const fy = clamp01((cur.curY - (M.t + 2)) / Math.max(1, spanY));
             setLegendPos(snapLegendPos({ fx, fy }, spanX, spanY));
             return true;
-        },
-        [],
-    );
-
-    // ---- legend click to toggle visibility -------------------------------
-    const handleLegendClick = useCallback(
-        (e: React.PointerEvent<HTMLCanvasElement>) => {
-            const c = canvasRef.current;
-            const L = currentLayoutRef.current;
-            if (!c || !L || !L.legendInPlot) return;
-            const rect = c.getBoundingClientRect();
-            const hit = legendSlotAt(e.clientX - rect.left, e.clientY - rect.top);
-            if (!hit) return;
-            setTraces((prev) =>
-                prev.map((t) => (t.id === hit.id ? { ...t, visible: !t.visible } : t)),
-            );
         },
         [legendSlotAt],
     );
@@ -2141,12 +2142,12 @@ export function XrdPlotter() {
                                         onZoomMove(e);
                                     }}
                                     onPointerDown={(e) => {
-                                        // Order matters: the legend sits inside the
-                                        // plot rect, so its hit test must run before
-                                        // the zoom handler or a press on the panel
-                                        // starts a rubber band.
+                                        // The legend sits inside the plot rect, so it
+                                        // must claim the press before the zoom handler
+                                        // or a press on the panel starts a rubber band.
+                                        // The toggle for a click is applied on
+                                        // pointerup, once we know it was not a drag.
                                         if (onLegendDown(e)) return;
-                                        handleLegendClick(e);
                                         handleHover(e);
                                         onZoomDown(e);
                                     }}
