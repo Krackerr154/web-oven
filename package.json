@@ -1,11 +1,12 @@
 {
   "name": "web-oven",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "check-version": "node scripts/check-version.mjs"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",
