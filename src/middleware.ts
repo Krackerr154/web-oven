@@ -33,6 +33,8 @@ export const config = {
     // robots.txt / sitemap.xml must be publicly reachable: crawlers cannot
     // follow a redirect to the sign-in page, so a disallow-all robots file
     // behind auth is the same as having no robots file at all.
-    "/((?!login|register|verify-email|pending|forgot-password|reset-password|api/auth|api/xrd|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
+    // api/supervisors must reach anonymous visitors too: the registration page
+    // has to populate its supervisor picker before the user has a session.
+    "/((?!login|register|verify-email|pending|forgot-password|reset-password|api/auth|api/xrd|api/supervisors|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
   ],
 };

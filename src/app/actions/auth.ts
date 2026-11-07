@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs";
 import { z } from "zod";
 import { sendVerificationOtpEmail } from "@/lib/email";
+import { SUPERVISORS } from "@/lib/supervisors";
 
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -13,6 +14,50 @@ const registerSchema = z.object({
   supervisors: z.array(z.string().min(2, "Supervisor name must be at least 2 characters")).min(1, "At least one supervisor is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
+
+/**
+ * Resolve submitted supervisor names against the department directory.
+ *
+ * The picker constrains what the UI can send, but a Server Action is a public
+ * endpoint: the request can be forged with any string. Storing an unresolvable
+ * name would recreate exactly the problem this registry exists to fix — a
+ * supervisor on a student record who matches nobody in the directory.
+ *
+ * Names are matched case- and whitespace-insensitively but stored canonically,
+ * so "aep patah" and "Aep Patah, Ph.D." cannot become two different people.
+ */
+async function resolveSupervisors(names: string[]): Promise<
+  { ok: true; canonical: string[] } | { ok: false; unknown: string[] }
+> {
+  let directory: { name: string }[] = [];
+  try {
+    directory = await prisma.supervisor.findMany({
+      where: { active: true },
+      select: { name: true },
+    });
+  } catch {
+    // fall through to the bundled copy
+  }
+  if (directory.length === 0) directory = SUPERVISORS.map((s) => ({ name: s.name }));
+
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  const byNorm = new Map(directory.map((r) => [norm(r.name), r.name]));
+
+  const canonical: string[] = [];
+  const unknown: string[] = [];
+  for (const n of names) {
+    const hit = byNorm.get(norm(n));
+    if (hit) {
+      if (!canonical.includes(hit)) canonical.push(hit);
+    } else {
+      unknown.push(n);
+    }
+  }
+
+  if (unknown.length > 0) return { ok: false, unknown };
+  if (canonical.length === 0) return { ok: false, unknown: names };
+  return { ok: true, canonical };
+}
 
 export type RegisterResult = {
   success: boolean;
@@ -40,6 +85,17 @@ export async function registerUser(data: Record<string, any>): Promise<RegisterR
     }
 
     const { name, email, phone, nim, supervisors, password } = parsed.data;
+
+    // Resolve supervisors against the directory before anything is written, so
+    // a forged request cannot store a name that matches no real person.
+    const resolved = await resolveSupervisors(supervisors);
+    if (!resolved.ok) {
+      return {
+        success: false,
+        message: `Not in the supervisor directory: ${resolved.unknown.join(", ")}. Pick from the list.`,
+      };
+    }
+    const canonicalSupervisors = resolved.canonical;
 
     // Check uniqueness
     const existingUser = await prisma.user.findFirst({
@@ -89,7 +145,7 @@ export async function registerUser(data: Record<string, any>): Promise<RegisterR
         email,
         phone,
         nim,
-        supervisors,
+        supervisors: canonicalSupervisors,
         passwordHash,
         roles: ["USER"],
         status: "PENDING",

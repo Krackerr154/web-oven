@@ -4,31 +4,28 @@ import { useState } from "react";
 import { registerUser } from "@/app/actions/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Flame, Loader2, Plus, X } from "lucide-react";
+import { Flame, Loader2, AlertTriangle } from "lucide-react";
+import { SupervisorPicker } from "@/components/supervisor-picker";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [supervisors, setSupervisors] = useState<string[]>([""]);
-
-  const addSupervisor = () => setSupervisors([...supervisors, ""]);
-
-  const removeSupervisor = (index: number) => {
-    if (supervisors.length > 1) {
-      setSupervisors(supervisors.filter((_, i) => i !== index));
-    }
-  };
-
-  const updateSupervisor = (index: number, value: string) => {
-    const updated = [...supervisors];
-    updated[index] = value;
-    setSupervisors(updated);
-  };
+  // Names must come from the department directory. Free text here used to
+  // produce strings that never matched ap_supervisors, so a supervisor's
+  // name could not be resolved back to a real person with a real NIP.
+  const [supervisors, setSupervisors] = useState<string[]>([]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
+
+    // The picker is not a form control, so it has no native `required`.
+    if (supervisors.length === 0) {
+      setError("Select at least one supervisor from the directory.");
+      return;
+    }
+
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
@@ -111,43 +108,25 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-3 p-4 bg-slate-900/40 rounded-xl border border-slate-700/50">
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-slate-300">
-                Supervisor(s)
-              </label>
-            </div>
+            <SupervisorPicker
+              multiple
+              variant="auth"
+              value={supervisors}
+              onChange={setSupervisors}
+              label="Supervisor(s)"
+              placeholder="Choose your supervisor…"
+              hint={false}
+            />
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              First name selected becomes your main supervisor. You must select at least one.
+            </p>
+            {supervisors.length === 0 && (
+              <p className="text-[11px] text-amber-300/90 flex items-start gap-1.5">
+                <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                Pick a supervisor from the directory to continue.
+              </p>
+            )}
 
-            {supervisors.map((supervisor, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  required
-                  value={supervisor}
-                  onChange={(e) => updateSupervisor(index, e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
-                  placeholder={index === 0 ? "Main Supervisor Name" : "Co-Supervisor Name"}
-                />
-                {supervisors.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeSupervisor(index)}
-                    className="p-2.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
-                    title="Remove Supervisor"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                )}
-              </div>
-            ))}
-
-            <button
-              type="button"
-              onClick={addSupervisor}
-              className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1.5 font-medium px-1 py-1 transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Another Supervisor
-            </button>
           </div>
 
           <div>

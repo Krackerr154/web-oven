@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react";
 import { pdf } from "@react-pdf/renderer";
 import { XrdFormDocument, emptyXrdFormData } from "@/components/xrd-form-pdf";
 import type { XrdFormData } from "@/components/xrd-form-pdf";
-import { SupervisorPicker } from "./supervisor-picker";
+import { SupervisorPicker } from "@/components/supervisor-picker";
 
 export default function XrdFormPage() {
   const { data: session } = useSession();
@@ -348,7 +348,8 @@ export default function XrdFormPage() {
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
             <h2 className="text-lg font-semibold text-white mb-5 border-b border-slate-700 pb-3">Supervisor Details</h2>
             <SupervisorPicker
-              value={formData.nipPembimbing}
+              label="Main Supervisor"
+              value={formData.nipPembimbing || null}
               onChange={(name, nip) =>
                 setFormData(prev => ({
                   ...prev,

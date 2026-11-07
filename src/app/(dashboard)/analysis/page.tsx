@@ -55,16 +55,20 @@ export default function AnalysisPage() {
                     </Link>
                 ))}
 
-                {/* Placeholder for the next instrument tool */}
+                {/* Placeholder for the next instrument tool. Deliberately does
+                    not name a roadmap: an undated list of techniques reads as a
+                    promise, and a promise with nothing behind it is worse than
+                    a blank slot. */}
                 <div className="block p-6 bg-slate-800/40 rounded-xl border border-dashed border-slate-700/50">
                     <div className="p-3 bg-slate-700/40 text-slate-500 rounded-lg w-fit mb-4">
                         <FlaskConical className="h-6 w-6" />
                     </div>
                     <h3 className="text-lg font-semibold text-slate-400 mb-2">
-                        Next instrument
+                        Not built yet
                     </h3>
                     <p className="text-sm text-slate-500">
-                        CV, EIS, FTIR and TGA plotters land in this same group.
+                        Only the tools listed above exist. Anything else — CV, EIS, FTIR,
+                        TGA — has no plotter in AP-Lab yet.
                     </p>
                 </div>
             </div>

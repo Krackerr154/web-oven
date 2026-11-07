@@ -5,7 +5,16 @@ import { prisma } from "@/lib/prisma";
 import { SUPERVISORS } from "@/lib/supervisors";
 
 /**
- * Supervisor picker feed for authenticated users.
+ * Supervisor directory feed.
+ *
+ * Two audiences:
+ *  - Signed-in users (XRD form): full row including research group/topic.
+ *  - Anonymous visitors (registration page): public subset only.
+ *
+ * Registration has to list supervisors before the user has an account, so an
+ * auth wall here would make the picker unusable at exactly the moment it
+ * matters. The public payload is deliberately narrowed to name and NIP — both
+ * already published on the department website — and nothing else.
  *
  * Signers only: a row without an 18-digit NIP is excluded, because the form
  * stamps the NIP onto a signed institutional PDF. A lecturer with no published
@@ -16,9 +25,7 @@ import { SUPERVISORS } from "@/lib/supervisors";
  */
 export async function GET() {
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
-        return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
+    const authed = Boolean(session?.user);
 
     try {
         const rows = await prisma.supervisor.findMany({
@@ -28,12 +35,15 @@ export async function GET() {
                 id: true,
                 name: true,
                 nip: true,
-                researchGroup: true,
-                researchTopic: true,
+                researchGroup: authed,
+                researchTopic: authed,
             },
         });
         if (rows.length > 0) {
-            return NextResponse.json({ source: "db", supervisors: rows });
+            return NextResponse.json(
+                { source: "db", supervisors: rows },
+                { headers: { "Cache-Control": "no-store" } },
+            );
         }
     } catch {
         // fall through to the bundled copy
@@ -43,8 +53,11 @@ export async function GET() {
         id: `seed-${i}`,
         name: s.name,
         nip: s.nip,
-        researchGroup: s.researchGroup,
-        researchTopic: s.researchTopic,
+        researchGroup: authed ? s.researchGroup : null,
+        researchTopic: authed ? s.researchTopic : null,
     }));
-    return NextResponse.json({ source: "bundled", supervisors: fallback });
+    return NextResponse.json(
+        { source: "bundled", supervisors: fallback },
+        { headers: { "Cache-Control": "no-store" } },
+    );
 }
