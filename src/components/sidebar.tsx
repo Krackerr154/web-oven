@@ -30,6 +30,7 @@ import {
   Microscope,
   Activity,
   LineChart,
+  Bot,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -65,6 +66,7 @@ const userNavGroups = [
     title: "Analysis",
     items: [
       { label: "XRD Plotter", href: "/analysis/xrd", icon: LineChart },
+      { label: "LUMA", href: "/luma", icon: Bot },
     ],
   },
 ];
@@ -74,6 +76,7 @@ const adminNavGroups = [
     title: "Management",
     items: [
       { label: "Users", href: "/admin/users", icon: Users },
+      { label: "Agent Access", href: "/admin/agents", icon: Bot },
       { label: "Supervisors", href: "/admin/supervisors", icon: GraduationCap },
       { label: "Bookings", href: "/admin/bookings", icon: ListChecks },
       { label: "Instruments", href: "/admin/instruments", icon: Settings },

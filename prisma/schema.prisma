@@ -107,85 +107,98 @@ enum CpdMode {
 
 /**
  * Academic supervisor registry.
- *
  * Before this table the supervisor name lived as a free-text string on
  * ap_users and the NIP lived only in a form's local state, so the two could
  * disagree on a signed institutional PDF with nothing to catch it. Here the
  * name and NIP are one row, the NIP is unique, and the form picks a pair
  * rather than typing two independent strings.
- *
  * Sourced from https://chem.itb.ac.id/dosen/. Lecturers whose profile page
  * carries no NIP are stored with a null nip and cannot be selected as a
  * signer until an admin fills it in — a missing NIP is recorded as missing,
  * never invented.
  */
 model Supervisor {
-  id         String   @id @default(uuid())
-  name       String
-  /** 18-digit ITB NIP, digits only. Null when the source page had none. */
-  nip        String?  @unique
-  email      String?  @unique
-  /** Kelompok Keilmuan / research group, when published. */
-  researchGroup String? @map("research_group")
-  /** One-line research topic from the profile page. */
-  researchTopic String? @map("research_topic")
-  /** Job title, e.g. LEKTOR KEPALA */
-  academicRank  String? @map("academic_rank")
-  /** Profile page the row was scraped from */
-  profileUrl String?  @map("profile_url")
-  active     Boolean  @default(true)
-  /** True when nip was absent at the source, so the UI can ask for it. */
-  nipMissing Boolean  @default(false) @map("nip_missing")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(uuid())
+  name          String
+  /**
+   * 18-digit ITB NIP, digits only. Null when the source page had none.
+   */
+  nip           String?  @unique
+  email         String?  @unique
+  /**
+   * Kelompok Keilmuan / research group, when published.
+   */
+  researchGroup String?  @map("research_group")
+  /**
+   * One-line research topic from the profile page.
+   */
+  researchTopic String?  @map("research_topic")
+  /**
+   * Job title, e.g. LEKTOR KEPALA
+   */
+  academicRank  String?  @map("academic_rank")
+  /**
+   * Profile page the row was scraped from
+   */
+  profileUrl    String?  @map("profile_url")
+  active        Boolean  @default(true)
+  /**
+   * True when nip was absent at the source, so the UI can ask for it.
+   */
+  nipMissing    Boolean  @default(false) @map("nip_missing")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@index([name])
   @@map("ap_supervisors")
 }
 
 model User {
-  id           String     @id @default(uuid())
-  name         String
-  email        String     @unique
-  phone        String     @unique
-  nickname     String?
-  nim          String?    @unique
-  supervisors  String[]
-  hasSeenTour  Boolean    @default(false)
-  image        String?    @db.Text
-  passwordHash String     @map("password_hash")
-  roles        Role[]     @default([USER])
-  status       UserStatus @default(PENDING)
-  isContactPerson Boolean @default(false) @map("is_contact_person")
-  emailVerified DateTime? @map("email_verified")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
+  id              String     @id @default(uuid())
+  name            String
+  email           String     @unique
+  phone           String     @unique
+  nickname        String?
+  nim             String?    @unique
+  supervisors     String[]
+  hasSeenTour     Boolean    @default(false)
+  image           String?    @db.Text
+  passwordHash    String     @map("password_hash")
+  roles           Role[]     @default([USER])
+  status          UserStatus @default(PENDING)
+  isContactPerson Boolean    @default(false) @map("is_contact_person")
+  emailVerified   DateTime?  @map("email_verified")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
 
-  bookings          Booking[]
-  cancelledBookings Booking[]     @relation("booking_cancelled_by")
-  deletedBookings   Booking[]     @relation("booking_deleted_by")
-  bookingEvents     BookingEvent[] @relation("booking_event_actor")
-  instrumentBans    InstrumentBan[]
-  issuedBans        InstrumentBan[] @relation("ban_issued_by")
-  reagents          Reagent[]       @relation("reagent_owner")
-  glassware         Glassware[]     @relation("glassware_owner")
-  glasswareLoans    GlasswareLoan[] @relation("glassware_borrower")
-  announcements     Announcement[]
-  reactions         Reaction[]
+  bookings             Booking[]
+  cancelledBookings    Booking[]             @relation("booking_cancelled_by")
+  deletedBookings      Booking[]             @relation("booking_deleted_by")
+  bookingEvents        BookingEvent[]        @relation("booking_event_actor")
+  instrumentBans       InstrumentBan[]
+  issuedBans           InstrumentBan[]       @relation("ban_issued_by")
+  reagents             Reagent[]             @relation("reagent_owner")
+  glassware            Glassware[]           @relation("glassware_owner")
+  glasswareLoans       GlasswareLoan[]       @relation("glassware_borrower")
+  announcements        Announcement[]
+  reactions            Reaction[]
   announcementComments AnnouncementComment[]
+  agentProfile         AgentProfile?         @relation("agent_profile_user")
+  grantedAgents        AgentProfile[]        @relation("agent_profile_granted_by")
+  revokedAgents        AgentProfile[]        @relation("agent_profile_revoked_by")
 
   @@map("ap_users")
 }
 
 model Instrument {
-  id          Int                 @id @default(autoincrement())
-  name        String
-  type        InstrumentType      @default(OVEN)
-  category    InstrumentCategory? 
-  status      InstrumentStatus    @default(AVAILABLE)
-  description String?
-  maxTemp     Int                 @default(200) @map("max_temp")
-  maxN2FlowRate Float?            @map("max_n2_flow_rate")
+  id            Int                 @id @default(autoincrement())
+  name          String
+  type          InstrumentType      @default(OVEN)
+  category      InstrumentCategory?
+  status        InstrumentStatus    @default(AVAILABLE)
+  description   String?
+  maxTemp       Int                 @default(200) @map("max_temp")
+  maxN2FlowRate Float?              @map("max_n2_flow_rate")
 
   bookings Booking[]
 
@@ -193,37 +206,37 @@ model Instrument {
 }
 
 model Booking {
-  id           String        @id @default(uuid())
-  userId       String        @map("user_id")
-  instrumentId Int           @map("instrument_id")
-  startDate    DateTime      @map("start_date")
-  endDate      DateTime      @map("end_date")
-  purpose      String
-  usageTemp    Int?          @map("usage_temp")
-  flap         Int?
-  sonicatorModes SonicatorMode[] @map("sonicator_modes")
-  equipmentBrought String?       @map("equipment_brought")
-  chemicalsBrought String?       @map("chemicals_brought")
-  n2FlowRate       Float?        @map("n2_flow_rate")
-  n2Duration       Int?          @map("n2_duration")
-  specialNotes     String?       @map("special_notes")
+  id               String          @id @default(uuid())
+  userId           String          @map("user_id")
+  instrumentId     Int             @map("instrument_id")
+  startDate        DateTime        @map("start_date")
+  endDate          DateTime        @map("end_date")
+  purpose          String
+  usageTemp        Int?            @map("usage_temp")
+  flap             Int?
+  sonicatorModes   SonicatorMode[] @map("sonicator_modes")
+  equipmentBrought String?         @map("equipment_brought")
+  chemicalsBrought String?         @map("chemicals_brought")
+  n2FlowRate       Float?          @map("n2_flow_rate")
+  n2Duration       Int?            @map("n2_duration")
+  specialNotes     String?         @map("special_notes")
   sample           String?
-  cpdMode          CpdMode?      @map("cpd_mode")
-  cpdModeDetails   String?       @map("cpd_mode_details")
-  status       BookingStatus @default(ACTIVE)
-  cancelledAt  DateTime?     @map("cancelled_at")
-  cancelledById String?      @map("cancelled_by_id")
-  cancelReason String?       @map("cancel_reason")
-  deletedAt    DateTime?     @map("deleted_at")
-  deletedById  String?       @map("deleted_by_id")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+  cpdMode          CpdMode?        @map("cpd_mode")
+  cpdModeDetails   String?         @map("cpd_mode_details")
+  status           BookingStatus   @default(ACTIVE)
+  cancelledAt      DateTime?       @map("cancelled_at")
+  cancelledById    String?         @map("cancelled_by_id")
+  cancelReason     String?         @map("cancel_reason")
+  deletedAt        DateTime?       @map("deleted_at")
+  deletedById      String?         @map("deleted_by_id")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
 
-  user         User          @relation(fields: [userId], references: [id])
-  instrument   Instrument    @relation(fields: [instrumentId], references: [id])
-  cancelledBy  User?         @relation("booking_cancelled_by", fields: [cancelledById], references: [id])
-  deletedBy    User?         @relation("booking_deleted_by", fields: [deletedById], references: [id])
-  events       BookingEvent[]
+  user        User           @relation(fields: [userId], references: [id])
+  instrument  Instrument     @relation(fields: [instrumentId], references: [id])
+  cancelledBy User?          @relation("booking_cancelled_by", fields: [cancelledById], references: [id])
+  deletedBy   User?          @relation("booking_deleted_by", fields: [deletedById], references: [id])
+  events      BookingEvent[]
 
   @@index([instrumentId, startDate, endDate])
   @@index([deletedAt])
@@ -258,8 +271,8 @@ model InstrumentBan {
   createdAt      DateTime       @default(now()) @map("created_at")
   liftedAt       DateTime?      @map("lifted_at")
 
-  user       User       @relation(fields: [userId], references: [id])
-  bannedBy   User       @relation("ban_issued_by", fields: [bannedById], references: [id])
+  user     User @relation(fields: [userId], references: [id])
+  bannedBy User @relation("ban_issued_by", fields: [bannedById], references: [id])
 
   @@unique([userId, instrumentType, isActive])
   @@map("ap_instrument_bans")
@@ -271,12 +284,12 @@ model Reagent {
   name        String
   brand       String?
   casNumber   String?       @map("cas_number") // Catalog No
-  quantity    String        // Legacy aggregate
-  size        String?       // Numerical amount
-  unit        String?       // mL, g, L
+  quantity    String // Legacy aggregate
+  size        String? // Numerical amount
+  unit        String? // mL, g, L
   arrivalDate String?       @map("arrival_date") // e.g. 2025/08
-  condition   String?       // unopened, unsealed
-  location    String?       // e.g., "Cabinet A", "Fridge 1"
+  condition   String? // unopened, unsealed
+  location    String? // e.g., "Cabinet A", "Fridge 1"
   status      ReagentStatus @default(AVAILABLE)
   notes       String?       @db.Text
   synonyms    String?       @db.Text // Cached from PubChem API
@@ -284,7 +297,7 @@ model Reagent {
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
-  owner       User?         @relation("reagent_owner", fields: [ownerId], references: [id], onDelete: SetNull)
+  owner User? @relation("reagent_owner", fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([name])
   @@index([ownerId])
@@ -292,23 +305,23 @@ model Reagent {
 }
 
 model Glassware {
-  id          String   @id @default(uuid())
-  customId    String?  @map("custom_id") // Optional explicit identifier
-  name        String   // e.g. "Griffin Beaker"
-  type        String   // e.g. "Beaker", "Flask"
-  brand       String?
-  size        String   // e.g. "250"
-  unit        String   // e.g. "mL"
-  quantity    Int      // Total stock count
-  condition   String?  // e.g. "Good", "Chipped", "New"
-  location    String?  // Storage location
-  notes       String?  @db.Text
-  ownerId     String?  @map("owner_id") // Null means Lab Owned
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  customId  String?  @map("custom_id") // Optional explicit identifier
+  name      String // e.g. "Griffin Beaker"
+  type      String // e.g. "Beaker", "Flask"
+  brand     String?
+  size      String // e.g. "250"
+  unit      String // e.g. "mL"
+  quantity  Int // Total stock count
+  condition String? // e.g. "Good", "Chipped", "New"
+  location  String? // Storage location
+  notes     String?  @db.Text
+  ownerId   String?  @map("owner_id") // Null means Lab Owned
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  owner       User?    @relation("glassware_owner", fields: [ownerId], references: [id], onDelete: SetNull)
-  loans       GlasswareLoan[] @relation("glassware_loaned")
+  owner User?           @relation("glassware_owner", fields: [ownerId], references: [id], onDelete: SetNull)
+  loans GlasswareLoan[] @relation("glassware_loaned")
 
   @@index([name])
   @@index([type])
@@ -326,8 +339,8 @@ model GlasswareLoan {
   returnedAt  DateTime?  @map("returned_at")
   status      LoanStatus @default(BORROWED)
 
-  glassware   Glassware  @relation("glassware_loaned", fields: [glasswareId], references: [id])
-  user        User       @relation("glassware_borrower", fields: [userId], references: [id])
+  glassware Glassware @relation("glassware_loaned", fields: [glasswareId], references: [id])
+  user      User      @relation("glassware_borrower", fields: [userId], references: [id])
 
   @@index([glasswareId])
   @@index([userId])
@@ -365,34 +378,34 @@ model EmailOtp {
 }
 
 model Announcement {
-  id          String                @id @default(uuid())
-  title       String
-  content     String                @db.Text
-  isPinned    Boolean               @default(false) @map("is_pinned")
+  id       String  @id @default(uuid())
+  title    String
+  content  String  @db.Text
+  isPinned Boolean @default(false) @map("is_pinned")
 
-  authorId    String                @map("author_id")
-  author      User                  @relation(fields: [authorId], references: [id])
+  authorId String @map("author_id")
+  author   User   @relation(fields: [authorId], references: [id])
 
-  reactions   Reaction[]
-  comments    AnnouncementComment[]
+  reactions Reaction[]
+  comments  AnnouncementComment[]
 
-  createdAt   DateTime              @default(now()) @map("created_at")
-  updatedAt   DateTime              @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("ap_announcements")
 }
 
 model Reaction {
-  id             String       @id @default(uuid())
-  type           String       // e.g., "LIKE", "HEART", "CELEBRATE", etc.
+  id   String @id @default(uuid())
+  type String // e.g., "LIKE", "HEART", "CELEBRATE", etc.
 
   announcementId String       @map("announcement_id")
   announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
 
-  userId         String       @map("user_id")
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  createdAt      DateTime     @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   // Ensure a user can only leave a specific type of reaction once per announcement
   @@unique([announcementId, userId, type])
@@ -402,19 +415,72 @@ model Reaction {
 }
 
 model AnnouncementComment {
-  id             String       @id @default(uuid())
-  content        String       @db.Text
+  id      String @id @default(uuid())
+  content String @db.Text
 
   announcementId String       @map("announcement_id")
   announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
 
-  authorId       String       @map("author_id")
-  author         User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId String @map("author_id")
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([announcementId])
   @@index([authorId])
   @@map("ap_announcement_comments")
+}
+
+/// Who may talk to their own lab agent.
+///
+/// Three states only — PENDING (registered, no agent), GRANTED (admin approved,
+/// profile should exist), SUSPENDED (should not exist). Enough vocabulary to
+/// describe every case without inventing a fourth.
+enum AgentStatus {
+  PENDING
+  GRANTED
+  SUSPENDED
+
+  @@map("ap_agent_status")
+}
+
+/// The desired state of one person's agent.
+///
+/// Anchored on User.id (uuid), never on email/nim/phone — all three are
+/// mutable, and a profile slug derived from a renameable field orphans the
+/// user's memory the first time someone changes their name.
+///
+/// Carries no WhatsApp coupling on purpose: no phone, no chat_id, no profile
+/// path. Those belong to the reconciler, which derives them. Keeping them out
+/// means this table stays correct when a number changes or Telegram is added.
+model AgentProfile {
+  id     String      @id @default(uuid())
+  userId String      @unique @map("user_id")
+  handle String      @unique
+  status AgentStatus @default(PENDING)
+
+  // Audit trail. When someone asks in six months who granted this, the
+  // answer has to exist without reading a log file.
+  grantedAt     DateTime? @map("granted_at")
+  grantedById   String?   @map("granted_by_id")
+  revokedAt     DateTime? @map("revoked_at")
+  revokedById   String?   @map("revoked_by_id")
+  revokedReason String?   @map("revoked_reason")
+
+  // Filled by the reconciler once it actually writes to disk.
+  provisionedAt DateTime? @map("provisioned_at")
+  lastError     String?   @map("last_error") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user      User  @relation("agent_profile_user", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy User? @relation("agent_profile_granted_by", fields: [grantedById], references: [id], onDelete: SetNull)
+  revokedBy User? @relation("agent_profile_revoked_by", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([grantedById])
+  @@index([revokedById])
+  @@map("ap_agent_profiles")
 }

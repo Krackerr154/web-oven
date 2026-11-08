@@ -20,6 +20,12 @@ services:
       - TZ=Asia/Jakarta
       - PGTZ=Asia/Jakarta
       - XRD_SIM_URL=http://xrd-sim:8000
+      - LU_API_KEY=${LU_API_KEY}
+      - RDHX_API_KEY=${RDHX_API_KEY}
+      - LUMA_BASE_URL=${LUMA_BASE_URL:-http://host.docker.internal:20128/v1}
+      - LUMA_MODEL=${LUMA_MODEL:-ag/gemini-3.8-flash-high}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       ap_lab_db:
         condition: service_healthy

@@ -43,8 +43,11 @@ COPY --from=builder /app/src/generated ./src/generated
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
-# Install runtime deps needed for prisma db push, seed, and adapter
-RUN --mount=type=cache,target=/root/.npm npm install --no-save prisma@7.4.0 @prisma/adapter-pg@7.4.0 @prisma/client@7.4.0 pg postgres-array dotenv bcryptjs tsx typescript @types/node
+# Install runtime deps needed for prisma db push, seed, and adapter.
+# typescript/@types/node are omitted: nothing compiles at container start,
+# and tsx runs the seed through esbuild. Dropping them removes ~120 MB of
+# extraction per build on a disk that is chronically tight.
+RUN --mount=type=cache,target=/root/.npm npm install --no-save prisma@7.4.0 @prisma/adapter-pg@7.4.0 @prisma/client@7.4.0 pg postgres-array dotenv bcryptjs tsx
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
