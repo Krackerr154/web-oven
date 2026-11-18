@@ -30,6 +30,9 @@ services:
       - NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=${NEXT_PUBLIC_TELEGRAM_BOT_USERNAME:-LUMA154_bot}
       - HINDSIGHT_URL=${HINDSIGHT_URL:-http://host.docker.internal:8888}
       - HINDSIGHT_API_KEY=${HINDSIGHT_API_KEY:-}
+      # The LUMA WhatsApp bot's own number, digits only. Used to build the
+      # wa.me deep link on /profile; never hardcoded in source.
+      - LUMA_WHATSAPP_NUMBER=${LUMA_WHATSAPP_NUMBER:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
