@@ -34,6 +34,11 @@ yarn-error.log*
 .env
 .env.local
 .env.production
+# Timestamped backups carry live secrets (DB password, NEXTAUTH_SECRET, API
+# keys) and must never enter history. The file stays on disk; only the pattern
+# is ignored, so an existing backup is left untouched.
+.env.bak-*
+.env.*.bak-*
 
 # Keep .env.example tracked
 !.env.example
