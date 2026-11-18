@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getInstrumentStatus } from "./instrument-status";
 
 /**
  * Built-in LUMA read tools, bound to a single AP-Lab user.
@@ -84,32 +85,19 @@ export async function executeTool(name: string, args: any, ctx: Ctx): Promise<st
       }
 
       case "get_instrument_availability": {
-        const instruments = await prisma.instrument.findMany({
-          orderBy: { name: "asc" },
-          select: { id: true, name: true, category: true, status: true },
-        });
-        const now = new Date();
-        const active = await prisma.booking.findMany({
-          where: {
-            startDate: { lte: now },
-            endDate: { gte: now },
-            deletedAt: null,
-            status: { in: ["ACTIVE", "PENDING_APPROVAL"] },
-          },
-          select: { instrumentId: true, userId: true },
-        });
-        const busy = new Map<number, string>();
-        for (const b of active) busy.set(b.instrumentId, b.userId);
-
+        // Same helper the dashboard rail uses, so the chat and the rail can
+        // never report different availability.
+        const { total, freeNow, rows } = await getInstrumentStatus(prisma, ctx.userId);
         return JSON.stringify({
-          total: instruments.length,
-          freeNow: instruments.filter((i: any) => !busy.has(i.id)).length,
-          instruments: instruments.map((i: any) => ({
-            name: i.name,
-            category: i.category,
-            status: i.status,
-            booked_now: busy.has(i.id),
-            booked_by_you: busy.get(i.id) === ctx.userId,
+          total,
+          freeNow,
+          instruments: rows.map((r) => ({
+            name: r.name,
+            category: r.category,
+            status: r.status,
+            max_temp: r.maxTemp,
+            booked_now: r.bookedNow,
+            booked_by_you: r.bookedByYou,
           })),
         });
       }
@@ -174,35 +162,64 @@ export async function executeTool(name: string, args: any, ctx: Ctx): Promise<st
   }
 }
 
+/**
+ * Map a zod 4 schema to JSON Schema.
+ *
+ * zod 4 dropped `_def.typeName` (it uses `_def.type`), so the previous version
+ * of this function silently declared every parameter as `string` — enums,
+ * integers and booleans included. The model then guessed and recovered on a
+ * second turn. Types are now honest.
+ */
 function zodType(v: any): Record<string, unknown> {
-  const t = v?._def?.typeName;
-  if (t === "ZodEnum") return { type: "string", enum: v.options };
-  if (t === "ZodNumber") return { type: "integer" };
-  if (t === "ZodBoolean") return { type: "boolean" };
-  return { type: "string" };
+  let cur = v;
+  for (let i = 0; i < 4; i += 1) {
+    const t = cur?._def?.type;
+    if (t === "optional" || t === "default") {
+      cur = cur._def.innerType;
+      continue;
+    }
+    break;
+  }
+  const d = cur?._def ?? {};
+  switch (d.type) {
+    case "number": {
+      const checks: any[] = d.checks ?? [];
+      const isInt = checks.some((c) => c?.def?.format === "safeint");
+      return { type: isInt ? "integer" : "number" };
+    }
+    case "boolean":
+      return { type: "boolean" };
+    case "enum":
+      return { type: "string", enum: Object.keys(d.entries ?? {}) };
+    default:
+      return { type: "string" };
+  }
+}
+
+/** Convert one zod-backed spec into an OpenAI function definition. */
+export function toToolDef(s: { name: string; description: string; schema: z.ZodObject<any> }) {
+  const shape = s.schema.shape;
+  return {
+    type: "function",
+    function: {
+      name: s.name,
+      description: s.description,
+      parameters: {
+        type: "object",
+        properties: Object.fromEntries(
+          Object.entries(shape).map(([k, v]: [string, any]) => [
+            k,
+            { ...zodType(v), description: v?._def?.description ?? "" },
+          ]),
+        ),
+        required: Object.keys(shape).filter((k) => !shape[k].isOptional()),
+      },
+    },
+  };
 }
 
 export function toolList() {
-  return Object.values(ToolSpecs).map((s) => {
-    const shape = (s.schema as z.ZodObject<any>).shape;
-    return {
-      type: "function",
-      function: {
-        name: s.name,
-        description: s.description,
-        parameters: {
-          type: "object",
-          properties: Object.fromEntries(
-            Object.entries(shape).map(([k, v]: [string, any]) => [
-              k,
-              { ...zodType(v), description: v?._def?.description ?? "" },
-            ]),
-          ),
-          required: Object.keys(shape).filter((k) => !shape[k].isOptional()),
-        },
-      },
-    };
-  });
+  return Object.values(ToolSpecs).map((s) => toToolDef(s as any));
 }
 
 export function validateToolArgs(
