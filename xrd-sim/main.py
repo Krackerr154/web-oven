@@ -18,10 +18,12 @@ from pydantic import BaseModel, Field
 from pymatgen.analysis.diffraction.xrd import XRDCalculator
 from pymatgen.core import Structure
 
+from plot import PlotRequest, render
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("xrd-sim")
 
-app = FastAPI(title="AP-Lab XRD simulator", version="1.0.0")
+app = FastAPI(title="AP-Lab XRD simulator", version="1.1.0")
 
 _CACHE: dict[str, dict[str, Any]] = {}
 _CACHE_MAX = 32
@@ -44,6 +46,16 @@ def _cache_key(req: SimulateRequest) -> str:
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {"ok": True, "cached": len(_CACHE)}
+
+
+@app.post("/plot")
+def plot(req: PlotRequest) -> dict[str, Any]:
+    """Render a figure from numeric series. Data in, PNG out — no code path."""
+    try:
+        return render(req)
+    except Exception as exc:  # matplotlib raises broadly on bad data
+        log.warning("plot failed: %s", exc)
+        raise HTTPException(status_code=422, detail=f"Could not render: {exc}") from exc
 
 
 @app.post("/simulate")

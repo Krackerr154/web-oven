@@ -7,9 +7,11 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # pymatgen pulls numpy/scipy/spglib and is the only heavy dependency here.
-RUN pip install --no-cache-dir pymatgen "fastapi>=0.115,<1" "uvicorn>=0.32,<1"
+# matplotlib is listed explicitly because /plot depends on it directly — relying
+# on pymatgen's transitive pin is how a rebuild silently breaks the renderer.
+RUN pip install --no-cache-dir pymatgen matplotlib "fastapi>=0.115,<1" "uvicorn>=0.32,<1"
 
-COPY main.py .
+COPY main.py plot.py ./
 
 RUN useradd --system --uid 10001 --create-home xrd && chown -R xrd:xrd /app
 USER xrd
