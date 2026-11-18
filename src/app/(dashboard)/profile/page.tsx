@@ -6,6 +6,8 @@ import { User, Phone, Mail, Shield, Activity, CalendarDays, CheckCircle, XCircle
 import { formatDateTimeWib } from "@/lib/utils";
 import { ProfileEditor } from "@/components/profile-editor";
 import { TelegramConnect } from "@/components/telegram-connect";
+import { WhatsappConnect } from "@/components/whatsapp-connect";
+import { lumaWhatsappNumber, resolveWhatsappLink, whatsappDeepLink } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,16 @@ export default async function ProfilePage() {
         include: {
             bookings: {
                 where: { deletedAt: null },
+            },
+            whatsappLink: {
+                select: {
+                    status: true,
+                    phone: true,
+                    requestId: true,
+                    createdAt: true,
+                    verifiedAt: true,
+                    lastError: true,
+                },
             },
         },
     });
@@ -69,6 +81,18 @@ export default async function ProfilePage() {
                             telegramUsername: user.telegramUsername ?? null,
                             telegramLinkedAt: user.telegramLinkedAt?.toISOString() ?? null,
                         }}
+                    />
+                    <WhatsappConnect
+                        initial={resolveWhatsappLink({
+                            configured: lumaWhatsappNumber() !== null,
+                            status: user.whatsappLink?.status ?? null,
+                            phone: user.whatsappLink?.phone ?? null,
+                            requestId: user.whatsappLink?.requestId ?? null,
+                            createdAt: user.whatsappLink?.createdAt ?? null,
+                            verifiedAt: user.whatsappLink?.verifiedAt ?? null,
+                            lastError: user.whatsappLink?.lastError ?? null,
+                        })}
+                        deepLink={whatsappDeepLink()}
                     />
                 </div>
 

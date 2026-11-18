@@ -194,6 +194,7 @@ model User {
   reactions            Reaction[]
   announcementComments AnnouncementComment[]
   agentProfile         AgentProfile?         @relation("agent_profile_user")
+  whatsappLink         WhatsappLink?         @relation("whatsapp_link_user")
   grantedAgents        AgentProfile[]        @relation("agent_profile_granted_by")
   revokedAgents        AgentProfile[]        @relation("agent_profile_revoked_by")
 
@@ -493,4 +494,52 @@ model AgentProfile {
   @@index([grantedById])
   @@index([revokedById])
   @@map("ap_agent_profiles")
+}
+
+/// Lifecycle of one member's WhatsApp link.
+///
+/// The phone number is never typed by the user. It arrives only after Hermes
+/// approves a pairing code that was delivered *to that phone*, so `phone`
+/// stays NULL until the provisioner resolves it from the pairing store.
+/// A row therefore means "this AP-Lab user claims a code", not "this user owns
+/// this number" — the number becomes a fact at VERIFIED.
+enum WhatsappLinkStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  EXPIRED
+
+  @@map("ap_whatsapp_link_status")
+}
+
+/// One WhatsApp link attempt per AP-Lab account.
+///
+/// `userId` is unique: a person links one WhatsApp number, and asking again
+/// replaces the pending attempt rather than accumulating them. `phone` is also
+/// unique, so two accounts can never claim the same number — the routing layer
+/// would be ambiguous otherwise. PostgreSQL treats NULLs as distinct, so rows
+/// still in PENDING do not collide.
+model WhatsappLink {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+
+  /// Digits only, country code first (e.g. 628123456789). NULL until resolved.
+  phone String? @unique
+
+  status WhatsappLinkStatus @default(PENDING) @map("status")
+
+  /// The 8-character pairing code the bot sent. Never a credential: it expires
+  /// in an hour and is single-use. Kept so the provisioner can approve exactly
+  /// the attempt the member confirmed on the web.
+  requestId String? @unique @map("request_id")
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  verifiedAt DateTime? @map("verified_at")
+  lastError  String?   @map("last_error") @db.Text
+
+  user User @relation("whatsapp_link_user", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("ap_whatsapp_links")
 }
