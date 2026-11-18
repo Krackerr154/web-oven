@@ -24,6 +24,12 @@ services:
       - RDHX_API_KEY=${RDHX_API_KEY}
       - LUMA_BASE_URL=${LUMA_BASE_URL:-http://host.docker.internal:20128/v1}
       - LUMA_MODEL=${LUMA_MODEL:-ag/gemini-3.8-flash-high}
+      # SHA256(telegram bot token) — verifies Login Widget signatures only.
+      # Deliberately not the token: this value cannot call the Bot API.
+      - TELEGRAM_LOGIN_SECRET=${TELEGRAM_LOGIN_SECRET:-}
+      - NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=${NEXT_PUBLIC_TELEGRAM_BOT_USERNAME:-LUMA154_bot}
+      - HINDSIGHT_URL=${HINDSIGHT_URL:-http://host.docker.internal:8888}
+      - HINDSIGHT_API_KEY=${HINDSIGHT_API_KEY:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
