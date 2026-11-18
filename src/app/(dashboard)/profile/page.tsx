@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { User, Phone, Mail, Shield, Activity, CalendarDays, CheckCircle, XCircle, Clock } from "lucide-react";
 import { formatDateTimeWib } from "@/lib/utils";
 import { ProfileEditor } from "@/components/profile-editor";
+import { TelegramConnect } from "@/components/telegram-connect";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,22 @@ export default async function ProfilePage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Account Details */}
                 <div className="md:col-span-1 space-y-6">
-                    <ProfileEditor user={user as any} />
+                    {/* telegramUserId is a BigInt; stringify before crossing into
+                        a client component so neither the editor nor the RSC
+                        serializer has to carry it. */}
+                    <ProfileEditor
+                        user={{
+                            ...user,
+                            telegramUserId: user.telegramUserId?.toString() ?? null,
+                        } as any}
+                    />
+                    <TelegramConnect
+                        initial={{
+                            telegramUserId: user.telegramUserId?.toString() ?? null,
+                            telegramUsername: user.telegramUsername ?? null,
+                            telegramLinkedAt: user.telegramLinkedAt?.toISOString() ?? null,
+                        }}
+                    />
                 </div>
 
                 {/* Statistics & Activity Summary */}

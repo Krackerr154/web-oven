@@ -163,6 +163,16 @@ model User {
   supervisors     String[]
   hasSeenTour     Boolean    @default(false)
   image           String?    @db.Text
+
+  // Telegram identity, captured by the Login Widget on /profile.
+  // The user_id is Telegram-account-global (not per-bot), so it stays valid
+  // across bot changes. Unique: one Telegram account may back one AP-Lab
+  // account only — two accounts claiming one Telegram would make every
+  // downstream route ambiguous.
+  telegramUserId   BigInt?   @unique @map("telegram_user_id")
+  telegramUsername String?   @map("telegram_username")
+  telegramLinkedAt DateTime? @map("telegram_linked_at")
+
   passwordHash    String     @map("password_hash")
   roles           Role[]     @default([USER])
   status          UserStatus @default(PENDING)
