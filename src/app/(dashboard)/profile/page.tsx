@@ -2,8 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { User, Phone, Mail, Shield, Activity, CalendarDays, CheckCircle, XCircle, Clock } from "lucide-react";
-import { formatDateTimeWib } from "@/lib/utils";
+import { Activity, CalendarDays, CheckCircle, XCircle } from "lucide-react";
 import { ProfileEditor } from "@/components/profile-editor";
 import { TelegramConnect } from "@/components/telegram-connect";
 import { WhatsappConnect } from "@/components/whatsapp-connect";
@@ -17,7 +16,7 @@ export default async function ProfilePage() {
         redirect("/login");
     }
 
-    // Fetch user details and bookings
+    // Fetch user details, bookings, and the WhatsApp link attempt.
     const user = await prisma.user.findUnique({
         where: { id: session.user.id },
         include: {
@@ -63,9 +62,14 @@ export default async function ProfilePage() {
                 <p className="text-slate-400 mt-1">Manage your account information and view your booking activity.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Account Details */}
-                <div className="md:col-span-1 space-y-6">
+            {/*
+              Two balanced regions instead of three cards crammed into a 1/3
+              column next to two short rows in a 2/3 column — that mismatch was
+              what left the void on the right. Left holds the tall identity form;
+              right stacks both LUMA connections, which ends at a similar height.
+            */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <div className="lg:col-span-5">
                     {/* telegramUserId is a BigInt; stringify before crossing into
                         a client component so neither the editor nor the RSC
                         serializer has to carry it. */}
@@ -75,6 +79,15 @@ export default async function ProfilePage() {
                             telegramUserId: user.telegramUserId?.toString() ?? null,
                         } as any}
                     />
+                </div>
+
+                <div className="lg:col-span-7 space-y-4">
+                    <div>
+                        <h2 className="text-lg font-semibold text-white">LUMA connections</h2>
+                        <p className="text-sm text-slate-400 mt-0.5">
+                            Link a chat account so LUMA recognises you instead of asking who you are.
+                        </p>
+                    </div>
                     <TelegramConnect
                         initial={{
                             telegramUserId: user.telegramUserId?.toString() ?? null,
@@ -95,34 +108,44 @@ export default async function ProfilePage() {
                         deepLink={whatsappDeepLink()}
                     />
                 </div>
+            </div>
 
-                {/* Statistics & Activity Summary */}
-                <div className="md:col-span-2 space-y-6">
-                    <h2 className="text-lg font-semibold text-white">Booking Activity</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {stats.map((stat, i) => (
-                            <div key={i} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 flex items-start gap-4 hover:bg-slate-800 transition-colors">
-                                <div className={`p-3 rounded-lg shrink-0 ${stat.bg}`}>
-                                    <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                                </div>
-                                <div>
-                                    <p className="text-3xl font-bold text-white leading-none">{stat.value}</p>
-                                    <p className="text-sm text-slate-400 mt-2 font-medium">{stat.label}</p>
-                                </div>
+            {/*
+              Full-width row: four counters on one line at desktop. Kept out of a
+              half-column so it can never run short against the taller neighbour.
+            */}
+            <div className="space-y-4">
+                <h2 className="text-lg font-semibold text-white">Booking Activity</h2>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {stats.map((stat, i) => (
+                        <div key={i} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 flex items-center gap-4 hover:bg-slate-800 transition-colors">
+                            <div className={`p-3 rounded-lg shrink-0 ${stat.bg}`}>
+                                <stat.icon className={`h-6 w-6 ${stat.color}`} />
                             </div>
-                        ))}
-                    </div>
-
-                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 mt-6 flex flex-col items-center justify-center text-center gap-3">
-                        <div className="bg-orange-500/10 p-4 rounded-full">
-                            <CalendarDays className="h-8 w-8 text-orange-400" />
+                            <div className="min-w-0">
+                                <p className="text-3xl font-bold text-white leading-none">{stat.value}</p>
+                                <p className="text-sm text-slate-400 mt-1.5 font-medium truncate">{stat.label}</p>
+                            </div>
                         </div>
-                        <h3 className="text-white font-medium">Need to book an instrument?</h3>
-                        <p className="text-slate-400 text-sm max-w-sm mb-2">Check availability and schedule your next session online.</p>
-                        <a href="/book" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-colors">
-                            Book Now
-                        </a>
+                    ))}
+                </div>
+
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div className="bg-orange-500/10 p-3 rounded-full shrink-0">
+                        <CalendarDays className="h-6 w-6 text-orange-400" />
                     </div>
+                    <div className="flex-1 min-w-0">
+                        <h3 className="text-white font-medium">Need to book an instrument?</h3>
+                        <p className="text-slate-400 text-sm">
+                            Check availability and schedule your next session online.
+                        </p>
+                    </div>
+                    <a
+                        href="/book"
+                        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-colors shrink-0"
+                    >
+                        Book Now
+                    </a>
                 </div>
             </div>
         </div>
