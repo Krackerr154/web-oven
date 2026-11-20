@@ -2,14 +2,14 @@
 // Extracted verbatim from xrd-plotter.tsx (Phase A). No logic changes.
 
 export type Prim =
-    | { t: "line"; x1: number; y1: number; x2: number; y2: number; stroke: string; w: number; opacity?: number }
+    | { t: "line"; x1: number; y1: number; x2: number; y2: number; stroke: string; w: number; opacity?: number; dash?: number[] }
     | {
         t: "rect"; x: number; y: number; w: number; h: number; stroke: string; sw: number; fill?: string;
         opacity?: number; rx?: number;
         /** Set on the legend backing panel so the drag/drop hit test can find it. */
         data?: { legendPanel?: { x: number; y: number; w: number; h: number } };
     }
-    | { t: "poly"; pts: Array<[number, number]>; stroke: string; w: number }
+    | { t: "poly"; pts: Array<[number, number]>; stroke: string; w: number; dash?: number[] }
     | {
         t: "text"; x: number; y: number; s: string; size: number; weight?: number;
         anchor?: "start" | "middle" | "end"; baseline?: "top" | "middle" | "bottom" | "alphabetic";
@@ -215,9 +215,11 @@ export function paintCanvas(
             ctx.beginPath();
             ctx.strokeStyle = p.stroke;
             ctx.lineWidth = p.w;
+            if (p.dash) ctx.setLineDash(p.dash);
             ctx.moveTo(p.x1, p.y1);
             ctx.lineTo(p.x2, p.y2);
             ctx.stroke();
+            if (p.dash) ctx.setLineDash([]);
             ctx.globalAlpha = 1;
         } else if (p.t === "poly") {
             ctx.beginPath();
@@ -225,8 +227,10 @@ export function paintCanvas(
             ctx.lineWidth = p.w;
             ctx.lineJoin = "round";
             ctx.lineCap = "round";
+            if (p.dash) ctx.setLineDash(p.dash);
             p.pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
             ctx.stroke();
+            if (p.dash) ctx.setLineDash([]);
         } else {
             ctx.save();
             ctx.globalAlpha = p.opacity ?? 1;
@@ -259,11 +263,13 @@ export function toSVG(prims: Prim[], W: number, H: number) {
             return `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" fill="${p.fill ?? "none"}" stroke="${p.stroke}" stroke-width="${p.sw}"${op}${rx} />`;
         }
         if (p.t === "line") {
-            return `<line x1="${p.x1}" y1="${p.y1}" x2="${p.x2}" y2="${p.y2}" stroke="${p.stroke}" stroke-width="${p.w}" />`;
+            const dash = "dash" in p && p.dash ? ` stroke-dasharray="${p.dash.join(" ")}"` : "";
+            return `<line x1="${p.x1}" y1="${p.y1}" x2="${p.x2}" y2="${p.y2}" stroke="${p.stroke}" stroke-width="${p.w}"${dash} />`;
         }
         if (p.t === "poly") {
             const d = p.pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
-            return `<path d="${d}" fill="none" stroke="${p.stroke}" stroke-width="${p.w}" stroke-linejoin="round" stroke-linecap="round" />`;
+            const dash = "dash" in p && p.dash ? ` stroke-dasharray="${p.dash.join(" ")}"` : "";
+            return `<path d="${d}" fill="none" stroke="${p.stroke}" stroke-width="${p.w}" stroke-linejoin="round" stroke-linecap="round"${dash} />`;
         }
         const anchor = p.anchor === "middle" ? "middle" : p.anchor === "end" ? "end" : "start";
         const base =

@@ -26,6 +26,8 @@ export type FigureTrace = {
     x: number[];
     /** Values already converted to the display unit. */
     y: number[];
+    /** Fitted baseline in display units, drawn dashed when present. */
+    baseline?: number[] | null;
     visible: boolean;
 };
 
@@ -40,6 +42,10 @@ export type FtirFigureOptions = {
     /** Manual Y window; omitted means "fit the data". */
     yMin?: number;
     yMax?: number;
+    /** Draw the active trace's residual strip under the main plot. */
+    showResidual?: boolean;
+    /** Trace whose residual is shown; defaults to the first visible one. */
+    residualId?: string;
 };
 
 const AXIS = "#111827";
@@ -68,14 +74,46 @@ function decimate(n: number, cap = 1800): number {
     return Math.max(1, Math.ceil(n / cap));
 }
 
+
+/**
+ * Padded Y window that fits every visible trace, including its waterfall slot.
+ * Exported so the component can invert pointer coordinates with the same numbers
+ * the figure used — two copies of this arithmetic would drift apart.
+ */
+export function yExtent(traces: FigureTrace[], step: number): [number, number] {
+    let lo = Infinity;
+    let hi = -Infinity;
+    traces.forEach((t, i) => {
+        const shift = i * step;
+        for (let k = 0; k < t.y.length; k++) {
+            const v = t.y[k] + shift;
+            if (!Number.isFinite(v)) continue;
+            if (v < lo) lo = v;
+            if (v > hi) hi = v;
+        }
+    });
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) return [0, 1];
+    if (hi - lo < 1e-9) return [lo - 0.5, hi + 0.5];
+    const pad = (hi - lo) * 0.06;
+    return [lo - pad, hi + pad];
+}
+
+/** Plot-area geometry. Shared by the builder and by pointer hit-testing. */
+export function plotFrame(L: Layout, showResidual: boolean) {
+    const PW = L.W - L.M.l - L.M.r;
+    const PH = L.H - L.M.t - L.M.b;
+    const resH = showResidual ? Math.round(PH * 0.24) : 0;
+    const resGap = showResidual ? 26 : 0;
+    return { PW, PH, resH, resGap, mainH: PH - resH - resGap };
+}
+
 export function buildFtirFigure(
     traces: FigureTrace[],
     opts: FtirFigureOptions,
 ): Prim[] {
     const L = opts.layout ?? PRINT_LAYOUT;
     const { W, H, M } = L;
-    const PW = W - M.l - M.r;
-    const PH = H - M.t - M.b;
+    const { PW, PH, resH, resGap, mainH } = plotFrame(L, !!opts.showResidual);
     const out: Prim[] = [];
 
     const shown = traces.filter((t) => t.visible && t.x.length > 1);
@@ -84,33 +122,19 @@ export function buildFtirFigure(
     const step = opts.stacked ? opts.gap : 0;
 
     // ── Y extent across every visible trace, including its waterfall offset ──
-    let yLo = Infinity;
-    let yHi = -Infinity;
-    shown.forEach((t, i) => {
-        const shift = i * step;
-        for (let k = 0; k < t.y.length; k++) {
-            const v = t.y[k] + shift;
-            if (!Number.isFinite(v)) continue;
-            if (v < yLo) yLo = v;
-            if (v > yHi) yHi = v;
-        }
-    });
-    if (!Number.isFinite(yLo) || !Number.isFinite(yHi)) {
-        yLo = 0;
-        yHi = 1;
-    }
-    if (opts.yMin !== undefined) yLo = opts.yMin;
-    if (opts.yMax !== undefined) yHi = opts.yMax;
+    const [fitLo, fitHi] = yExtent(shown, step);
+    let yLo = opts.yMin ?? fitLo;
+    let yHi = opts.yMax ?? fitHi;
     if (yHi - yLo < 1e-9) {
         yHi += 1;
         yLo -= 1;
     }
-    const pad = (yHi - yLo) * 0.06;
-    if (opts.yMin === undefined) yLo -= pad;
-    if (opts.yMax === undefined) yHi += pad;
+
+    // The residual strip takes height from the main panel rather than growing the
+    // figure, so an exported PNG keeps its declared size.
 
     const px = (w: number) => M.l + ((hi - w) / (hi - lo)) * PW;
-    const py = (v: number) => M.t + ((yHi - v) / (yHi - yLo)) * PH;
+    const py = (v: number) => M.t + ((yHi - v) / (yHi - yLo)) * mainH;
 
     // ── Plot frame ──
     out.push({
@@ -118,7 +142,7 @@ export function buildFtirFigure(
         x: M.l,
         y: M.t,
         w: PW,
-        h: PH,
+        h: mainH,
         stroke: AXIS,
         sw: 1,
         fill: "#FFFFFF",
@@ -138,7 +162,7 @@ export function buildFtirFigure(
     out.push({
         t: "text",
         x: M.l - 14,
-        y: M.t + PH / 2,
+        y: M.t + mainH / 2,
         s: opts.unit === "transmittance" ? "Transmittance (%)" : "Absorbance (a.u.)",
         size: L.titleFont,
         fill: AXIS,
@@ -152,12 +176,12 @@ export function buildFtirFigure(
     const firstX = Math.ceil(lo / xStep) * xStep;
     for (let w = firstX; w <= hi + 1e-9; w += xStep) {
         const X = px(w);
-        out.push({ t: "line", x1: X, y1: M.t, x2: X, y2: M.t + PH, stroke: GRID, w: 1 });
-        out.push({ t: "line", x1: X, y1: M.t + PH, x2: X, y2: M.t + PH + 5, stroke: AXIS, w: 1 });
+        out.push({ t: "line", x1: X, y1: M.t, x2: X, y2: M.t + mainH, stroke: GRID, w: 1 });
+        out.push({ t: "line", x1: X, y1: M.t + mainH, x2: X, y2: M.t + mainH + 5, stroke: AXIS, w: 1 });
         out.push({
             t: "text",
             x: X,
-            y: M.t + PH + 8,
+            y: M.t + mainH + 8,
             s: String(Math.round(w)),
             size: L.tickFont,
             fill: MUTED,
@@ -196,8 +220,79 @@ export function buildFtirFigure(
             pts.push([px(w), py(t.y[k] + shift)]);
         }
         if (pts.length < 2) return;
+
+        // Fitted baseline underneath the trace: dashed so it never reads as data.
+        if (t.baseline && t.baseline.length === t.x.length) {
+            const bpts: Array<[number, number]> = [];
+            for (let k = 0; k < t.x.length; k += skip) {
+                const w = t.x[k];
+                if (w < lo - 1e-9 || w > hi + 1e-9) continue;
+                bpts.push([px(w), py(t.baseline[k] + shift)]);
+            }
+            if (bpts.length > 1) {
+                out.push({ t: "poly", pts: bpts, stroke: t.color, w: 1.1, dash: [6, 4] });
+            }
+        }
+
         out.push({ t: "poly", pts, stroke: t.color, w: 1.6 });
     });
+
+    // ── Residual strip ──
+    if (opts.showResidual && resH > 0) {
+        const active =
+            shown.find((t) => t.id === opts.residualId && t.baseline) ??
+            shown.find((t) => t.baseline);
+        if (active?.baseline) {
+            const top = M.t + mainH + resGap;
+            const res = active.y.map((v, i) => v - (active.baseline as number[])[i]);
+            let maxAbs = 0;
+            for (const v of res) if (Number.isFinite(v)) maxAbs = Math.max(maxAbs, Math.abs(v));
+            if (maxAbs < 1e-9) maxAbs = 1;
+            const rpad = maxAbs * 1.15;
+            const ry = (v: number) => top + ((rpad - v) / (2 * rpad)) * resH;
+
+            out.push({
+                t: "rect",
+                x: M.l,
+                y: top,
+                w: PW,
+                h: resH,
+                stroke: "#94A3B8",
+                sw: 1,
+                fill: "#FAFAFA",
+            });
+            out.push({
+                t: "line",
+                x1: M.l,
+                y1: ry(0),
+                x2: M.l + PW,
+                y2: ry(0),
+                stroke: "#94A3B8",
+                w: 1,
+                dash: [4, 4],
+            });
+
+            const skip = decimate(active.x.length);
+            const rpts: Array<[number, number]> = [];
+            for (let k = 0; k < active.x.length; k += skip) {
+                const w = active.x[k];
+                if (w < lo - 1e-9 || w > hi + 1e-9) continue;
+                rpts.push([px(w), ry(res[k])]);
+            }
+            if (rpts.length > 1) {
+                out.push({ t: "poly", pts: rpts, stroke: active.color, w: 1 });
+            }
+            out.push({
+                t: "text",
+                x: M.l + 6,
+                y: top + 4,
+                s: "residual (raw − corrected)",
+                size: Math.max(9, L.tickFont - 2),
+                fill: MUTED,
+                baseline: "top",
+            });
+        }
+    }
 
     // ── Legend (top-right, white backing so traces never run through it) ──
     const entries = shown.map((t) => t.label);
@@ -208,7 +303,7 @@ export function buildFtirFigure(
         const boxH = entries.length * rowH + 12;
         const pos = opts.legendPos ?? { fx: 1, fy: 0 };
         const bx = M.l + 8 + pos.fx * Math.max(0, PW - boxW - 16);
-        const by = M.t + 8 + pos.fy * Math.max(0, PH - boxH - 16);
+        const by = M.t + 8 + pos.fy * Math.max(0, mainH - boxH - 16);
 
         out.push({
             t: "rect",

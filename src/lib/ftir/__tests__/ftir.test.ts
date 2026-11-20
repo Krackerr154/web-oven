@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { FtirParseError, parseFtir } from "@/lib/ftir/parse";
-import { buildFtirFigure, wavenumberStep, type FigureTrace } from "@/lib/ftir/figure";
+import { buildFtirFigure, plotFrame, wavenumberStep, type FigureTrace } from "@/lib/ftir/figure";
 import { toAbsorbance, toTransmittance, convert } from "@/lib/ftir/model";
 import { demoCsv, demoSeries } from "@/lib/ftir/demo";
 import { PRINT_LAYOUT } from "@/lib/plot/core";
@@ -226,5 +226,48 @@ describe("demo spectra", () => {
         };
         expect(Math.abs(minima(1569) - 1569)).toBeLessThanOrEqual(4);
         expect(Math.abs(minima(1396) - 1396)).toBeLessThanOrEqual(4);
+    });
+});
+
+describe("ftir figure — baseline and residual", () => {
+    const demo = parseFtir(demoCsv("ni-bdc").text, "ni-bdc-demo.csv");
+    const base = { lo: 400, hi: 4000, gap: 0, stacked: false, unit: "transmittance" as const };
+    const trace = (withBaseline: boolean): FigureTrace => ({
+        id: "t1",
+        label: "Ni-BDC",
+        color: "#1D4ED8",
+        x: demo.x,
+        y: demo.y,
+        baseline: withBaseline ? demo.y.map((v) => v + 12) : null,
+        visible: true,
+    });
+
+    test("draws a dashed baseline polyline in the trace colour", () => {
+        const prims = buildFtirFigure([trace(true)], base);
+        const polys = prims.filter((p) => p.t === "poly") as Array<{ dash?: number[] }>;
+        expect(polys.length).toBe(2);
+        expect(polys.some((p) => p.dash && p.dash.length === 2)).toBe(true);
+    });
+
+    test("no baseline polyline when the trace has none", () => {
+        const prims = buildFtirFigure([trace(false)], base);
+        expect(prims.filter((p) => p.t === "poly").length).toBe(1);
+    });
+
+    test("residual strip shortens the main panel and adds its own axis", () => {
+        const plain = plotFrame(PRINT_LAYOUT, false);
+        const withRes = plotFrame(PRINT_LAYOUT, true);
+        expect(withRes.mainH).toBeLessThan(plain.mainH);
+        expect(withRes.resH).toBeGreaterThan(0);
+
+        const prims = buildFtirFigure([trace(true)], { ...base, showResidual: true });
+        const texts = prims.filter((p) => p.t === "text").map((p) => (p as { s: string }).s);
+        expect(texts.some((t) => t.startsWith("residual"))).toBe(true);
+    });
+
+    test("residual strip draws a zero reference line", () => {
+        const prims = buildFtirFigure([trace(true)], { ...base, showResidual: true });
+        const dashed = prims.filter((p) => p.t === "line" && (p as { dash?: number[] }).dash);
+        expect(dashed.length).toBeGreaterThan(0);
     });
 });

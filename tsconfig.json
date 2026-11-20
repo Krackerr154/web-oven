@@ -42,6 +42,7 @@
     "reset-tour.ts",
     "**/__tests__/**",
     "**/*.test.ts",
-    "**/*.test.tsx"
+    "**/*.test.tsx",
+    "scripts/**/*.ts"
   ]
 }
