@@ -16,16 +16,16 @@ export default async function FtirPlotterPage() {
     const userId = (session?.user as { id?: string } | undefined)?.id ?? "anonymous";
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-4 animate-fade-in">
             <div>
                 <Link
                     href="/analysis"
-                    className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-3"
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-2"
                 >
                     <ArrowLeft className="h-3.5 w-3.5" /> Analysis
                 </Link>
-                <h1 className="text-3xl font-bold tracking-tight text-white">FTIR Plotter</h1>
-                <p className="text-slate-400 mt-2 text-sm max-w-2xl leading-relaxed">
+                <h1 className="text-2xl font-bold tracking-tight text-white">FTIR Plotter</h1>
+                <p className="text-slate-400 mt-1 text-sm max-w-3xl leading-relaxed">
                     Load transmittance or absorbance spectra, switch the displayed axis, stack them with an
                     adjustable offset, and export a figure sized for a thesis column.
                 </p>

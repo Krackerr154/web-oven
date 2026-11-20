@@ -80,7 +80,7 @@ export function FtirPlotter({ userId }: { userId: string }) {
         const base = screenLayout(width);
         // Height follows the viewport so the plot and the three control cards
         // share one screen on a laptop, instead of the cards starting below it.
-        const h = Math.round(Math.min(470, Math.max(250, Math.min(width * 0.36, vh - 646 - (peaksOn ? 74 : 0)))));
+        const h = Math.round(Math.min(470, Math.max(240, Math.min(width * 0.36, vh - 662 - (peaksOn ? 74 : 0)))));
         // Room for the horizontal axis title above the frame and the tick numbers
         // beside it. Applied here, not inside the builder, so hit-testing reads
         // the same numbers the figure was drawn with.

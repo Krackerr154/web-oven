@@ -270,7 +270,7 @@ export function XrdPlotter() {
     const layout = useMemo(() => {
         const base = screenLayout(canvasW || 860);
         const w = canvasW || 860;
-        const h = Math.round(Math.min(470, Math.max(250, Math.min(w * 0.36, vh - 560))));
+        const h = Math.round(Math.min(470, Math.max(200, Math.min(w * 0.36, vh - 566))));
         return { ...base, H: h };
     }, [canvasW, vh]);
 
@@ -1161,7 +1161,7 @@ export function XrdPlotter() {
     const nothingVisible = visibleTraces.length === 0 && !reference?.visible;
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-3">
             {error && (
                 <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
                     {error}
@@ -1522,9 +1522,7 @@ export function XrdPlotter() {
                 </div>
 
                 {/* ── Settings ───────────────────────────────────────── */}
-                <aside
-                    className="rounded-xl border border-slate-700/50 bg-slate-800 p-4 space-y-3"
-                >
+                <section className="rounded-xl border border-slate-700/50 bg-slate-800 p-4 space-y-3 lg:h-[240px] lg:overflow-y-auto lg:flex lg:flex-col">
                     <div>
                         <div className="flex items-baseline justify-between mb-3">
                             <h3 className="text-xs font-semibold text-slate-300">
@@ -1691,9 +1689,13 @@ export function XrdPlotter() {
                         </p>
                     )}
 
-                    {!empty && (
-                        <>
-                            <div className="h-px bg-slate-700/60" />
+                    <p className="mt-auto pt-2 text-[11px] leading-relaxed text-slate-500">
+                        Nothing is uploaded. Scans stay in this browser, on this device.
+                    </p>
+                </section>
+
+                {!empty && (
+                    <section className="rounded-xl border border-slate-700/50 bg-slate-800 p-4 space-y-3 lg:h-[240px] lg:overflow-y-auto lg:flex lg:flex-col">
                             <div className="space-y-3">
                                 <h3 className="text-xs font-semibold text-slate-300">
                                     Plot
@@ -1789,17 +1791,13 @@ export function XrdPlotter() {
                                     />
                                 </label>
 
-                                <p className="text-[11px] leading-relaxed text-slate-400">
-                                    Stacked traces are normalised individually. Unstacking scales all
-                                    traces to a common maximum, preserving relative intensity.
-                                </p>
                             </div>
 
-                        </>
-                    )}
-                </aside>
+                    </section>
+                )}
 
-                <section className="rounded-xl border border-slate-700/60 bg-slate-900/50 p-4 space-y-2">
+                <section className="rounded-xl border border-slate-700/50 bg-slate-800 p-4 space-y-3 lg:h-[240px] lg:overflow-y-auto lg:flex lg:flex-col">
+                    <div className="space-y-2">
                     <h3 className="text-xs font-semibold text-slate-300">
                         Export
                     </h3>
@@ -1828,9 +1826,8 @@ export function XrdPlotter() {
                     <p className="text-[11px] leading-relaxed text-slate-400">
                         Always print geometry — an 85 mm figure regardless of window size.
                     </p>
-                </section>
-
-                <section className="rounded-xl border border-slate-700/60 bg-slate-900/50 p-4 space-y-2">
+                    </div>
+                    <div className="space-y-2 border-t border-slate-700/60 pt-3">
                     <h3 className="text-xs font-semibold text-slate-300">
                         Reference
                     </h3>
@@ -1892,39 +1889,34 @@ export function XrdPlotter() {
                             </div>
                         )}
 
-                        <p className="text-[11px] leading-relaxed text-slate-400">
-                            Computed from the CIF with Cu Kα, structure factors and Lorentz-polarisation applied.
-                        </p>
+                    </div>
                 </section>
             </div>
 
-            <PhaseMatchPanel
-                results={matchResults?.filter((m) => visibleTraces.some((t) => t.id === m.traceId)) ?? null}
-                selectedId={selectedMatchId}
-                onSelect={setSelectedMatchId}
-                onRun={runMatch}
-                busy={matchBusy}
-                error={matchError}
-                canRun={!!reference && visibleTraces.length > 0}
-                referenceLabel={reference ? `${reference.formula} (${reference.spacegroup})` : null}
-            />
+            {reference || matchResults ? (
+                <PhaseMatchPanel
+                    results={matchResults?.filter((m) => visibleTraces.some((t) => t.id === m.traceId)) ?? null}
+                    selectedId={selectedMatchId}
+                    onSelect={setSelectedMatchId}
+                    onRun={runMatch}
+                    busy={matchBusy}
+                    error={matchError}
+                    canRun={!!reference && visibleTraces.length > 0}
+                    referenceLabel={reference ? `${reference.formula} (${reference.spacegroup})` : null}
+                />
+            ) : null}
 
             {traces.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {traces.map((t) => (
-                        <div
-                            key={`${t.id}-meta`}
-                            className={`rounded-lg border border-slate-700/50 bg-slate-900/40 px-3 py-2 ${t.visible ? "" : "opacity-45"}`}
-                        >
-                            <p className="text-[11px] text-slate-400 truncate" title={t.fileName}>
-                                {t.fileName}{t.visible ? "" : " · hidden"}
-                            </p>
-                            <p className="text-[11px] text-slate-300 font-mono mt-0.5">
-                                {t.x.length.toLocaleString()} pts · max {Math.round(t.peakIntensity).toLocaleString()} @ {t.peak2Theta.toFixed(2)}°
-                            </p>
-                        </div>
+                <p className="truncate text-center text-[11px] text-slate-400">
+                    {traces.map((t, i) => (
+                        <span key={`sum-${t.id}`}>
+                            {i > 0 && <span className="text-slate-600"> · </span>}
+                            {t.fileName} — {t.x.length.toLocaleString()} pts, max{" "}
+                            {Math.round(t.peakIntensity).toLocaleString()} @ {t.peak2Theta.toFixed(2)}°
+                            {t.visible ? "" : " (hidden)"}
+                        </span>
                     ))}
-                </div>
+                </p>
             )}
         </div>
     );
