@@ -30,7 +30,7 @@ export type Release = {
     changes: Change[];
 };
 
-export const CURRENT_VERSION = "1.0.0";
+export const CURRENT_VERSION = "1.1.0";
 
 export const KIND_LABEL: Record<ChangeKind, string> = {
     new: "New",
@@ -40,6 +40,35 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 };
 
 export const RELEASES: Release[] = [
+    {
+        version: "1.1.0",
+        date: "2026-11-20",
+        title: "FTIR Plotter",
+        summary:
+            "Spectra now have a plotter of their own: load instrument exports, correct the baseline, label the bands, and export a figure that records what was done to it.",
+        changes: [
+            {
+                kind: "new",
+                text: "FTIR Plotter under Analysis. Load CSV, TXT or JCAMP-DX exports, overlay several spectra, switch between %T and absorbance, and offset them into a waterfall.",
+            },
+            {
+                kind: "new",
+                text: "Baseline correction per trace, two ways: click anchors onto the regions that really have no absorption, or let the automatic hull follow the floor. A residual strip shows whether the correction ate a band.",
+            },
+            {
+                kind: "new",
+                text: "Peak labels. Bands are found on the corrected trace, and every detected position appears as a chip you can rename, so a figure can read 1654 C=O instead of just 1654.",
+            },
+            {
+                kind: "improved",
+                text: "Exports state what was done to the data. The PDF caption and the CSV header both record the baseline method and the labelled peaks, because a corrected spectrum with no stated method cannot be reproduced.",
+            },
+            {
+                kind: "improved",
+                text: "Spectra are parsed in your browser. Nothing you load is uploaded, the same as the XRD plotter.",
+            },
+        ],
+    },
     {
         version: "1.0.0",
         date: "2026-11-07",

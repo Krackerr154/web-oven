@@ -71,7 +71,7 @@ export function FtirPlotter() {
         const base = screenLayout(width);
         // Height follows the viewport so the plot and the three control cards
         // share one screen on a laptop, instead of the cards starting below it.
-        const h = Math.round(Math.min(470, Math.max(258, Math.min(width * 0.36, vh - 592 - (peaksOn ? 74 : 0)))));
+        const h = Math.round(Math.min(470, Math.max(250, Math.min(width * 0.36, vh - 646 - (peaksOn ? 74 : 0)))));
         return { ...base, H: h };
     }, [width, vh, peaksOn]);
     const active = traces.find((t) => t.id === activeId) ?? traces[0] ?? null;
@@ -996,6 +996,46 @@ export function FtirPlotter() {
                     </div>
                 </section>
             </div>
+
+            <details className="group rounded-xl border border-slate-700/50 bg-slate-800/60 px-4 py-3">
+                <summary className="cursor-pointer text-xs font-medium text-slate-300 marker:text-slate-500">
+                    How the processing works
+                </summary>
+                <dl className="mt-3 grid gap-3 text-[11px] leading-relaxed text-slate-400 sm:grid-cols-2">
+                    <div>
+                        <dt className="font-medium text-slate-300">Formats</dt>
+                        <dd>
+                            Two-column text (CSV, TXT, DAT, ASC, PRN, DPT, XY) and JCAMP-DX. Vendor binaries
+                            such as Bruker OPUS or PerkinElmer .sp need exporting to CSV from the instrument
+                            software first.
+                        </dd>
+                    </div>
+                    <div>
+                        <dt className="font-medium text-slate-300">Why the baseline runs in absorbance</dt>
+                        <dd>
+                            Beer-Lambert is additive in absorbance and multiplicative in %T, so subtracting a
+                            baseline from transmittance is not the same operation. The maths always uses
+                            absorbance; switching the axis only changes what you see.
+                        </dd>
+                    </div>
+                    <div>
+                        <dt className="font-medium text-slate-300">Automatic baseline</dt>
+                        <dd>
+                            A lower convex hull over the trimmed interior of the scan, with no parameters to
+                            tune. It can climb into a broad band, which is what the residual strip and the
+                            warning are for. Manual anchors exist because you know where the quiet regions are.
+                        </dd>
+                    </div>
+                    <div>
+                        <dt className="font-medium text-slate-300">Peaks and provenance</dt>
+                        <dd>
+                            Peaks are found on the corrected trace, never on the raw one. Labels are yours to
+                            edit and are never assigned automatically. Exports record the baseline method and
+                            the peak list, so the figure can be reproduced.
+                        </dd>
+                    </div>
+                </dl>
+            </details>
 
             {toast && (
                 <div className="fixed bottom-6 right-6 z-50 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-100 shadow-xl">

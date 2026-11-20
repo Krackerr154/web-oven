@@ -1,6 +1,6 @@
 # FTIR Plotter — Implementation Plan
 
-**Status:** proposed, awaiting approval
+**Status:** shipped 2026-11-20 (Phases A-E) — live at /analysis/ftir, release 1.1.0
 **Author:** Hephaestus
 **Date:** 2026-11-19
 **Target:** `/analysis/ftir` in `web-oven-ap-lab`

@@ -21,7 +21,7 @@ const tools = [
         id: "ftir",
         title: "FTIR Plotter",
         description:
-            "Load CSV, TXT or JCAMP-DX spectra, switch between %T and absorbance, stack them, and export PNG, SVG or an 85 mm PDF.",
+            "Load CSV, TXT or JCAMP-DX spectra, correct the baseline with anchors or automatically, label the bands, and export a figure that records the method.",
         icon: Activity,
         href: "/analysis/ftir",
         status: "Ready",
