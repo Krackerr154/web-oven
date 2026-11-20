@@ -7,7 +7,7 @@ import {
     FlaskConical, Loader2, RotateCcw, Info, AlertTriangle, MousePointerClick,
 } from "lucide-react";
 import { PALETTE, PRINT_LAYOUT, paintCanvas, screenLayout, toSVG } from "@/lib/plot/core";
-import { buildFtirFigure, plotFrame, yExtent, type FigureTrace } from "@/lib/ftir/figure";
+import { buildFtirFigure, plotFrame, type FigureTrace } from "@/lib/ftir/figure";
 import { FtirParseError, parseFtir, type AxisUnit } from "@/lib/ftir/parse";
 import { convert, toTransmittance } from "@/lib/ftir/model";
 import {
@@ -57,8 +57,17 @@ export function FtirPlotter() {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const fileRef = useRef<HTMLInputElement | null>(null);
     const [width, setWidth] = useState(860);
+    const [vh, setVh] = useState(900);
 
-    const layout = useMemo(() => screenLayout(width), [width]);
+    // A spectrum is read left-to-right, not as a square: the plot keeps a wide
+    // aspect and a height cap so it never swallows the screen on a large monitor.
+    const layout = useMemo(() => {
+        const base = screenLayout(width);
+        // Height follows the viewport so the plot and the three control cards
+        // share one screen on a laptop, instead of the cards starting below it.
+        const h = Math.round(Math.min(470, Math.max(280, Math.min(width * 0.36, vh - 592))));
+        return { ...base, H: h };
+    }, [width, vh]);
     const active = traces.find((t) => t.id === activeId) ?? traces[0] ?? null;
 
     // Baseline maths always runs in absorbance, whatever unit is on screen.
@@ -125,7 +134,13 @@ export function FtirPlotter() {
             setWidth(Math.max(280, Math.round(w)));
         });
         ro.observe(el);
-        return () => ro.disconnect();
+        const onResize = () => setVh(window.innerHeight);
+        onResize();
+        window.addEventListener("resize", onResize);
+        return () => {
+            ro.disconnect();
+            window.removeEventListener("resize", onResize);
+        };
     }, []);
 
     useEffect(() => {
@@ -467,17 +482,17 @@ export function FtirPlotter() {
     const activeDegree = active?.baseline.kind === "manual" ? active.baseline.degree : degree;
 
     return (
-        <div className="space-y-5 animate-fade-in">
+        <div className="space-y-4 animate-fade-in">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-slate-500 text-xs">
-                    Nothing you load here leaves this browser tab. Baseline maths runs in absorbance.
+                <p className="text-xs text-slate-500">
+                    Parsing runs in this tab. The spectrum is never uploaded.
                 </p>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                     <button
                         onClick={() => fileRef.current?.click()}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-colors"
+                        className="inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-500"
                     >
-                        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                         Load spectra
                     </button>
                     <input
@@ -493,95 +508,106 @@ export function FtirPlotter() {
 
             {error && (
                 <div className="flex items-start gap-3 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                    <Info className="w-4 h-4 mt-0.5 shrink-0" />
+                    <Info className="mt-0.5 h-4 w-4 shrink-0" />
                     <span className="flex-1">{error}</span>
                     <button onClick={() => setError(null)} aria-label="Dismiss">
-                        <X className="w-4 h-4" />
+                        <X className="h-4 w-4" />
                     </button>
                 </div>
             )}
 
             {caution && (
                 <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                     <span className="flex-1">{caution}</span>
                 </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
-                <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-3">
-                    <div
-                        ref={wrapRef}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                            e.preventDefault();
-                            handleFiles(e.dataTransfer.files);
-                        }}
-                        className="w-full"
-                    >
-                        {hasTraces ? (
-                            <canvas
-                                ref={canvasRef}
-                                onPointerDown={onPointerDown}
-                                onPointerMove={onPointerMove}
-                                onPointerUp={onPointerUp}
-                                onPointerCancel={onPointerUp}
-                                className={`block w-full h-auto rounded ${manual ? "cursor-crosshair" : ""}`}
-                            />
-                        ) : (
-                            <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
-                                <FlaskConical className="w-8 h-8 text-slate-500" />
-                                <p className="text-slate-300 font-medium">No spectra loaded</p>
-                                <p className="text-slate-500 text-sm max-w-sm">
-                                    Drop a CSV, TXT or JCAMP-DX export here, or load a demo spectrum to see
-                                    how a figure comes out.
-                                </p>
-                                <div className="flex flex-wrap justify-center gap-2 pt-1">
-                                    <button
-                                        onClick={() => loadDemo("ni-bdc")}
-                                        className="px-3 py-1.5 rounded-md bg-slate-700 hover:bg-slate-600 text-slate-100 text-sm"
-                                    >
-                                        Ni-BDC demo
-                                    </button>
-                                    <button
-                                        onClick={() => loadDemo("cu-bdc")}
-                                        className="px-3 py-1.5 rounded-md bg-slate-700 hover:bg-slate-600 text-slate-100 text-sm"
-                                    >
-                                        Cu-BDC demo
-                                    </button>
-                                </div>
+            {/* Plot — the screen's question, given the full width */}
+            <div className="rounded-xl border border-slate-700/50 bg-slate-800 p-3">
+                <div
+                    ref={wrapRef}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                        e.preventDefault();
+                        handleFiles(e.dataTransfer.files);
+                    }}
+                    className="w-full"
+                >
+                    {hasTraces ? (
+                        <canvas
+                            ref={canvasRef}
+                            onPointerDown={onPointerDown}
+                            onPointerMove={onPointerMove}
+                            onPointerUp={onPointerUp}
+                            onPointerCancel={onPointerUp}
+                            className={`block h-auto w-full rounded ${manual ? "cursor-crosshair" : ""}`}
+                        />
+                    ) : (
+                        <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-slate-600/70 px-6 py-10 text-center lg:min-h-[360px]">
+                            <FlaskConical className="h-7 w-7 text-slate-500" />
+                            <p className="font-medium text-slate-200">No spectra loaded</p>
+                            <p className="max-w-md text-sm text-slate-400">
+                                Drop a CSV, TXT or JCAMP-DX export here, or load a demo to see a finished
+                                figure. Two-column text and JCAMP-DX are read; vendor binaries need a CSV
+                                export first.
+                            </p>
+                            <div className="flex flex-wrap justify-center gap-2 pt-1">
+                                <button
+                                    onClick={() => loadDemo("ni-bdc")}
+                                    className="rounded-md bg-slate-700 px-3 py-1.5 text-sm text-slate-100 hover:bg-slate-600"
+                                >
+                                    Ni-BDC demo
+                                </button>
+                                <button
+                                    onClick={() => loadDemo("cu-bdc")}
+                                    className="rounded-md bg-slate-700 px-3 py-1.5 text-sm text-slate-100 hover:bg-slate-600"
+                                >
+                                    Cu-BDC demo
+                                </button>
                             </div>
-                        )}
-                    </div>
-                    {manual && (
-                        <p className="mt-2 text-[11px] text-slate-400 flex items-center gap-1.5">
-                            <MousePointerClick className="w-3.5 h-3.5" />
-                            Click to place an anchor, drag it sideways to slide along the curve, shift-click to remove.
-                        </p>
+                        </div>
                     )}
                 </div>
+                {manual && (
+                    <p className="mt-2 flex items-center gap-1.5 px-1 text-[11px] text-slate-400">
+                        <MousePointerClick className="h-3.5 w-3.5" />
+                        Click to place an anchor, drag it sideways to slide, shift-click to remove.
+                    </p>
+                )}
+            </div>
 
-                <div className="space-y-4">
-                    <section className="bg-slate-800 rounded-xl border border-slate-700/50 p-4 space-y-3">
+            {/* Controls — three columns that end level, no rail */}
+            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
+                <section className="flex h-full flex-col rounded-xl border border-slate-700/50 bg-slate-800 p-4">
+                    <div className="mb-3 flex items-center justify-between">
                         <h2 className="text-sm font-semibold text-slate-200">Traces</h2>
-                        {!hasTraces && <p className="text-slate-500 text-sm">Nothing loaded yet.</p>}
+                        <span className="text-[11px] text-slate-500">{traces.length} loaded</span>
+                    </div>
+                    <div className="space-y-1">
+                        {!hasTraces && (
+                            <p className="text-sm text-slate-500">Nothing loaded yet.</p>
+                        )}
                         {traces.map((t) => (
                             <div
                                 key={t.id}
-                                className={`flex items-center gap-2 text-sm rounded-md px-1 py-0.5 ${
-                                    t.id === active?.id ? "bg-slate-700/60" : ""
+                                className={`flex items-center gap-2 rounded-md px-1.5 py-1 text-sm ${
+                                    t.id === active?.id ? "bg-slate-700/70" : ""
                                 }`}
                             >
-                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: t.color }} />
+                                <span
+                                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                    style={{ background: t.color }}
+                                />
                                 <button
                                     onClick={() => setActiveId(t.id)}
                                     className="flex-1 truncate text-left text-slate-200 hover:text-white"
-                                    title={`${t.fileName} — click to make active`}
+                                    title={`${t.fileName}, click to make active`}
                                 >
                                     {t.label}
                                 </button>
-                                <span className="text-[11px] uppercase tracking-wide text-slate-500">
-                                    {t.baseline.kind === "none" ? "—" : t.baseline.kind === "manual" ? "manual" : "auto"}
+                                <span className="shrink-0 text-[11px] text-slate-500">
+                                    {t.baseline.kind === "none" ? "raw" : t.baseline.kind === "manual" ? "manual" : "auto"}
                                 </span>
                                 <button
                                     onClick={() =>
@@ -592,190 +618,205 @@ export function FtirPlotter() {
                                     aria-label={t.visible ? "Hide trace" : "Show trace"}
                                     className="text-slate-400 hover:text-slate-200"
                                 >
-                                    {t.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                                    {t.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                                 </button>
                                 <button
                                     onClick={() => setTraces((p) => p.filter((x) => x.id !== t.id))}
                                     aria-label="Remove trace"
                                     className="text-slate-400 hover:text-red-400"
                                 >
-                                    <X className="w-4 h-4" />
+                                    <X className="h-4 w-4" />
                                 </button>
                             </div>
                         ))}
-                        {hasTraces && (
+                    </div>
+                    <div className="mt-auto pt-3">
+                        <button
+                            onClick={() => loadDemo("cu-bdc")}
+                            className="text-xs text-slate-400 hover:text-slate-200"
+                        >
+                            + add demo spectrum
+                        </button>
+                        {notes.length > 0 && (
+                            <ul className="mt-2 space-y-1 border-t border-slate-700/60 pt-2 text-[11px] text-slate-500">
+                                {notes.slice(-2).map((n, i) => (
+                                    <li key={i}>{n}</li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                </section>
+
+                <section className="flex h-full flex-col rounded-xl border border-slate-700/50 bg-slate-800 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                        <h2 className="text-sm font-semibold text-slate-200">Baseline</h2>
+                        <span className="max-w-[9rem] truncate text-[11px] text-slate-500">
+                            {active ? active.label : "no trace"}
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                        {([
+                            ["none", "None"],
+                            ["manual", "Manual"],
+                            ["rubberband", "Auto"],
+                        ] as const).map(([kind, label]) => (
                             <button
-                                onClick={() => loadDemo("cu-bdc")}
-                                className="text-xs text-slate-400 hover:text-slate-200"
+                                key={kind}
+                                onClick={() => setMode(kind)}
+                                disabled={!active}
+                                className={`rounded-md px-2 py-1.5 text-xs transition-colors ${
+                                    active?.baseline.kind === kind
+                                        ? "bg-orange-600 text-white"
+                                        : "bg-slate-700 text-slate-200 hover:bg-slate-600"
+                                }`}
                             >
-                                + add demo spectrum
+                                {label}
                             </button>
-                        )}
-                    </section>
+                        ))}
+                    </div>
 
-                    <section className="bg-slate-800 rounded-xl border border-slate-700/50 p-4 space-y-3">
-                        <h2 className="text-sm font-semibold text-slate-200">
-                            Baseline
-                            {active && (
-                                <span className="block text-[11px] font-normal text-slate-500 truncate">
-                                    on {active.label}
-                                </span>
-                            )}
-                        </h2>
-                        <div className="grid grid-cols-3 gap-1.5">
-                            {([
-                                ["none", "None"],
-                                ["manual", "Manual"],
-                                ["rubberband", "Auto"],
-                            ] as const).map(([kind, label]) => (
-                                <button
-                                    key={kind}
-                                    onClick={() => setMode(kind)}
-                                    disabled={!active}
-                                    className={`px-2 py-1.5 rounded-md text-xs transition-colors ${
-                                        active?.baseline.kind === kind
-                                            ? "bg-orange-600 text-white"
-                                            : "bg-slate-700 text-slate-200 hover:bg-slate-600"
-                                    }`}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-
-                        {manual && (
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className="text-xs text-slate-400">Fit degree</span>
-                                    <div className="flex gap-1">
-                                        {([1, 2, 3] as const).map((d) => (
-                                            <button
-                                                key={d}
-                                                onClick={() => setActiveDegree(d)}
-                                                className={`px-2 py-0.5 rounded text-xs ${
-                                                    activeDegree === d
-                                                        ? "bg-slate-600 text-white"
-                                                        : "bg-slate-700/60 text-slate-300"
-                                                }`}
-                                            >
-                                                {d}
-                                            </button>
-                                        ))}
-                                    </div>
+                    {manual && (
+                        <div className="mt-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs text-slate-400">Fit degree</span>
+                                <div className="flex gap-1">
+                                    {([1, 2, 3] as const).map((d) => (
+                                        <button
+                                            key={d}
+                                            onClick={() => setActiveDegree(d)}
+                                            className={`rounded px-2 py-0.5 text-xs ${
+                                                activeDegree === d
+                                                    ? "bg-slate-600 text-white"
+                                                    : "bg-slate-700/60 text-slate-300"
+                                            }`}
+                                        >
+                                            {d}
+                                        </button>
+                                    ))}
                                 </div>
-                                <p className="text-[11px] text-slate-500">
-                                    {anchorCount} anchor{anchorCount === 1 ? "" : "s"}; degree {activeDegree}{" "}
-                                    needs {activeDegree + 1}.
-                                </p>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={clearAnchors}
-                                        className="flex-1 px-2 py-1.5 rounded-md bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs"
-                                    >
-                                        Clear
-                                    </button>
-                                    <button
-                                        onClick={applyToAll}
-                                        disabled={traces.length < 2}
-                                        className="flex-1 px-2 py-1.5 rounded-md bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs disabled:opacity-40"
-                                    >
-                                        Apply to all
-                                    </button>
-                                </div>
-                                <label className="flex items-center gap-2 text-[11px] text-slate-400">
-                                    <input
-                                        type="checkbox"
-                                        checked={editingRaw}
-                                        onChange={(e) => setEditingRaw(e.target.checked)}
-                                        className="accent-orange-500"
-                                    />
-                                    Show raw trace while placing anchors
-                                </label>
                             </div>
-                        )}
-
-                        {active?.baseline.kind === "rubberband" && (
-                            <p className="text-[11px] text-slate-500 leading-relaxed">
-                                Lower convex hull in absorbance — parameter-free, matches instrument
-                                software. Check the residual before trusting it.
+                            <p className="text-[11px] text-slate-500">
+                                {anchorCount} anchor{anchorCount === 1 ? "" : "s"} · degree {activeDegree} needs{" "}
+                                {activeDegree + 1}
                             </p>
-                        )}
-                    </section>
-
-                    <section className="bg-slate-800 rounded-xl border border-slate-700/50 p-4 space-y-3">
-                        <h2 className="text-sm font-semibold text-slate-200">Display</h2>
-                        <div className="grid grid-cols-2 gap-2">
-                            {(["transmittance", "absorbance"] as AxisUnit[]).map((u) => (
-                                <button
-                                    key={u}
-                                    onClick={() => setUnit(u)}
-                                    className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
-                                        unit === u
-                                            ? "bg-orange-600 text-white"
-                                            : "bg-slate-700 text-slate-200 hover:bg-slate-600"
-                                    }`}
-                                >
-                                    {u === "transmittance" ? "%T" : "Absorbance"}
-                                </button>
-                            ))}
+                            <label className="flex items-center gap-2 text-[11px] text-slate-400">
+                                <input
+                                    type="checkbox"
+                                    checked={editingRaw}
+                                    onChange={(e) => setEditingRaw(e.target.checked)}
+                                    className="accent-orange-500"
+                                />
+                                Show raw while placing anchors
+                            </label>
                         </div>
-                        <label className="flex items-center gap-2 text-xs text-slate-300">
+                    )}
+
+                    {active?.baseline.kind === "rubberband" && (
+                        <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+                            Lower convex hull in absorbance, parameter-free, same as instrument software.
+                            Check the residual before trusting it.
+                        </p>
+                    )}
+
+                    {active?.baseline.kind === "none" && (
+                        <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+                            No baseline applied. Exports carry the raw spectrum.
+                        </p>
+                    )}
+
+                    <div className="mt-auto flex gap-2 pt-3">
+                        <button
+                            onClick={clearAnchors}
+                            disabled={!manual}
+                            className="flex-1 rounded-md bg-slate-700 px-2 py-1.5 text-xs text-slate-200 hover:bg-slate-600 disabled:opacity-40"
+                        >
+                            Clear
+                        </button>
+                        <button
+                            onClick={applyToAll}
+                            disabled={!active || traces.length < 2}
+                            className="flex-1 rounded-md bg-slate-700 px-2 py-1.5 text-xs text-slate-200 hover:bg-slate-600 disabled:opacity-40"
+                        >
+                            Apply to all
+                        </button>
+                    </div>
+                </section>
+
+                <section className="flex h-full flex-col rounded-xl border border-slate-700/50 bg-slate-800 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                        <h2 className="text-sm font-semibold text-slate-200">View</h2>
+                        <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
                             <input
                                 type="checkbox"
                                 checked={showResidual}
                                 onChange={(e) => setShowResidual(e.target.checked)}
                                 className="accent-orange-500"
                             />
-                            Residual strip
+                            Residual
                         </label>
-                        {showResidual && unit !== "absorbance" && (
-                            <p className="text-[11px] text-amber-300/80">
-                                Residual is an absorbance quantity — switch to Absorbance to see it.
-                            </p>
-                        )}
-                    </section>
+                    </div>
 
-                    <section className="bg-slate-800 rounded-xl border border-slate-700/50 p-4 space-y-3">
-                        <h2 className="text-sm font-semibold text-slate-200">Range</h2>
-                        <div className="grid grid-cols-2 gap-2">
-                            <label className="text-xs text-slate-400">
-                                High (cm⁻¹)
-                                <input
-                                    type="number"
-                                    value={hi}
-                                    onChange={(e) => setHi(Number(e.target.value))}
-                                    className="mt-1 w-full rounded-md bg-slate-900 border border-slate-700 px-2 py-1.5 text-sm text-slate-100"
-                                />
-                            </label>
-                            <label className="text-xs text-slate-400">
-                                Low (cm⁻¹)
-                                <input
-                                    type="number"
-                                    value={lo}
-                                    onChange={(e) => setLo(Number(e.target.value))}
-                                    className="mt-1 w-full rounded-md bg-slate-900 border border-slate-700 px-2 py-1.5 text-sm text-slate-100"
-                                />
-                            </label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <label className="flex items-center gap-2 text-xs text-slate-300 flex-1">
-                                <input
-                                    type="checkbox"
-                                    checked={stacked}
-                                    onChange={(e) => setStacked(e.target.checked)}
-                                    className="accent-orange-500"
-                                />
-                                Waterfall offset
-                            </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                        {(["transmittance", "absorbance"] as AxisUnit[]).map((u) => (
+                            <button
+                                key={u}
+                                onClick={() => setUnit(u)}
+                                className={`rounded-md px-2 py-1.5 text-xs transition-colors ${
+                                    unit === u
+                                        ? "bg-orange-600 text-white"
+                                        : "bg-slate-700 text-slate-200 hover:bg-slate-600"
+                                }`}
+                            >
+                                {u === "transmittance" ? "%T" : "Absorbance"}
+                            </button>
+                        ))}
+                    </div>
+
+                    {showResidual && unit !== "absorbance" && (
+                        <p className="mt-2 text-[11px] text-amber-300/80">
+                            The residual is an absorbance quantity. Switch to Absorbance to see it.
+                        </p>
+                    )}
+
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                        <label className="text-[11px] text-slate-400">
+                            High cm⁻¹
                             <input
                                 type="number"
-                                value={gap}
-                                onChange={(e) => setGap(Number(e.target.value))}
-                                disabled={!stacked}
-                                className="w-20 rounded-md bg-slate-900 border border-slate-700 px-2 py-1 text-sm text-slate-100 disabled:opacity-40"
-                                aria-label="Waterfall gap"
+                                value={hi}
+                                onChange={(e) => setHi(Number(e.target.value))}
+                                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
                             />
-                        </div>
+                        </label>
+                        <label className="text-[11px] text-slate-400">
+                            Low cm⁻¹
+                            <input
+                                type="number"
+                                value={lo}
+                                onChange={(e) => setLo(Number(e.target.value))}
+                                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+                            />
+                        </label>
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                        <label className="flex items-center gap-2 text-[11px] text-slate-300">
+                            <input
+                                type="checkbox"
+                                checked={stacked}
+                                onChange={(e) => setStacked(e.target.checked)}
+                                className="accent-orange-500"
+                            />
+                            Waterfall
+                        </label>
+                        <input
+                            type="number"
+                            value={gap}
+                            onChange={(e) => setGap(Number(e.target.value))}
+                            disabled={!stacked}
+                            className="w-16 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100 disabled:opacity-40"
+                            aria-label="Waterfall gap"
+                        />
                         <button
                             onClick={() => {
                                 if (!traces.length) return;
@@ -783,50 +824,47 @@ export function FtirPlotter() {
                                 setLo(Math.max(400, Math.min(...xs)));
                                 setHi(Math.min(4000, Math.max(...xs)));
                             }}
-                            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200"
+                            className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200"
                         >
-                            <RotateCcw className="w-3.5 h-3.5" /> Fit to data
+                            <RotateCcw className="h-3 w-3" /> Fit
                         </button>
-                    </section>
+                    </div>
 
-                    <section className="bg-slate-800 rounded-xl border border-slate-700/50 p-4 space-y-2">
-                        <h2 className="text-sm font-semibold text-slate-200">Export</h2>
-                        <div className="grid grid-cols-2 gap-2">
-                            <button onClick={exportPNG} disabled={!hasTraces}
-                                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-slate-700 hover:bg-slate-600 text-slate-100 text-sm disabled:opacity-40">
-                                <ImageIcon className="w-4 h-4" /> PNG
-                            </button>
-                            <button onClick={exportSVG} disabled={!hasTraces}
-                                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-slate-700 hover:bg-slate-600 text-slate-100 text-sm disabled:opacity-40">
-                                <FileText className="w-4 h-4" /> SVG
-                            </button>
-                            <button onClick={exportPDF} disabled={!hasTraces}
-                                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-slate-700 hover:bg-slate-600 text-slate-100 text-sm disabled:opacity-40">
-                                <Download className="w-4 h-4" /> PDF 85 mm
-                            </button>
-                            <button onClick={exportCSV} disabled={!hasTraces}
-                                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-slate-700 hover:bg-slate-600 text-slate-100 text-sm disabled:opacity-40">
-                                <FileText className="w-4 h-4" /> CSV
-                            </button>
-                        </div>
-                        <p className="text-[11px] text-slate-500">CSV records the baseline method per trace.</p>
-                    </section>
-
-                    {notes.length > 0 && (
-                        <section className="bg-slate-800/60 rounded-xl border border-slate-700/50 p-3">
-                            <h2 className="text-xs font-semibold text-slate-300 mb-1">Parser notes</h2>
-                            <ul className="text-[11px] text-slate-400 space-y-1">
-                                {notes.slice(-4).map((n, i) => (
-                                    <li key={i}>{n}</li>
-                                ))}
-                            </ul>
-                        </section>
-                    )}
-                </div>
+                    <div className="mt-auto grid grid-cols-2 gap-1.5 pt-3">
+                        <button
+                            onClick={exportPNG}
+                            disabled={!hasTraces}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-slate-700 px-2 py-2 text-xs text-slate-100 hover:bg-slate-600 disabled:opacity-40"
+                        >
+                            <ImageIcon className="h-3.5 w-3.5" /> PNG
+                        </button>
+                        <button
+                            onClick={exportSVG}
+                            disabled={!hasTraces}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-slate-700 px-2 py-2 text-xs text-slate-100 hover:bg-slate-600 disabled:opacity-40"
+                        >
+                            <FileText className="h-3.5 w-3.5" /> SVG
+                        </button>
+                        <button
+                            onClick={exportPDF}
+                            disabled={!hasTraces}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-slate-700 px-2 py-2 text-xs text-slate-100 hover:bg-slate-600 disabled:opacity-40"
+                        >
+                            <Download className="h-3.5 w-3.5" /> PDF 85 mm
+                        </button>
+                        <button
+                            onClick={exportCSV}
+                            disabled={!hasTraces}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-slate-700 px-2 py-2 text-xs text-slate-100 hover:bg-slate-600 disabled:opacity-40"
+                        >
+                            <FileText className="h-3.5 w-3.5" /> CSV
+                        </button>
+                    </div>
+                </section>
             </div>
 
             {toast && (
-                <div className="fixed bottom-6 right-6 z-50 rounded-lg bg-slate-900 border border-slate-700 px-4 py-2 text-sm text-slate-100 shadow-xl">
+                <div className="fixed bottom-6 right-6 z-50 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-100 shadow-xl">
                     {toast.msg}
                 </div>
             )}
