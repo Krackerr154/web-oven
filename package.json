@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "check-version": "node scripts/check-version.mjs"
+    "check-version": "node scripts/check-version.mjs",
+    "test": "bun test"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",
