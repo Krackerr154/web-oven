@@ -7,7 +7,7 @@ import {
     FlaskConical, Loader2, RotateCcw, Info, AlertTriangle, MousePointerClick,
 } from "lucide-react";
 import { PALETTE, PRINT_LAYOUT, paintCanvas, screenLayout, toSVG } from "@/lib/plot/core";
-import { buildFtirFigure, plotFrame, type FigureTrace } from "@/lib/ftir/figure";
+import { buildFtirFigure, plotFrame, yExtent, zoomWindow, type FigureTrace } from "@/lib/ftir/figure";
 import { FtirParseError, parseFtir, type AxisUnit } from "@/lib/ftir/parse";
 import { convert, toTransmittance } from "@/lib/ftir/model";
 import {
@@ -58,6 +58,10 @@ export function FtirPlotter() {
     const [minSep, setMinSep] = useState(20);
     const [labelEdits, setLabelEdits] = useState<Record<string, string>>({});
     const [editingKey, setEditingKey] = useState<string | null>(null);
+    const [hover, setHover] = useState<{ w: number; v: number; px: number; py: number; label: string } | null>(null);
+    const [dragBox, setDragBox] = useState<{ x1: number; x2: number } | null>(null);
+    const gesture = useRef<{ mode: "zoom" | "pan"; startX: number; lo: number; hi: number } | null>(null);
+    const overlayRef = useRef<HTMLCanvasElement | null>(null);
 
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -75,6 +79,7 @@ export function FtirPlotter() {
         return { ...base, H: h };
     }, [width, vh, peaksOn]);
     const active = traces.find((t) => t.id === activeId) ?? traces[0] ?? null;
+    const residualOn = showResidual && unit === "absorbance";
 
     // Baseline maths always runs in absorbance, whatever unit is on screen.
     const proc = useMemo(() => {
@@ -179,6 +184,43 @@ export function FtirPlotter() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [prims, layout.W, layout.H]);
 
+    // Crosshair and zoom band live on a second canvas: repainting the figure on
+    // every pointer move would rebuild ~50 primitives per frame.
+    useEffect(() => {
+        const cv = overlayRef.current;
+        if (!cv) return;
+        const dpr = Math.min(2.5, window.devicePixelRatio || 1);
+        cv.width = Math.round(layout.W * dpr);
+        cv.height = Math.round(layout.H * dpr);
+        const ctx = cv.getContext("2d");
+        if (!ctx) return;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, layout.W, layout.H);
+        const { mainH } = plotFrame(layout, residualOn);
+
+        if (dragBox) {
+            const x = Math.min(dragBox.x1, dragBox.x2);
+            const w = Math.abs(dragBox.x2 - dragBox.x1);
+            ctx.fillStyle = "rgba(234,88,12,0.12)";
+            ctx.fillRect(x, layout.M.t, w, mainH);
+            ctx.strokeStyle = "rgba(234,88,12,0.85)";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, layout.M.t, w, mainH);
+        } else if (hover) {
+            ctx.strokeStyle = "rgba(148,163,184,0.6)";
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(hover.px, layout.M.t);
+            ctx.lineTo(hover.px, layout.M.t + mainH);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = "#EA580C";
+            ctx.beginPath();
+            ctx.arc(hover.px, hover.py, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }, [hover, dragBox, layout, residualOn]);
+
     useEffect(() => {
         if (!toast) return;
         const id = setTimeout(() => setToast(null), 3200);
@@ -187,24 +229,24 @@ export function FtirPlotter() {
 
     /* ── pointer → wavenumber ─────────────────────────────────────────────── */
 
-    const dataAt = useCallback(
+    const plotXY = useCallback(
         (clientX: number, clientY: number) => {
             const cv = canvasRef.current;
             if (!cv) return null;
             const r = cv.getBoundingClientRect();
             if (r.width === 0) return null;
             const scale = r.width / layout.W;
+            const { PW, mainH } = plotFrame(layout, residualOn);
             const vx = (clientX - r.left) / scale;
             const vy = (clientY - r.top) / scale;
-            const { PW, mainH } = plotFrame(layout, showResidual && unit === "absorbance");
             if (vx < layout.M.l || vx > layout.M.l + PW) return null;
             if (vy < layout.M.t || vy > layout.M.t + mainH) return null;
-            return { w: hi - ((vx - layout.M.l) / PW) * (hi - lo) };
+            return { vx, vy, w: hi - ((vx - layout.M.l) / PW) * (hi - lo) };
         },
-        [layout, hi, lo, showResidual, unit],
+        [layout, hi, lo, residualOn],
     );
 
-    /** X only — a drag may leave the plot vertically without ending. */
+    /** X only — a gesture may leave the plot vertically without ending. */
     const dataX = useCallback(
         (clientX: number) => {
             const cv = canvasRef.current;
@@ -213,84 +255,192 @@ export function FtirPlotter() {
             if (r.width === 0) return null;
             const scale = r.width / layout.W;
             const vx = (clientX - r.left) / scale;
-            const { PW } = plotFrame(layout, showResidual && unit === "absorbance");
+            const { PW } = plotFrame(layout, residualOn);
             return hi - ((vx - layout.M.l) / PW) * (hi - lo);
         },
-        [layout, hi, lo, showResidual, unit],
+        [layout, hi, lo, residualOn],
     );
 
-    const onPointerDown = useCallback(
-        (e: React.PointerEvent<HTMLCanvasElement>) => {
-            if (!active || active.baseline.kind !== "manual" || e.button !== 0) return;
-            e.currentTarget.setPointerCapture(e.pointerId);
-            const hit = dataAt(e.clientX, e.clientY);
+    /** Nearest data point under the cursor, for the readout. */
+    const readoutAt = useCallback(
+        (clientX: number, clientY: number) => {
+            const hit = plotXY(clientX, clientY);
+            if (!hit || !active) return null;
+            const idx = nearestIndex(active.x, hit.w);
+            const p = proc.get(active.id);
+            if (!p) return null;
+            const value = unit === "absorbance" ? p.corrA[idx] : toTransmittance([p.corrA[idx]])[0];
+            const { mainH } = plotFrame(layout, residualOn);
+            const [yLo, yHi] = yExtent(figureTraces.filter((t) => t.visible), stacked ? gap : 0);
+            const py = layout.M.t + ((yHi - value) / (yHi - yLo)) * mainH;
+            return { w: active.x[idx], v: value, px: hit.vx, py, label: active.label };
+        },
+        [plotXY, active, proc, unit, layout, residualOn, figureTraces, stacked, gap],
+    );
+
+    const placeAnchor = useCallback(
+        (clientX: number, clientY: number, remove = false) => {
+            if (!active || active.baseline.kind !== "manual") return;
+            const hit = plotXY(clientX, clientY);
             if (!hit) return;
             const idx = nearestIndex(active.x, hit.w);
             const anchorX = active.x[idx];
             const yA = proc.get(active.id)?.yA ?? [];
             const anchors = active.baseline.anchors;
             const existing = anchors.findIndex((a) => Math.abs(a.x - anchorX) < 1e-9);
-
-            if (e.shiftKey) {
-                if (existing < 0) return;
-                setTraces((prev) =>
-                    prev.map((t) =>
-                        t.id === active.id && t.baseline.kind === "manual"
-                            ? { ...t, baseline: { ...t.baseline, anchors: anchors.filter((_, i) => i !== existing) } }
-                            : t,
-                    ),
-                );
-                setDragIndex(null);
-                return;
-            }
-
-            if (existing >= 0) {
-                // Grab an existing anchor: dragging moves it, it does not duplicate.
-                setDragIndex(anchors.filter((a) => a.x > anchors[existing].x).length);
-                return;
-            }
-
-            const next = [...anchors, { x: anchorX, y: yA[idx] }].sort((a, b) => b.x - a.x);
-            setTraces((prev) =>
-                prev.map((t) =>
-                    t.id === active.id && t.baseline.kind === "manual"
-                        ? { ...t, baseline: { ...t.baseline, anchors: next } }
-                        : t,
-                ),
-            );
-            setDragIndex(null);
-        },
-        [active, dataAt, proc],
-    );
-
-    const onPointerMove = useCallback(
-        (e: React.PointerEvent<HTMLCanvasElement>) => {
-            if (dragIndex === null || !active || active.baseline.kind !== "manual") return;
-            const w = dataX(e.clientX);
-            if (w === null) return;
-            const idx = nearestIndex(active.x, w);
-            const yA = proc.get(active.id)?.yA ?? [];
-            const moved = { x: active.x[idx], y: yA[idx] };
+            if (remove && existing < 0) return;
 
             setTraces((prev) =>
                 prev.map((t) => {
                     if (t.id !== active.id || t.baseline.kind !== "manual") return t;
-                    if (dragIndex >= t.baseline.anchors.length) return t;
-                    const next = t.baseline.anchors.slice();
-                    next[dragIndex] = moved;
-                    next.sort((a, b) => b.x - a.x);
+                    const next = remove
+                        ? anchors.filter((_, i) => i !== existing)
+                        : [...anchors, { x: anchorX, y: yA[idx] }].sort((a, b) => b.x - a.x);
                     return { ...t, baseline: { ...t.baseline, anchors: next } };
                 }),
             );
-            // Sorting can reorder the array; keep grabbing the same anchor.
-            setDragIndex(
-                active.baseline.anchors.filter((a, i) => i !== dragIndex && a.x > moved.x).length,
-            );
         },
-        [dragIndex, active, dataX, proc],
+        [active, plotXY, proc],
     );
 
-    const onPointerUp = useCallback(() => setDragIndex(null), []);
+    const onPointerDown = useCallback(
+        (e: React.PointerEvent<HTMLCanvasElement>) => {
+            if (e.button !== 0) return;
+            e.currentTarget.setPointerCapture(e.pointerId);
+
+            // Grabbing an existing anchor always wins: it is the finest target.
+            if (active && active.baseline.kind === "manual") {
+                const hit = plotXY(e.clientX, e.clientY);
+                if (hit) {
+                    const idx = nearestIndex(active.x, hit.w);
+                    const existing = active.baseline.anchors.findIndex(
+                        (a) => Math.abs(a.x - active.x[idx]) < 1e-9,
+                    );
+                    if (existing >= 0) {
+                        if (e.shiftKey) {
+                            placeAnchor(e.clientX, e.clientY, true);
+                            return;
+                        }
+                        setDragIndex(
+                            active.baseline.anchors.filter(
+                                (a) => a.x > (active.baseline as { anchors: { x: number }[] }).anchors[existing].x,
+                            ).length,
+                        );
+                        return;
+                    }
+                }
+            }
+
+            // Otherwise the drag is a view gesture: zoom, or pan with shift held.
+            gesture.current = {
+                mode: e.shiftKey ? "pan" : "zoom",
+                startX: e.clientX,
+                lo,
+                hi,
+            };
+            setDragBox(null);
+        },
+        [active, plotXY, placeAnchor, lo, hi],
+    );
+
+    const onPointerMove = useCallback(
+        (e: React.PointerEvent<HTMLCanvasElement>) => {
+            const g = gesture.current;
+
+            if (dragIndex !== null && active && active.baseline.kind === "manual") {
+                const w = dataX(e.clientX);
+                if (w === null) return;
+                const idx = nearestIndex(active.x, w);
+                const yA = proc.get(active.id)?.yA ?? [];
+                const moved = { x: active.x[idx], y: yA[idx] };
+                setTraces((prev) =>
+                    prev.map((t) => {
+                        if (t.id !== active.id || t.baseline.kind !== "manual") return t;
+                        if (dragIndex >= t.baseline.anchors.length) return t;
+                        const next = t.baseline.anchors.slice();
+                        next[dragIndex] = moved;
+                        next.sort((a, b) => b.x - a.x);
+                        return { ...t, baseline: { ...t.baseline, anchors: next } };
+                    }),
+                );
+                setDragIndex(
+                    active.baseline.anchors.filter((a, i) => i !== dragIndex && a.x > moved.x).length,
+                );
+                return;
+            }
+
+            if (g) {
+                const dx = e.clientX - g.startX;
+                if (Math.abs(dx) > 4) {
+                    if (g.mode === "pan") {
+                        const cv = canvasRef.current;
+                        const r = cv?.getBoundingClientRect();
+                        const { PW } = plotFrame(layout, residualOn);
+                        const perPx = r && r.width > 0 ? (g.hi - g.lo) / (PW * (r.width / layout.W)) : 0;
+                        const shift = dx * perPx;
+                        const span = g.hi - g.lo;
+                        let nl = g.lo + shift;
+                        let nh = g.hi + shift;
+                        if (nl < 400) { nl = 400; nh = 400 + span; }
+                        if (nh > 4000) { nh = 4000; nl = 4000 - span; }
+                        setLo(Math.round(nl));
+                        setHi(Math.round(nh));
+                    } else {
+                        const hit = plotXY(g.startX, e.clientY);
+                        const cur = (() => {
+                            const cv = canvasRef.current;
+                            const r = cv?.getBoundingClientRect();
+                            if (!r || r.width === 0) return null;
+                            return (e.clientX - r.left) / (r.width / layout.W);
+                        })();
+                        if (hit && cur !== null) setDragBox({ x1: hit.vx, x2: cur });
+                    }
+                }
+                return;
+            }
+
+            setHover(readoutAt(e.clientX, e.clientY));
+        },
+        [dragIndex, active, dataX, proc, layout, residualOn, plotXY, readoutAt, lo, hi],
+    );
+
+    const onPointerUp = useCallback(
+        (e: React.PointerEvent<HTMLCanvasElement>) => {
+            if (dragIndex !== null) {
+                setDragIndex(null);
+                return;
+            }
+            const g = gesture.current;
+            gesture.current = null;
+            if (!g) return;
+
+            const dx = e.clientX - g.startX;
+            if (g.mode === "zoom") {
+                if (Math.abs(dx) > 10) {
+                    const a = dataX(g.startX);
+                    const b = dataX(e.clientX);
+                    if (a !== null && b !== null) {
+                        const [nl, nh] = zoomWindow(a, b);
+                        setLo(nl);
+                        setHi(nh);
+                    }
+                } else if (active?.baseline.kind === "manual") {
+                    // A click without movement places an anchor.
+                    placeAnchor(e.clientX, e.clientY);
+                }
+                setDragBox(null);
+            }
+        },
+        [dragIndex, dataX, active, placeAnchor],
+    );
+
+    const onDoubleClick = useCallback(() => {
+        if (!traces.length) return;
+        const xs = traces.flatMap((t) => [Math.min(...t.x), Math.max(...t.x)]);
+        setLo(Math.max(400, Math.round(Math.min(...xs))));
+        setHi(Math.min(4000, Math.round(Math.max(...xs))));
+        setHover(null);
+    }, [traces]);
 
     /* ── files ────────────────────────────────────────────────────────────── */
 
@@ -529,13 +679,13 @@ export function FtirPlotter() {
     return (
         <div className="space-y-4 animate-fade-in">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                     Parsing runs in this tab. The spectrum is never uploaded.
                 </p>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => fileRef.current?.click()}
-                        className="inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-500"
+                        className="inline-flex items-center gap-2 rounded-lg bg-orange-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600"
                     >
                         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                         Load spectra
@@ -580,17 +730,26 @@ export function FtirPlotter() {
                     className="w-full"
                 >
                     {hasTraces ? (
-                        <canvas
-                            ref={canvasRef}
-                            onPointerDown={onPointerDown}
-                            onPointerMove={onPointerMove}
-                            onPointerUp={onPointerUp}
-                            onPointerCancel={onPointerUp}
-                            className={`block h-auto w-full rounded ${manual ? "cursor-crosshair" : ""}`}
-                        />
+                        <div className="relative">
+                            <canvas
+                                ref={canvasRef}
+                                onPointerDown={onPointerDown}
+                                onPointerMove={onPointerMove}
+                                onPointerUp={onPointerUp}
+                                onPointerCancel={onPointerUp}
+                                onPointerLeave={() => setHover(null)}
+                                onDoubleClick={onDoubleClick}
+                                className={`block h-auto w-full rounded ${manual ? "cursor-crosshair" : "cursor-default"}`}
+                            />
+                            <canvas
+                                ref={overlayRef}
+                                aria-hidden="true"
+                                className="pointer-events-none absolute inset-0 h-full w-full"
+                            />
+                        </div>
                     ) : (
                         <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-slate-600/70 px-6 py-10 text-center lg:min-h-[360px]">
-                            <FlaskConical className="h-7 w-7 text-slate-500" />
+                            <FlaskConical className="h-7 w-7 text-slate-400" />
                             <p className="font-medium text-slate-200">No spectra loaded</p>
                             <p className="max-w-md text-sm text-slate-400">
                                 Drop a CSV, TXT or JCAMP-DX export here, or load a demo to see a finished
@@ -616,10 +775,18 @@ export function FtirPlotter() {
                 </div>
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1">
                     <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                        {manual ? (
+                        {hover ? (
+                            <span className="tabular-nums text-slate-300">
+                                {Math.round(hover.w)} cm⁻¹ ·{" "}
+                                {hover.v.toFixed(unit === "absorbance" ? 3 : 1)}{" "}
+                                {unit === "absorbance" ? "A" : "%T"}
+                                <span className="ml-1.5 text-slate-400">{hover.label}</span>
+                            </span>
+                        ) : manual ? (
                             <>
                                 <MousePointerClick className="h-3.5 w-3.5" />
                                 Click to place an anchor, drag it sideways to slide, shift-click to remove.
+                                Drag empty space to zoom.
                             </>
                         ) : peaksOn ? (
                             activePeaks.length
@@ -630,12 +797,21 @@ export function FtirPlotter() {
                         )}
                     </p>
                     <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                        {(lo > 400 || hi < 4000) && (
+                            <button
+                                onClick={onDoubleClick}
+                                className="inline-flex items-center gap-1 rounded border border-slate-600/70 px-1.5 py-0.5 text-[11px] text-slate-300 hover:border-slate-500 hover:text-white"
+                                title="Zoom back to the full spectrum"
+                            >
+                                <RotateCcw className="h-3 w-3" /> Reset view
+                            </button>
+                        )}
                         <label className="flex items-center gap-1.5">
                             <input
                                 type="checkbox"
                                 checked={peaksOn}
                                 onChange={(e) => setPeaksOn(e.target.checked)}
-                                className="accent-orange-500"
+                                className="h-4 w-4 accent-orange-500"
                             />
                             Peaks
                         </label>
@@ -716,11 +892,11 @@ export function FtirPlotter() {
                 <section className="flex h-full flex-col rounded-xl border border-slate-700/50 bg-slate-800 p-4">
                     <div className="mb-3 flex items-center justify-between">
                         <h2 className="text-sm font-semibold text-slate-200">Traces</h2>
-                        <span className="text-[11px] text-slate-500">{traces.length} loaded</span>
+                        <span className="text-[11px] text-slate-400">{traces.length} loaded</span>
                     </div>
                     <div className="space-y-1">
                         {!hasTraces && (
-                            <p className="text-sm text-slate-500">Nothing loaded yet.</p>
+                            <p className="text-sm text-slate-400">Nothing loaded yet.</p>
                         )}
                         {traces.map((t) => (
                             <div
@@ -740,7 +916,7 @@ export function FtirPlotter() {
                                 >
                                     {t.label}
                                 </button>
-                                <span className="shrink-0 text-[11px] text-slate-500">
+                                <span className="shrink-0 text-[11px] text-slate-400">
                                     {t.baseline.kind === "none" ? "raw" : t.baseline.kind === "manual" ? "manual" : "auto"}
                                 </span>
                                 <button
@@ -772,7 +948,7 @@ export function FtirPlotter() {
                             + add demo spectrum
                         </button>
                         {notes.length > 0 && (
-                            <ul className="mt-2 space-y-1 border-t border-slate-700/60 pt-2 text-[11px] text-slate-500">
+                            <ul className="mt-2 space-y-1 border-t border-slate-700/60 pt-2 text-[11px] text-slate-400">
                                 {notes.slice(-2).map((n, i) => (
                                     <li key={i}>{n}</li>
                                 ))}
@@ -784,7 +960,7 @@ export function FtirPlotter() {
                 <section className="flex h-full flex-col rounded-xl border border-slate-700/50 bg-slate-800 p-4">
                     <div className="mb-3 flex items-center justify-between">
                         <h2 className="text-sm font-semibold text-slate-200">Baseline</h2>
-                        <span className="max-w-[9rem] truncate text-[11px] text-slate-500">
+                        <span className="max-w-[9rem] truncate text-[11px] text-slate-400">
                             {active ? active.label : "no trace"}
                         </span>
                     </div>
@@ -800,7 +976,7 @@ export function FtirPlotter() {
                                 disabled={!active}
                                 className={`rounded-md px-2 py-1.5 text-xs transition-colors ${
                                     active?.baseline.kind === kind
-                                        ? "bg-orange-600 text-white"
+                                        ? "bg-orange-700 text-white"
                                         : "bg-slate-700 text-slate-200 hover:bg-slate-600"
                                 }`}
                             >
@@ -829,7 +1005,7 @@ export function FtirPlotter() {
                                     ))}
                                 </div>
                             </div>
-                            <p className="text-[11px] text-slate-500">
+                            <p className="text-[11px] text-slate-400">
                                 {anchorCount} anchor{anchorCount === 1 ? "" : "s"} · degree {activeDegree} needs{" "}
                                 {activeDegree + 1}
                             </p>
@@ -838,7 +1014,7 @@ export function FtirPlotter() {
                                     type="checkbox"
                                     checked={editingRaw}
                                     onChange={(e) => setEditingRaw(e.target.checked)}
-                                    className="accent-orange-500"
+                                    className="h-4 w-4 accent-orange-500"
                                 />
                                 Show raw while placing anchors
                             </label>
@@ -846,14 +1022,14 @@ export function FtirPlotter() {
                     )}
 
                     {active?.baseline.kind === "rubberband" && (
-                        <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+                        <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
                             Lower convex hull in absorbance, parameter-free, same as instrument software.
                             Check the residual before trusting it.
                         </p>
                     )}
 
                     {active?.baseline.kind === "none" && (
-                        <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+                        <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
                             No baseline applied. Exports carry the raw spectrum.
                         </p>
                     )}
@@ -862,6 +1038,7 @@ export function FtirPlotter() {
                         <button
                             onClick={clearAnchors}
                             disabled={!manual}
+                            title={manual ? "Remove every anchor on this trace" : "Only available in Manual mode"}
                             className="flex-1 rounded-md bg-slate-700 px-2 py-1.5 text-xs text-slate-200 hover:bg-slate-600 disabled:opacity-40"
                         >
                             Clear
@@ -869,6 +1046,7 @@ export function FtirPlotter() {
                         <button
                             onClick={applyToAll}
                             disabled={!active || traces.length < 2}
+                            title={traces.length < 2 ? "Load a second spectrum to copy the method onto" : "Copy this baseline method to every trace"}
                             className="flex-1 rounded-md bg-slate-700 px-2 py-1.5 text-xs text-slate-200 hover:bg-slate-600 disabled:opacity-40"
                         >
                             Apply to all
@@ -884,7 +1062,7 @@ export function FtirPlotter() {
                                 type="checkbox"
                                 checked={showResidual}
                                 onChange={(e) => setShowResidual(e.target.checked)}
-                                className="accent-orange-500"
+                                className="h-4 w-4 accent-orange-500"
                             />
                             Residual
                         </label>
@@ -897,7 +1075,7 @@ export function FtirPlotter() {
                                 onClick={() => setUnit(u)}
                                 className={`rounded-md px-2 py-1.5 text-xs transition-colors ${
                                     unit === u
-                                        ? "bg-orange-600 text-white"
+                                        ? "bg-orange-700 text-white"
                                         : "bg-slate-700 text-slate-200 hover:bg-slate-600"
                                 }`}
                             >
@@ -939,7 +1117,7 @@ export function FtirPlotter() {
                                 type="checkbox"
                                 checked={stacked}
                                 onChange={(e) => setStacked(e.target.checked)}
-                                className="accent-orange-500"
+                                className="h-4 w-4 accent-orange-500"
                             />
                             Waterfall
                         </label>
@@ -998,7 +1176,7 @@ export function FtirPlotter() {
             </div>
 
             <details className="group rounded-xl border border-slate-700/50 bg-slate-800/60 px-4 py-3">
-                <summary className="cursor-pointer text-xs font-medium text-slate-300 marker:text-slate-500">
+                <summary className="cursor-pointer text-xs font-medium text-slate-300 marker:text-slate-400">
                     How the processing works
                 </summary>
                 <dl className="mt-3 grid gap-3 text-[11px] leading-relaxed text-slate-400 sm:grid-cols-2">
@@ -1030,8 +1208,9 @@ export function FtirPlotter() {
                         <dt className="font-medium text-slate-300">Peaks and provenance</dt>
                         <dd>
                             Peaks are found on the corrected trace, never on the raw one. Labels are yours to
-                            edit and are never assigned automatically. Exports record the baseline method and
-                            the peak list, so the figure can be reproduced.
+                            edit and are never assigned automatically. Where two labels would overlap, one is
+                            dropped rather than printed on top of the other; every detected position stays in
+                            the chips under the plot. Exports record the method and the peak list.
                         </dd>
                     </div>
                 </dl>

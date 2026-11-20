@@ -110,6 +110,36 @@ export function plotFrame(L: Layout, showResidual: boolean) {
     return { PW, PH, resH, resGap, mainH: PH - resH - resGap };
 }
 
+
+export const IR_MIN = 400;
+export const IR_MAX = 4000;
+
+/**
+ * Turn a dragged span into a legal wavenumber window.
+ *
+ * Order is normalised (drag right-to-left), the span is clamped to the IR range
+ * and widened symmetrically if the drag was too short to be useful. Keeping this
+ * pure means the gesture can be tested without a browser.
+ */
+export function zoomWindow(x1: number, x2: number, minSpan = 50): [number, number] {
+    let lo = Math.min(x1, x2);
+    let hi = Math.max(x1, x2);
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) return [IR_MIN, IR_MAX];
+
+    lo = Math.max(IR_MIN, lo);
+    hi = Math.min(IR_MAX, hi);
+
+    const span = hi - lo;
+    if (span < minSpan) {
+        const mid = (lo + hi) / 2;
+        lo = mid - minSpan / 2;
+        hi = mid + minSpan / 2;
+        if (lo < IR_MIN) { lo = IR_MIN; hi = IR_MIN + minSpan; }
+        if (hi > IR_MAX) { hi = IR_MAX; lo = IR_MAX - minSpan; }
+    }
+    return [Math.round(lo), Math.round(hi)];
+}
+
 export function buildFtirFigure(
     traces: FigureTrace[],
     opts: FtirFigureOptions,
@@ -179,7 +209,8 @@ export function buildFtirFigure(
     const firstX = Math.ceil(lo / xStep) * xStep;
     for (let w = firstX; w <= hi + 1e-9; w += xStep) {
         const X = px(w);
-        out.push({ t: "line", x1: X, y1: M.t, x2: X, y2: M.t + mainH, stroke: GRID, w: 1 });
+        // Tick marks only. A full grid at 500 cm-1 steps competes with the trace
+        // for the same ink; horizontal lines carry the quantitative reading.
         out.push({ t: "line", x1: X, y1: M.t + mainH, x2: X, y2: M.t + mainH + 5, stroke: AXIS, w: 1 });
         out.push({
             t: "text",
@@ -243,7 +274,7 @@ export function buildFtirFigure(
     // ── Peak labels ──
     shown.forEach((t) => {
         if (!t.peaks?.length) return;
-        const fs = Math.max(9.5, L.tickFont - 2);
+        const fs = Math.max(11, L.tickFont - 2);
         const reqs = t.peaks.map((p, i) => ({
             key: `${t.id}:${i}`,
             x: p.x,
@@ -256,6 +287,7 @@ export function buildFtirFigure(
             plotLeft: M.l + 2,
             plotRight: M.l + PW - 2,
             plotTop: M.t + fs + 2,
+            rows: 4,
         });
         for (const p of t.peaks) {
             const X = px(p.x);

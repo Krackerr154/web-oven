@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { FtirParseError, parseFtir } from "@/lib/ftir/parse";
-import { buildFtirFigure, plotFrame, wavenumberStep, type FigureTrace } from "@/lib/ftir/figure";
+import { buildFtirFigure, plotFrame, wavenumberStep, zoomWindow, type FigureTrace } from "@/lib/ftir/figure";
 import { toAbsorbance, toTransmittance, convert } from "@/lib/ftir/model";
 import { demoCsv, demoSeries } from "@/lib/ftir/demo";
 import { PRINT_LAYOUT } from "@/lib/plot/core";
@@ -269,5 +269,35 @@ describe("ftir figure — baseline and residual", () => {
         const prims = buildFtirFigure([trace(true)], { ...base, showResidual: true });
         const dashed = prims.filter((p) => p.t === "line" && (p as { dash?: number[] }).dash);
         expect(dashed.length).toBeGreaterThan(0);
+    });
+});
+
+describe("zoom window", () => {
+    test("normalises a right-to-left drag", () => {
+        expect(zoomWindow(1800, 1200)).toEqual([1200, 1800]);
+        expect(zoomWindow(1200, 1800)).toEqual([1200, 1800]);
+    });
+
+    test("clamps to the IR range", () => {
+        const [lo, hi] = zoomWindow(200, 6000);
+        expect(lo).toBe(400);
+        expect(hi).toBe(4000);
+    });
+
+    test("widens a too-short drag to the minimum span", () => {
+        const [lo, hi] = zoomWindow(1990, 1995, 50);
+        expect(hi - lo).toBe(50);
+        expect(lo).toBeLessThanOrEqual(1990);
+        expect(hi).toBeGreaterThanOrEqual(1995);
+    });
+
+    test("a drag over the low edge stays inside the range", () => {
+        const [lo, hi] = zoomWindow(395, 410, 50);
+        expect(lo).toBe(400);
+        expect(hi).toBe(450);
+    });
+
+    test("degenerate input falls back to the full range", () => {
+        expect(zoomWindow(NaN, NaN)).toEqual([400, 4000]);
     });
 });

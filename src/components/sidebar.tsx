@@ -156,7 +156,7 @@ export function Sidebar() {
       <div className="flex items-center gap-2 px-4 py-6 border-b border-slate-700">
         <TestTubes className="h-7 w-7 text-emerald-400" />
         <div>
-          <h1 className="text-lg font-bold text-white leading-tight">AP Lab</h1>
+          <div className="text-lg font-bold text-white leading-tight">AP Lab</div>
           <p className="text-xs text-slate-400">Dashboard</p>
         </div>
       </div>
