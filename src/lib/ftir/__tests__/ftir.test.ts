@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { FtirParseError, parseFtir } from "@/lib/ftir/parse";
-import { buildFtirFigure, plotFrame, wavenumberStep, zoomWindow, type FigureTrace } from "@/lib/ftir/figure";
+import { buildFtirFigure, legendGeometry, plotFrame, wavenumberStep, zoomWindow, type FigureTrace } from "@/lib/ftir/figure";
 import { toAbsorbance, toTransmittance, convert } from "@/lib/ftir/model";
 import { demoCsv, demoSeries } from "@/lib/ftir/demo";
 import { PRINT_LAYOUT } from "@/lib/plot/core";
@@ -299,5 +299,45 @@ describe("zoom window", () => {
 
     test("degenerate input falls back to the full range", () => {
         expect(zoomWindow(NaN, NaN)).toEqual([400, 4000]);
+    });
+});
+
+describe("legend geometry", () => {
+    const demo = parseFtir(demoCsv("ni-bdc").text, "ni-bdc-demo.csv");
+    const t = (id: string, visible = true): FigureTrace => ({
+        id, label: `Trace ${id}`, color: "#1D4ED8", x: demo.x, y: demo.y, visible,
+    });
+
+    test("is null when no trace is visible", () => {
+        expect(legendGeometry([t("a", false)], {})).toBeNull();
+    });
+
+    test("one row per visible trace, all inside the plot box", () => {
+        const g = legendGeometry([t("a"), t("b"), t("c", false)], {});
+        expect(g).not.toBeNull();
+        expect(g!.rows.map((r) => r.id)).toEqual(["a", "b"]);
+        const { PW, mainH } = plotFrame(PRINT_LAYOUT, false);
+        for (const row of g!.rows) {
+            expect(row.x).toBeGreaterThanOrEqual(PRINT_LAYOUT.M.l);
+            expect(row.x + row.w).toBeLessThanOrEqual(PRINT_LAYOUT.M.l + PW + 1e-6);
+            expect(row.y).toBeGreaterThanOrEqual(PRINT_LAYOUT.M.t);
+            expect(row.y + row.h).toBeLessThanOrEqual(PRINT_LAYOUT.M.t + mainH + 1e-6);
+        }
+    });
+
+    test("the box is the same rect the figure draws", () => {
+        const traces = [t("a"), t("b")];
+        const g = legendGeometry(traces, { layout: PRINT_LAYOUT })!;
+        const prims = buildFtirFigure(traces, {
+            lo: 400, hi: 4000, gap: 0, stacked: false, unit: "transmittance", layout: PRINT_LAYOUT,
+        });
+        const rect = prims.find((p) => p.t === "rect" && (p as { opacity?: number }).opacity === 0.93) as
+            | { x: number; y: number; w: number; h: number }
+            | undefined;
+        expect(rect).toBeDefined();
+        expect(rect!.x).toBeCloseTo(g.box.x, 6);
+        expect(rect!.y).toBeCloseTo(g.box.y, 6);
+        expect(rect!.w).toBeCloseTo(g.box.w, 6);
+        expect(rect!.h).toBeCloseTo(g.box.h, 6);
     });
 });

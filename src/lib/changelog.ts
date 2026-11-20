@@ -30,7 +30,7 @@ export type Release = {
     changes: Change[];
 };
 
-export const CURRENT_VERSION = "1.1.0";
+export const CURRENT_VERSION = "1.2.0";
 
 export const KIND_LABEL: Record<ChangeKind, string> = {
     new: "New",
@@ -40,6 +40,43 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 };
 
 export const RELEASES: Release[] = [
+    {
+        version: "1.2.0",
+        date: "2026-11-20",
+        title: "FTIR: readable and keyboard-friendly",
+        summary:
+            "The FTIR plot now answers questions instead of only drawing them: read any point, zoom into the fingerprint region, drive it from the keyboard, and come back to the same workspace after a refresh.",
+        changes: [
+            {
+                kind: "new",
+                text: "Hover the plot to read the wavenumber and value of the nearest data point, with the trace name beside it.",
+            },
+            {
+                kind: "new",
+                text: "Drag across the plot to zoom into a wavenumber window, shift-drag to pan, and double-click or Reset view to go back. Useful for the 1500 to 400 cm-1 region, where identification actually happens.",
+            },
+            {
+                kind: "new",
+                text: "The plot works from the keyboard: focus it, use the arrow keys to move a cursor, Enter to place a baseline anchor and Delete to remove it. The position is announced as you move.",
+            },
+            {
+                kind: "new",
+                text: "Your workspace is restored after a refresh or an accidental tab close, including traces, baseline anchors and labels. It is scoped to you and clears when the tab closes.",
+            },
+            {
+                kind: "improved",
+                text: "Rename a trace by clicking its name in the list, and click an entry in the plot legend to hide or show that trace.",
+            },
+            {
+                kind: "improved",
+                text: "Contrast corrections: the primary button and the helper text now meet WCAG AA, peak labels never render below 11px, and the grid was halved so the spectrum carries the ink.",
+            },
+            {
+                kind: "fixed",
+                text: "The page had two first-level headings, so assistive technology announced the product name instead of the page. It now has one.",
+            },
+        ],
+    },
     {
         version: "1.1.0",
         date: "2026-11-20",

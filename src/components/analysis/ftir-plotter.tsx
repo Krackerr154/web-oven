@@ -7,7 +7,7 @@ import {
     FlaskConical, Loader2, RotateCcw, Info, AlertTriangle, MousePointerClick,
 } from "lucide-react";
 import { PALETTE, PRINT_LAYOUT, paintCanvas, screenLayout, toSVG } from "@/lib/plot/core";
-import { buildFtirFigure, plotFrame, yExtent, zoomWindow, type FigureTrace } from "@/lib/ftir/figure";
+import { buildFtirFigure, legendGeometry, plotFrame, yExtent, zoomWindow, type FigureTrace } from "@/lib/ftir/figure";
 import { FtirParseError, parseFtir, type AxisUnit } from "@/lib/ftir/parse";
 import { convert, toTransmittance } from "@/lib/ftir/model";
 import {
@@ -37,7 +37,7 @@ function stamp() {
     return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
 }
 
-export function FtirPlotter() {
+export function FtirPlotter({ userId }: { userId: string }) {
     const [traces, setTraces] = useState<Trace[]>([]);
     const [unit, setUnit] = useState<AxisUnit>("transmittance");
     const [stacked, setStacked] = useState(false);
@@ -62,6 +62,11 @@ export function FtirPlotter() {
     const [dragBox, setDragBox] = useState<{ x1: number; x2: number } | null>(null);
     const gesture = useRef<{ mode: "zoom" | "pan"; startX: number; lo: number; hi: number } | null>(null);
     const overlayRef = useRef<HTMLCanvasElement | null>(null);
+    const [renamingId, setRenamingId] = useState<string | null>(null);
+    const [cursorIdx, setCursorIdx] = useState<number | null>(null);
+    const [liveMsg, setLiveMsg] = useState("");
+    const [restored, setRestored] = useState(false);
+    const storeKey = `ftir:workspace:${userId}`;
 
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -141,6 +146,24 @@ export function FtirPlotter() {
         [traces, proc, unit, activeId, editingRaw, peaksOn, activePeaks, active],
     );
 
+    const cursorPoint = useMemo(() => {
+        if (cursorIdx === null || !active) return null;
+        const p = proc.get(active.id);
+        if (!p) return null;
+        const w = active.x[cursorIdx];
+        if (w === undefined) return null;
+        const value = unit === "absorbance" ? p.corrA[cursorIdx] : toTransmittance([p.corrA[cursorIdx]])[0];
+        const { PW, mainH } = plotFrame(layout, residualOn);
+        const [yLo, yHi] = yExtent(figureTraces.filter((t) => t.visible), stacked ? gap : 0);
+        return {
+            px: layout.M.l + ((hi - w) / (hi - lo)) * PW,
+            py: layout.M.t + ((yHi - value) / (yHi - yLo)) * mainH,
+            w,
+            v: value,
+            label: active.label,
+        };
+    }, [cursorIdx, active, proc, unit, layout, residualOn, figureTraces, stacked, gap, hi, lo]);
+
     const caution = useMemo(() => {
         if (!active || active.baseline.kind !== "rubberband") return null;
         const p = proc.get(active.id);
@@ -206,20 +229,76 @@ export function FtirPlotter() {
             ctx.strokeStyle = "rgba(234,88,12,0.85)";
             ctx.lineWidth = 1;
             ctx.strokeRect(x, layout.M.t, w, mainH);
-        } else if (hover) {
+        } else if (hover || cursorPoint) {
+            const pt = cursorPoint ?? hover!;
             ctx.strokeStyle = "rgba(148,163,184,0.6)";
             ctx.setLineDash([3, 3]);
             ctx.beginPath();
-            ctx.moveTo(hover.px, layout.M.t);
-            ctx.lineTo(hover.px, layout.M.t + mainH);
+            ctx.moveTo(pt.px, layout.M.t);
+            ctx.lineTo(pt.px, layout.M.t + mainH);
             ctx.stroke();
             ctx.setLineDash([]);
             ctx.fillStyle = "#EA580C";
             ctx.beginPath();
-            ctx.arc(hover.px, hover.py, 3, 0, Math.PI * 2);
+            ctx.arc(pt.px, pt.py, 3, 0, Math.PI * 2);
             ctx.fill();
         }
-    }, [hover, dragBox, layout, residualOn]);
+    }, [hover, cursorPoint, dragBox, layout, residualOn]);
+
+    // Workspace persistence, scoped per user. sessionStorage (not localStorage)
+    // because a lab bench PC is shared and a half-finished plot should not
+    // greet the next person who signs in.
+    useEffect(() => {
+        try {
+            const raw = sessionStorage.getItem(storeKey);
+            if (raw) {
+                const d = JSON.parse(raw) as Record<string, unknown>;
+                if (d && d.v === 1 && Array.isArray(d.traces)) {
+                    setTraces(d.traces as Trace[]);
+                    if (typeof d.unit === "string") setUnit(d.unit as AxisUnit);
+                    if (typeof d.lo === "number") setLo(d.lo);
+                    if (typeof d.hi === "number") setHi(d.hi);
+                    if (typeof d.stacked === "boolean") setStacked(d.stacked);
+                    if (typeof d.gap === "number") setGap(d.gap);
+                    if (typeof d.peaksOn === "boolean") setPeaksOn(d.peaksOn);
+                    if (typeof d.prominence === "number") setProminence(d.prominence);
+                    if (typeof d.minSep === "number") setMinSep(d.minSep);
+                    if (d.labelEdits && typeof d.labelEdits === "object") {
+                        setLabelEdits(d.labelEdits as Record<string, string>);
+                    }
+                    if (typeof d.activeId === "string") setActiveId(d.activeId);
+                }
+            }
+        } catch {
+            // A corrupt workspace must never block the tool.
+        }
+        setRestored(true);
+    }, [storeKey]);
+
+    useEffect(() => {
+        if (!restored) return;
+        try {
+            sessionStorage.setItem(
+                storeKey,
+                JSON.stringify({
+                    v: 1,
+                    traces,
+                    unit,
+                    lo,
+                    hi,
+                    stacked,
+                    gap,
+                    peaksOn,
+                    prominence,
+                    minSep,
+                    labelEdits,
+                    activeId,
+                }),
+            );
+        } catch {
+            // Quota or private mode: the workspace is a convenience, not the data.
+        }
+    }, [restored, storeKey, traces, unit, lo, hi, stacked, gap, peaksOn, prominence, minSep, labelEdits, activeId]);
 
     useEffect(() => {
         if (!toast) return;
@@ -307,6 +386,28 @@ export function FtirPlotter() {
         (e: React.PointerEvent<HTMLCanvasElement>) => {
             if (e.button !== 0) return;
             e.currentTarget.setPointerCapture(e.pointerId);
+
+            // A click on the legend toggles that trace, the same gesture the
+            // trace list offers. Geometry comes from the builder itself.
+            const lg = legendGeometry(figureTraces, { layout, legendPos: null, showResidual: residualOn });
+            const cvEl = canvasRef.current;
+            if (lg && cvEl) {
+                const r = cvEl.getBoundingClientRect();
+                if (r.width > 0) {
+                    const scale = r.width / layout.W;
+                    const lx = (e.clientX - r.left) / scale;
+                    const ly = (e.clientY - r.top) / scale;
+                    const row = lg.rows.find(
+                        (row) => lx >= row.x && lx <= row.x + row.w && ly >= row.y && ly <= row.y + row.h,
+                    );
+                    if (row) {
+                        setTraces((prev) =>
+                            prev.map((x) => (x.id === row.id ? { ...x, visible: !x.visible } : x)),
+                        );
+                        return;
+                    }
+                }
+            }
 
             // Grabbing an existing anchor always wins: it is the finest target.
             if (active && active.baseline.kind === "manual") {
@@ -402,6 +503,85 @@ export function FtirPlotter() {
             setHover(readoutAt(e.clientX, e.clientY));
         },
         [dragIndex, active, dataX, proc, layout, residualOn, plotXY, readoutAt, lo, hi],
+    );
+
+    const addAnchorAtIndex = useCallback(
+        (idx: number) => {
+            if (!active || active.baseline.kind !== "manual") return null;
+            const p = proc.get(active.id);
+            if (!p) return null;
+            const x = active.x[idx];
+            if (x === undefined) return null;
+            setTraces((prev) =>
+                prev.map((t) => {
+                    if (t.id !== active.id || t.baseline.kind !== "manual") return t;
+                    if (t.baseline.anchors.some((a) => Math.abs(a.x - x) < 1e-9)) return t;
+                    const next = [...t.baseline.anchors, { x, y: p.yA[idx] }].sort((a, b) => b.x - a.x);
+                    return { ...t, baseline: { ...t.baseline, anchors: next } };
+                }),
+            );
+            return x;
+        },
+        [active, proc],
+    );
+
+    const removeAnchorAtIndex = useCallback(
+        (idx: number) => {
+            if (!active || active.baseline.kind !== "manual") return null;
+            const x = active.x[idx];
+            if (x === undefined) return null;
+            setTraces((prev) =>
+                prev.map((t) => {
+                    if (t.id !== active.id || t.baseline.kind !== "manual") return t;
+                    const next = t.baseline.anchors.filter((a) => Math.abs(a.x - x) >= 1e-9);
+                    return { ...t, baseline: { ...t.baseline, anchors: next } };
+                }),
+            );
+            return x;
+        },
+        [active],
+    );
+
+    const onCanvasKeyDown = useCallback(
+        (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+            if (!active) return;
+            const stride = Math.max(1, Math.round(active.x.length / 400));
+            const current = cursorIdx ?? nearestIndex(active.x, (lo + hi) / 2);
+
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                e.preventDefault();
+                const dir = e.key === "ArrowRight" ? 1 : -1;
+                const next = Math.max(0, Math.min(active.x.length - 1, current + dir * stride));
+                setCursorIdx(next);
+                setLiveMsg(`${Math.round(active.x[next])} cm⁻¹`);
+            } else if (e.key === "Home" || e.key === "End") {
+                e.preventDefault();
+                const next = e.key === "Home" ? 0 : active.x.length - 1;
+                setCursorIdx(next);
+                setLiveMsg(`${Math.round(active.x[next])} cm⁻¹`);
+            } else if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                if (active.baseline.kind !== "manual") {
+                    setLiveMsg("Switch the baseline to Manual to place anchors.");
+                    return;
+                }
+                setCursorIdx(current);
+                const at = addAnchorAtIndex(current);
+                if (at !== null) {
+                    const n = (active.baseline.kind === "manual" ? active.baseline.anchors.length : 0) + 1;
+                    setLiveMsg(`Anchor at ${Math.round(at)} cm⁻¹. ${n} anchor${n === 1 ? "" : "s"}.`);
+                }
+            } else if (e.key === "Delete" || e.key === "Backspace") {
+                e.preventDefault();
+                if (active.baseline.kind !== "manual") return;
+                const at = removeAnchorAtIndex(current);
+                if (at !== null) setLiveMsg(`Anchor at ${Math.round(at)} cm⁻¹ removed.`);
+            } else if (e.key === "Escape") {
+                setCursorIdx(null);
+                setLiveMsg("Cursor cleared.");
+            }
+        },
+        [active, cursorIdx, lo, hi, addAnchorAtIndex, removeAnchorAtIndex],
     );
 
     const onPointerUp = useCallback(
@@ -739,7 +919,11 @@ export function FtirPlotter() {
                                 onPointerCancel={onPointerUp}
                                 onPointerLeave={() => setHover(null)}
                                 onDoubleClick={onDoubleClick}
-                                className={`block h-auto w-full rounded ${manual ? "cursor-crosshair" : "cursor-default"}`}
+                                onKeyDown={onCanvasKeyDown}
+                                tabIndex={0}
+                                role="application"
+                                aria-label="FTIR spectrum plot. Arrow keys move a cursor along the trace, Enter places a baseline anchor, Delete removes it. Drag to zoom, shift-drag to pan, double-click to reset."
+                                className={`block h-auto w-full rounded outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${manual ? "cursor-crosshair" : "cursor-default"}`}
                             />
                             <canvas
                                 ref={overlayRef}
@@ -909,13 +1093,38 @@ export function FtirPlotter() {
                                     className="h-2.5 w-2.5 shrink-0 rounded-full"
                                     style={{ background: t.color }}
                                 />
-                                <button
-                                    onClick={() => setActiveId(t.id)}
-                                    className="flex-1 truncate text-left text-slate-200 hover:text-white"
-                                    title={`${t.fileName}, click to make active`}
-                                >
-                                    {t.label}
-                                </button>
+                                {renamingId === t.id ? (
+                                    <input
+                                        autoFocus
+                                        defaultValue={t.label}
+                                        onBlur={(e) => {
+                                            const v = e.target.value.trim();
+                                            if (v) {
+                                                setTraces((prev) =>
+                                                    prev.map((x) => (x.id === t.id ? { ...x, label: v } : x)),
+                                                );
+                                            }
+                                            setRenamingId(null);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") e.currentTarget.blur();
+                                            if (e.key === "Escape") setRenamingId(null);
+                                        }}
+                                        aria-label="Trace name"
+                                        className="min-w-0 flex-1 rounded border border-orange-500/60 bg-slate-900 px-1.5 py-0.5 text-sm text-slate-100"
+                                    />
+                                ) : (
+                                    <button
+                                        onClick={() => {
+                                            setActiveId(t.id);
+                                            setRenamingId(t.id);
+                                        }}
+                                        className="flex-1 truncate text-left text-slate-200 hover:text-white"
+                                        title={`${t.fileName} — click to rename`}
+                                    >
+                                        {t.label}
+                                    </button>
+                                )}
                                 <span className="shrink-0 text-[11px] text-slate-400">
                                     {t.baseline.kind === "none" ? "raw" : t.baseline.kind === "manual" ? "manual" : "auto"}
                                 </span>
@@ -1134,13 +1343,19 @@ export function FtirPlotter() {
                                 if (!traces.length) return;
                                 const xs = traces.flatMap((t) => [Math.min(...t.x), Math.max(...t.x)]);
                                 setLo(Math.max(400, Math.min(...xs)));
-                                setHi(Math.min(4000, Math.max(...xs)));
+                                setHi(Math.min(4000, Math.round(Math.max(...xs))));
                             }}
                             className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200"
                         >
                             <RotateCcw className="h-3 w-3" /> Fit
                         </button>
                     </div>
+                    {stacked && (
+                        <p className="mt-1 text-[11px] text-slate-400">
+                            Each visible trace sits {gap} {unit === "absorbance" ? "A" : "%T"} above the one
+                            under it.
+                        </p>
+                    )}
 
                     <div className="mt-auto grid grid-cols-2 gap-1.5 pt-3">
                         <button
@@ -1215,6 +1430,10 @@ export function FtirPlotter() {
                     </div>
                 </dl>
             </details>
+
+            <p aria-live="polite" className="sr-only">
+                {liveMsg}
+            </p>
 
             {toast && (
                 <div className="fixed bottom-6 right-6 z-50 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-100 shadow-xl">

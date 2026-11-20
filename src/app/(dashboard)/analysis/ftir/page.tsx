@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { ArrowLeft } from "lucide-react";
 import { FtirPlotter } from "@/components/analysis/ftir-plotter";
 
@@ -9,7 +11,10 @@ export const metadata: Metadata = {
         "Load FTIR exports (CSV, TXT, JCAMP-DX), overlay and offset them into a publication figure. Parsing runs entirely in the browser.",
 };
 
-export default function FtirPlotterPage() {
+export default async function FtirPlotterPage() {
+    const session = await getServerSession(authOptions);
+    const userId = (session?.user as { id?: string } | undefined)?.id ?? "anonymous";
+
     return (
         <div className="space-y-6 animate-fade-in">
             <div>
@@ -26,7 +31,7 @@ export default function FtirPlotterPage() {
                 </p>
             </div>
 
-            <FtirPlotter />
+            <FtirPlotter userId={userId} />
         </div>
     );
 }

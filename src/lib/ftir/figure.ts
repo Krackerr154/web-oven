@@ -140,6 +140,47 @@ export function zoomWindow(x1: number, x2: number, minSpan = 50): [number, numbe
     return [Math.round(lo), Math.round(hi)];
 }
 
+
+export type LegendRow = { id: string; label: string; color: string; x: number; y: number; w: number; h: number };
+export type LegendGeometry = { box: { x: number; y: number; w: number; h: number }; rows: LegendRow[] };
+
+/**
+ * Where the legend and each of its rows land, in layout coordinates.
+ *
+ * The builder draws from this and the component hit-tests from it, so a click
+ * can never toggle a row other than the one under the cursor.
+ */
+export function legendGeometry(
+    traces: FigureTrace[],
+    opts: { layout?: Layout; legendPos?: { fx: number; fy?: number } | null; showResidual?: boolean } = {},
+): LegendGeometry | null {
+    const L = opts.layout ?? PRINT_LAYOUT;
+    const { PW, mainH } = plotFrame(L, !!opts.showResidual);
+    const shown = traces.filter((t) => t.visible && t.x.length > 1);
+    if (!shown.length) return null;
+
+    const rowH = L.legendFont + 6;
+    const widest = Math.max(...shown.map((t) => textWidth(t.label, L.legendFont)));
+    const boxW = Math.min(PW * 0.55, widest + 46);
+    const boxH = shown.length * rowH + 12;
+    const pos = opts.legendPos ?? { fx: 1, fy: 0 };
+    const bx = L.M.l + 8 + pos.fx * Math.max(0, PW - boxW - 16);
+    const by = L.M.t + 8 + (pos.fy ?? 0) * Math.max(0, mainH - boxH - 16);
+
+    return {
+        box: { x: bx, y: by, w: boxW, h: boxH },
+        rows: shown.map((t, i) => ({
+            id: t.id,
+            label: t.label,
+            color: t.color,
+            x: bx,
+            y: by + 6 + i * rowH,
+            w: boxW,
+            h: rowH,
+        })),
+    };
+}
+
 export function buildFtirFigure(
     traces: FigureTrace[],
     opts: FtirFigureOptions,
@@ -365,15 +406,18 @@ export function buildFtirFigure(
     }
 
     // ── Legend (top-right, white backing so traces never run through it) ──
-    const entries = shown.map((t) => t.label);
-    if (entries.length) {
+    const legend = legendGeometry(traces, {
+        layout: L,
+        legendPos: opts.legendPos ?? null,
+        showResidual: !!opts.showResidual,
+    });
+    if (legend) {
+        const { box: lb, rows } = legend;
         const rowH = L.legendFont + 6;
-        const widest = Math.max(...entries.map((s) => textWidth(s, L.legendFont)));
-        const boxW = Math.min(PW * 0.55, widest + 46);
-        const boxH = entries.length * rowH + 12;
-        const pos = opts.legendPos ?? { fx: 1, fy: 0 };
-        const bx = M.l + 8 + pos.fx * Math.max(0, PW - boxW - 16);
-        const by = M.t + 8 + pos.fy * Math.max(0, mainH - boxH - 16);
+        const bx = lb.x;
+        const by = lb.y;
+        const boxW = lb.w;
+        const boxH = lb.h;
 
         out.push({
             t: "rect",
@@ -387,22 +431,22 @@ export function buildFtirFigure(
             opacity: 0.93,
             rx: 4,
         });
-        shown.forEach((t, i) => {
-            const cy = by + 6 + i * rowH + rowH / 2;
+        rows.forEach((r) => {
+            const cy = r.y + rowH / 2;
             out.push({
                 t: "line",
                 x1: bx + 8,
                 y1: cy,
                 x2: bx + 26,
                 y2: cy,
-                stroke: t.color,
+                stroke: r.color,
                 w: 2.4,
             });
             out.push({
                 t: "text",
                 x: bx + 32,
                 y: cy,
-                s: t.label,
+                s: r.label,
                 size: L.legendFont,
                 fill: AXIS,
                 baseline: "middle",
