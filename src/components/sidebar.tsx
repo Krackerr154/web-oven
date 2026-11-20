@@ -66,6 +66,7 @@ const userNavGroups = [
     title: "Analysis",
     items: [
       { label: "XRD Plotter", href: "/analysis/xrd", icon: LineChart },
+      { label: "FTIR Plotter", href: "/analysis/ftir", icon: Activity },
       { label: "LUMA", href: "/luma", icon: Bot },
     ],
   },

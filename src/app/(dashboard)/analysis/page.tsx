@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LineChart, ChevronRight, FlaskConical } from "lucide-react";
+import { LineChart, Activity, ChevronRight, FlaskConical } from "lucide-react";
 
 export const metadata: Metadata = {
     title: "Analysis | AP-Lab",
@@ -15,6 +15,15 @@ const tools = [
             "Load Rigaku .xy scans, overlay and offset them into a publication figure, and export PNG, SVG or an 85 mm PDF.",
         icon: LineChart,
         href: "/analysis/xrd",
+        status: "Ready",
+    },
+    {
+        id: "ftir",
+        title: "FTIR Plotter",
+        description:
+            "Load CSV, TXT or JCAMP-DX spectra, switch between %T and absorbance, stack them, and export PNG, SVG or an 85 mm PDF.",
+        icon: Activity,
+        href: "/analysis/ftir",
         status: "Ready",
     },
 ];
@@ -67,8 +76,8 @@ export default function AnalysisPage() {
                         Not built yet
                     </h3>
                     <p className="text-sm text-slate-500">
-                        Only the tools listed above exist. Anything else — CV, EIS, FTIR,
-                        TGA — has no plotter in AP-Lab yet.
+                        Only the tools listed above exist. Anything else — CV, EIS, TGA —
+                        has no plotter in AP-Lab yet.
                     </p>
                 </div>
             </div>
