@@ -1401,10 +1401,10 @@ export function XrdPlotter() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 gap-3 items-start md:gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 items-start md:gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {/* ── Plot stage ─────────────────────────────────────── */}
                 <div
-                    className="relative rounded-xl border border-slate-700/50 bg-slate-800 p-3 md:col-span-2 lg:col-span-3"
+                    className="relative rounded-xl border border-slate-700/50 bg-slate-800 p-3 md:col-span-2 xl:col-span-3"
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
                         e.preventDefault();
@@ -1797,7 +1797,7 @@ export function XrdPlotter() {
                     </section>
                 )}
 
-                <section className="rounded-xl border border-slate-700/50 bg-slate-800 p-4 space-y-3 md:col-span-2 lg:col-span-1 lg:h-[240px] lg:overflow-y-auto lg:flex lg:flex-col">
+                <section className="rounded-xl border border-slate-700/50 bg-slate-800 p-4 space-y-3 md:col-span-2 xl:col-span-1 lg:h-[240px] lg:overflow-y-auto lg:flex lg:flex-col">
                     <div className="space-y-2">
                     <h3 className="text-xs font-semibold text-slate-300">
                         Export
