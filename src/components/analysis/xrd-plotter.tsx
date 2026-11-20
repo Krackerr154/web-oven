@@ -257,7 +257,22 @@ export function XrdPlotter() {
     }, [matchResults, selectedMatchId, visibleTraces]);
 
     // Re-layout at the measured container width: type must not scale with the box.
-    const layout = useMemo(() => screenLayout(canvasW || 860), [canvasW]);
+    const [vh, setVh] = useState(900);
+    useEffect(() => {
+        const onResize = () => setVh(window.innerHeight);
+        onResize();
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
+    }, []);
+
+    // Same height rule as the FTIR plotter: wide, but never so tall that the
+    // controls below the figure fall off the first screen.
+    const layout = useMemo(() => {
+        const base = screenLayout(canvasW || 860);
+        const w = canvasW || 860;
+        const h = Math.round(Math.min(470, Math.max(250, Math.min(w * 0.36, vh - 560))));
+        return { ...base, H: h };
+    }, [canvasW, vh]);
 
     const prims = useMemo(
         () => (traces.length || reference
@@ -995,7 +1010,7 @@ export function XrdPlotter() {
         a.href = cv.toDataURL("image/png");
         a.download = fname;
         a.click();
-        setExportToast({ msg: `✓ Downloaded ${fname}`, t: Date.now() });
+        setExportToast({ msg: `Downloaded ${fname}`, t: Date.now() });
     }
 
     function exportSVG() {
@@ -1012,7 +1027,7 @@ export function XrdPlotter() {
         a.download = fname;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
-        setExportToast({ msg: `✓ Downloaded ${fname}`, t: Date.now() });
+        setExportToast({ msg: `Downloaded ${fname}`, t: Date.now() });
     }
 
     function exportPDF() {
@@ -1026,7 +1041,7 @@ export function XrdPlotter() {
         pdf.addImage(img, "PNG", 0, 0, widthMM, heightMM);
         const fname = `AP-Lab_XRD_${stamp()}.pdf`;
         pdf.save(fname);
-        setExportToast({ msg: `✓ Downloaded ${fname}`, t: Date.now() });
+        setExportToast({ msg: `Downloaded ${fname}`, t: Date.now() });
     }
 
     function exportCSV() {
@@ -1045,7 +1060,7 @@ export function XrdPlotter() {
         a.download = fname;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
-        setExportToast({ msg: `✓ Downloaded ${fname}`, t: Date.now() });
+        setExportToast({ msg: `Downloaded ${fname}`, t: Date.now() });
     }
 
     const empty = traces.length === 0 && !reference;
@@ -1077,7 +1092,7 @@ export function XrdPlotter() {
             setStorage(est);
             setSaveName("");
             setPersisted(await requestPersistentStorage());
-            setExportToast({ msg: `✓ Saved “${name}” in this browser`, t: Date.now() });
+            setExportToast({ msg: `Saved “${name}” in this browser`, t: Date.now() });
         } catch (e) {
             setPersistError(e instanceof Error ? e.message : "Could not save this session");
         }
@@ -1119,7 +1134,7 @@ export function XrdPlotter() {
             setMatchResults(null);
             setSelectedMatchId(null);
             setShowSaved(false);
-            setExportToast({ msg: `✓ Loaded “${session.name ?? "session"}”`, t: Date.now() });
+            setExportToast({ msg: `Loaded “${session.name ?? "session"}”`, t: Date.now() });
         } catch (e) {
             setPersistError(e instanceof Error ? e.message : "Could not load that session");
         }
@@ -1159,7 +1174,7 @@ export function XrdPlotter() {
                     type="button"
                     onClick={() => fileRef.current?.click()}
                     disabled={busy}
-                    className="flex items-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-40 px-3 py-2 text-xs font-bold text-white transition-colors"
+                    className="flex items-center gap-2 rounded-lg bg-orange-700 hover:bg-orange-500 disabled:opacity-40 px-3 py-2 text-xs font-bold text-white transition-colors"
                 >
                     <Upload className="h-3.5 w-3.5" /> Load scan from file
                 </button>
@@ -1199,7 +1214,7 @@ export function XrdPlotter() {
                 >
                     <History className="h-3.5 w-3.5" /> Sessions
                     {savedList.length > 0 && (
-                        <span className="rounded-full bg-slate-700 px-1.5 text-[10px] font-bold text-slate-300">
+                        <span className="rounded-full bg-slate-700 px-1.5 text-[11px] font-bold text-slate-300">
                             {savedList.length}
                         </span>
                     )}
@@ -1209,12 +1224,12 @@ export function XrdPlotter() {
                     "saving" while the debounce is in flight, "error" in red. */}
                 {savedAt && (
                     <span
-                        className={`ml-auto text-[10px] ${
+                        className={`ml-auto text-[11px] ${
                             saveState === "error"
                                 ? "text-red-400"
                                 : saveState === "saving"
-                                    ? "text-slate-500"
-                                    : "text-slate-500"
+                                    ? "text-slate-400"
+                                    : "text-slate-400"
                         }`}
                         title="The loaded scans and plot settings are kept in this browser only"
                     >
@@ -1251,7 +1266,7 @@ export function XrdPlotter() {
                 <div className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-4 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <h3 className="text-xs font-bold text-slate-300">Sessions in this browser</h3>
-                        <span className="text-[10px] text-slate-500">
+                        <span className="text-[11px] text-slate-400">
                             {persisted === false
                                 ? "Storage not pinned — the browser may clear this under pressure"
                                 : persisted
@@ -1277,12 +1292,12 @@ export function XrdPlotter() {
                                 }}
                                 placeholder={defaultSaveName()}
                                 maxLength={80}
-                                className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-white placeholder:text-slate-500 outline-none"
+                                className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-white placeholder:text-slate-400 outline-none"
                             />
                             <button
                                 type="button"
                                 onClick={handleSaveNamed}
-                                className="flex items-center gap-1.5 rounded-md bg-orange-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-orange-500 transition-colors"
+                                className="flex items-center gap-1.5 rounded-md bg-orange-700 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-orange-500 transition-colors"
                             >
                                 <Save className="h-3.5 w-3.5" /> Save as
                             </button>
@@ -1290,7 +1305,7 @@ export function XrdPlotter() {
                     )}
 
                     {savedList.length === 0 ? (
-                        <p className="text-[11px] text-slate-500">
+                        <p className="text-[11px] text-slate-400">
                             No named sessions yet. The working session is saved automatically, so a
                             reload brings back whatever is on the plot right now.
                         </p>
@@ -1302,7 +1317,7 @@ export function XrdPlotter() {
                                         <div className="truncate text-xs text-slate-200">
                                             {s.name ?? "Untitled"}
                                         </div>
-                                        <div className="text-[10px] text-slate-500">
+                                        <div className="text-[11px] text-slate-400">
                                             {s.traces.length} trace{s.traces.length === 1 ? "" : "s"} ·{" "}
                                             {new Date(s.savedAt).toLocaleString([], {
                                                 day: "2-digit",
@@ -1324,7 +1339,7 @@ export function XrdPlotter() {
                                         type="button"
                                         onClick={() => handleDeleteSaved(s.key, s.name)}
                                         title={`Delete ${s.name ?? "this session"}`}
-                                        className="grid h-6 w-6 place-items-center rounded text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                                        className="grid h-6 w-6 place-items-center rounded text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
                                     >
                                         <Trash2 className="h-3.5 w-3.5" />
                                     </button>
@@ -1332,7 +1347,7 @@ export function XrdPlotter() {
                             ))}
                         </ul>
                     )}
-                    <p className="text-[10px] leading-relaxed text-slate-500">
+                    <p className="text-[11px] leading-relaxed text-slate-400">
                         Nothing here is uploaded. Scans stay in this browser profile, on this device.
                     </p>
                 </div>
@@ -1385,10 +1400,10 @@ export function XrdPlotter() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_330px] gap-5 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
                 {/* ── Plot stage ─────────────────────────────────────── */}
                 <div
-                    className="rounded-xl bg-white p-4 shadow-xl shadow-black/40 relative"
+                    className="relative rounded-xl border border-slate-700/50 bg-slate-800 p-3 lg:col-span-3"
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
                         e.preventDefault();
@@ -1400,7 +1415,7 @@ export function XrdPlotter() {
                             <button
                                 type="button"
                                 onClick={() => fileRef.current?.click()}
-                                className="w-full h-[380px] rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-3 text-slate-500 hover:border-orange-400 hover:text-orange-500 transition-colors"
+                                className="w-full h-[380px] rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-3 text-slate-400 hover:border-orange-400 hover:text-orange-500 transition-colors"
                             >
                                 {busy ? (
                                     <Loader2 className="h-8 w-8 animate-spin" />
@@ -1416,7 +1431,7 @@ export function XrdPlotter() {
                             <>
                                 <canvas
                                     ref={canvasRef}
-                                    className="block max-w-full cursor-crosshair touch-pan-y"
+                                    className="block max-w-full rounded bg-white cursor-crosshair touch-pan-y"
                                     title="Drag to zoom · Shift-drag to pan · Double-click to reset · Drag the legend to move it"
                                     onPointerMove={(e) => {
                                         if (legendDragRef.current) {
@@ -1499,7 +1514,7 @@ export function XrdPlotter() {
                     )}
 
                     {!empty && visibleTraces.length === 0 && !reference?.visible && (
-                        <p className="mt-3 text-[11px] text-slate-500">
+                        <p className="mt-3 text-[11px] text-slate-400">
                             All scans are hidden. Click an eye in the list to bring one back — nothing
                             was unloaded.
                         </p>
@@ -1508,16 +1523,15 @@ export function XrdPlotter() {
 
                 {/* ── Settings ───────────────────────────────────────── */}
                 <aside
-                    className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-4 space-y-4 xl:max-h-[var(--plot-h)] xl:overflow-y-auto xl:sticky xl:top-4"
-                    style={{ "--plot-h": `${layout.H + 32}px` } as React.CSSProperties}
+                    className="rounded-xl border border-slate-700/50 bg-slate-800 p-4 space-y-3"
                 >
                     <div>
                         <div className="flex items-baseline justify-between mb-3">
-                            <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                            <h3 className="text-xs font-semibold text-slate-300">
                                 Data
                             </h3>
                             {traces.length > 0 && (
-                                <span className="text-[10px] font-mono text-slate-500">
+                                <span className="text-[11px] font-mono text-slate-400">
                                     {visibleTraces.length} of {traces.length} active
                                 </span>
                             )}
@@ -1525,7 +1539,7 @@ export function XrdPlotter() {
                         <button
                             type="button"
                             onClick={() => fileRef.current?.click()}
-                            className="w-full flex items-center justify-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-500 px-3 py-2 text-xs font-bold text-white transition-colors"
+                            className="w-full flex items-center justify-center gap-2 rounded-lg bg-orange-700 hover:bg-orange-500 px-3 py-2 text-xs font-bold text-white transition-colors"
                         >
                             <Upload className="h-3.5 w-3.5" /> Add scan
                         </button>
@@ -1655,14 +1669,14 @@ export function XrdPlotter() {
                                 type="button"
                                 aria-label={`Remove ${t.label}`}
                                 onClick={() => setTraces((p) => p.filter((x) => x.id !== t.id))}
-                                className="shrink-0 grid place-items-center h-6 w-6 rounded text-slate-500 hover:text-red-400 hover:bg-slate-700/50"
+                                className="shrink-0 grid place-items-center h-6 w-6 rounded text-slate-400 hover:text-red-400 hover:bg-slate-700/50"
                             >
                                 <X className="h-3.5 w-3.5" />
                             </button>
                             
                             {/* Directional indicator when dragging */}
                             {isDragging && (
-                                <span className="absolute -right-6 text-[10px] text-orange-400 font-mono animate-pulse">
+                                <span className="absolute -right-6 text-[11px] text-orange-400 font-mono animate-pulse">
                                     ↕
                                 </span>
                             )}
@@ -1671,7 +1685,7 @@ export function XrdPlotter() {
                         );
                     })}
                     {traces.length > 1 && (
-                        <p className="text-[10px] text-slate-500 leading-relaxed -mt-1">
+                        <p className="text-[11px] text-slate-400 leading-relaxed -mt-1">
                             Drag the handle to reorder. Top of the list plots on top. The eye takes a
                             scan out of the figure, the export and the scoring without unloading it.
                         </p>
@@ -1681,7 +1695,7 @@ export function XrdPlotter() {
                         <>
                             <div className="h-px bg-slate-700/60" />
                             <div className="space-y-3">
-                                <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                                <h3 className="text-xs font-semibold text-slate-300">
                                     Plot
                                 </h3>
 
@@ -1721,7 +1735,7 @@ export function XrdPlotter() {
                                     />
                                 </div>
                                 <div className="flex items-center justify-between -mt-1">
-                                    <p className="text-[10px] text-slate-500">
+                                    <p className="text-[11px] text-slate-400">
                                         Drag on the plot to zoom, shift-drag to pan, double-click to
                                         reset.
                                     </p>
@@ -1731,7 +1745,7 @@ export function XrdPlotter() {
                                                 type="button"
                                                 onClick={() => setLegendPos(null)}
                                                 title="Return the legend to automatic corner placement"
-                                                className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-400 hover:border-orange-500/60 hover:text-white transition-colors"
+                                                className="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:border-orange-500/60 hover:text-white transition-colors"
                                             >
                                                 Legend auto
                                             </button>
@@ -1740,14 +1754,14 @@ export function XrdPlotter() {
                                             type="button"
                                             onClick={resetZoom}
                                             title="Show the full measured range again"
-                                            className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-400 hover:text-white hover:border-orange-500/60 transition-colors"
+                                            className="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:text-white hover:border-orange-500/60 transition-colors"
                                         >
                                             Reset
                                         </button>
                                     </div>
                                 </div>
                                 {rangeInvalid && (
-                                    <p className="text-[10px] leading-relaxed text-amber-300">
+                                    <p className="text-[11px] leading-relaxed text-amber-300">
                                         The lower bound must be below the upper bound. Until that is
                                         fixed the figure shows the full measured range,{" "}
                                         {dataExtent.min.toFixed(1)}–{dataExtent.max.toFixed(1)}°.
@@ -1775,7 +1789,7 @@ export function XrdPlotter() {
                                     />
                                 </label>
 
-                                <p className="text-[10px] leading-relaxed text-slate-500">
+                                <p className="text-[11px] leading-relaxed text-slate-400">
                                     Stacked traces are normalised individually. Unstacking scales all
                                     traces to a common maximum, preserving relative intensity.
                                 </p>
@@ -1784,14 +1798,9 @@ export function XrdPlotter() {
                         </>
                     )}
                 </aside>
-            </div>
 
-            {/* Export and Reference are actions, not plot settings. Below the
-                plot they stop the side column from stretching the grid row and
-                stranding dead space under the figure. */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <section className="rounded-xl border border-slate-700/60 bg-slate-900/50 p-4 space-y-2">
-                    <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                    <h3 className="text-xs font-semibold text-slate-300">
                         Export
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -1816,13 +1825,13 @@ export function XrdPlotter() {
                             <Download className="h-3.5 w-3.5" /> CSV
                         </button>
                     </div>
-                    <p className="text-[10px] leading-relaxed text-slate-500">
+                    <p className="text-[11px] leading-relaxed text-slate-400">
                         Always print geometry — an 85 mm figure regardless of window size.
                     </p>
                 </section>
 
                 <section className="rounded-xl border border-slate-700/60 bg-slate-900/50 p-4 space-y-2">
-                    <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                    <h3 className="text-xs font-semibold text-slate-300">
                         Reference
                     </h3>
                         <button
@@ -1845,7 +1854,7 @@ export function XrdPlotter() {
                         />
 
                         {refError && (
-                            <p className="text-[10px] leading-relaxed text-amber-300">{refError}</p>
+                            <p className="text-[11px] leading-relaxed text-amber-300">{refError}</p>
                         )}
 
                         {reference && (
@@ -1862,7 +1871,7 @@ export function XrdPlotter() {
                                         type="button"
                                         aria-label={reference.visible ? "Hide reference pattern" : "Show reference pattern"}
                                         onClick={() => setReference((r) => (r ? { ...r, visible: !r.visible } : r))}
-                                        className="shrink-0 text-slate-500 hover:text-slate-200"
+                                        className="shrink-0 text-slate-400 hover:text-slate-200"
                                     >
                                         {reference.visible
                                             ? <Eye className="h-3.5 w-3.5" />
@@ -1872,18 +1881,18 @@ export function XrdPlotter() {
                                         type="button"
                                         aria-label="Remove reference pattern"
                                         onClick={() => setReference(null)}
-                                        className="shrink-0 text-slate-500 hover:text-red-400"
+                                        className="shrink-0 text-slate-400 hover:text-red-400"
                                     >
                                         <X className="h-3.5 w-3.5" />
                                     </button>
                                 </div>
-                                <p className="text-[10px] text-slate-500 font-mono leading-relaxed">
+                                <p className="text-[11px] text-slate-400 font-mono leading-relaxed">
                                     {reference.spacegroup} · {reference.peaks.length} refl · λ {reference.wavelength.toFixed(4)} Å
                                 </p>
                             </div>
                         )}
 
-                        <p className="text-[10px] leading-relaxed text-slate-500">
+                        <p className="text-[11px] leading-relaxed text-slate-400">
                             Computed from the CIF with Cu Kα, structure factors and Lorentz-polarisation applied.
                         </p>
                 </section>
@@ -1907,7 +1916,7 @@ export function XrdPlotter() {
                             key={`${t.id}-meta`}
                             className={`rounded-lg border border-slate-700/50 bg-slate-900/40 px-3 py-2 ${t.visible ? "" : "opacity-45"}`}
                         >
-                            <p className="text-[10px] text-slate-500 truncate" title={t.fileName}>
+                            <p className="text-[11px] text-slate-400 truncate" title={t.fileName}>
                                 {t.fileName}{t.visible ? "" : " · hidden"}
                             </p>
                             <p className="text-[11px] text-slate-300 font-mono mt-0.5">

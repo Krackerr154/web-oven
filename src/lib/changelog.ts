@@ -30,7 +30,7 @@ export type Release = {
     changes: Change[];
 };
 
-export const CURRENT_VERSION = "1.2.1";
+export const CURRENT_VERSION = "1.3.0";
 
 export const KIND_LABEL: Record<ChangeKind, string> = {
     new: "New",
@@ -40,6 +40,31 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 };
 
 export const RELEASES: Release[] = [
+    {
+        version: "1.3.0",
+        date: "2026-11-20",
+        title: "XRD joins the FTIR layout",
+        summary:
+            "The two analysis tools now share one layout and one look: a full-width figure on a white sheet, and the controls in a strip beneath it instead of a narrow column beside it.",
+        changes: [
+            {
+                kind: "improved",
+                text: "The XRD plot spans the full width of the page instead of sharing it with a 330px column, so a pattern is about 50% wider than before.",
+            },
+            {
+                kind: "improved",
+                text: "Settings, export and CIF reference sit in one row under the figure, the same arrangement as the FTIR plotter.",
+            },
+            {
+                kind: "improved",
+                text: "The figure now sits on a white sheet inside the dark panel, matching FTIR and the exported files. The page header no longer renders as a white slab.",
+            },
+            {
+                kind: "fixed",
+                text: "Nothing on the page is set below 11px any more, and the small uppercase section labels are now readable sentence-case headings.",
+            },
+        ],
+    },
     {
         version: "1.2.1",
         date: "2026-11-20",

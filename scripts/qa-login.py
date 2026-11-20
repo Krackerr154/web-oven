@@ -15,7 +15,7 @@ import sys
 import urllib.parse
 import urllib.request
 
-BASE = "https://ap-lab.g-labs.my.id"
+BASE = os.environ.get("AP_LAB_BASE", "https://ap-lab.g-labs.my.id")
 HOME = os.path.expanduser("~")
 SECRETS = os.path.join(HOME, ".secrets")
 

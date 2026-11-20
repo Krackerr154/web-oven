@@ -1,0 +1,6 @@
+# Local verification override: the public gateway VPS is down, so auth is
+# pointed at the loopback URL for testing. Not used by a normal deploy.
+services:
+  web-oven-ap-lab:
+    environment:
+      NEXTAUTH_URL: http://127.0.0.1:3006
