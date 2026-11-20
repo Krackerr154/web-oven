@@ -14,6 +14,7 @@ import {
     baselineFor, corrected, nearestIndex, rubberbandCaution,
     type Anchor, type BaselineSpec,
 } from "@/lib/ftir/baseline";
+import { detectPeaks } from "@/lib/ftir/peaks";
 import { demoCsv, type DemoSample } from "@/lib/ftir/demo";
 
 type Trace = {
@@ -52,6 +53,11 @@ export function FtirPlotter() {
     const [editingRaw, setEditingRaw] = useState(true);
     const [showResidual, setShowResidual] = useState(false);
     const [dragIndex, setDragIndex] = useState<number | null>(null);
+    const [peaksOn, setPeaksOn] = useState(false);
+    const [prominence, setProminence] = useState(4);
+    const [minSep, setMinSep] = useState(20);
+    const [labelEdits, setLabelEdits] = useState<Record<string, string>>({});
+    const [editingKey, setEditingKey] = useState<string | null>(null);
 
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -65,9 +71,9 @@ export function FtirPlotter() {
         const base = screenLayout(width);
         // Height follows the viewport so the plot and the three control cards
         // share one screen on a laptop, instead of the cards starting below it.
-        const h = Math.round(Math.min(470, Math.max(280, Math.min(width * 0.36, vh - 592))));
+        const h = Math.round(Math.min(470, Math.max(258, Math.min(width * 0.36, vh - 592 - (peaksOn ? 74 : 0)))));
         return { ...base, H: h };
-    }, [width, vh]);
+    }, [width, vh, peaksOn]);
     const active = traces.find((t) => t.id === activeId) ?? traces[0] ?? null;
 
     // Baseline maths always runs in absorbance, whatever unit is on screen.
@@ -85,6 +91,25 @@ export function FtirPlotter() {
         }
         return map;
     }, [traces]);
+
+    const activePeaks = useMemo(() => {
+        if (!peaksOn || !active) return [];
+        const p = proc.get(active.id);
+        if (!p) return [];
+        const found = detectPeaks(active.x, p.corrA, {
+            minProminencePct: prominence,
+            minSeparation: minSep,
+            maxCount: 12,
+        });
+        const vis = traces.filter((x) => x.visible);
+        const slot = Math.max(0, vis.findIndex((x) => x.id === active.id));
+        const shift = slot * (stacked ? gap : 0);
+        return found.map((f) => {
+            const key = `${active.id}:${Math.round(f.x)}`;
+            const yDisp = (unit === "absorbance" ? f.y : toTransmittance([f.y])[0]) + shift;
+            return { key, x: f.x, y: yDisp, text: labelEdits[key] ?? String(Math.round(f.x)) };
+        });
+    }, [peaksOn, active, proc, prominence, minSep, unit, labelEdits, traces, stacked, gap]);
 
     const figureTraces: FigureTrace[] = useMemo(
         () =>
@@ -104,10 +129,11 @@ export function FtirPlotter() {
                             ? p.baseA
                             : toTransmittance(p.baseA)
                         : null,
+                    peaks: t.id === active?.id && peaksOn ? activePeaks : null,
                     visible: t.visible,
                 };
             }),
-        [traces, proc, unit, activeId, editingRaw],
+        [traces, proc, unit, activeId, editingRaw, peaksOn, activePeaks, active],
     );
 
     const caution = useMemo(() => {
@@ -438,8 +464,23 @@ export function FtirPlotter() {
         paintCanvas(cv, buildFtirFigure(figureTraces, figureOpts()), PRINT_LAYOUT.W, PRINT_LAYOUT.H, 3.8);
         const widthMM = 85;
         const heightMM = (widthMM * PRINT_LAYOUT.H) / PRINT_LAYOUT.W;
-        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [widthMM, heightMM] });
+        const captionMM = 7;
+        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [widthMM, heightMM + captionMM] });
         pdf.addImage(cv.toDataURL("image/png"), "PNG", 0, 0, widthMM, heightMM);
+
+        // Provenance: a corrected spectrum with no stated method is not reproducible.
+        const describe = (t: Trace) =>
+            t.baseline.kind === "none"
+                ? `${t.label}: raw`
+                : t.baseline.kind === "rubberband"
+                  ? `${t.label}: rubberband baseline`
+                  : `${t.label}: baseline deg ${t.baseline.degree}, ${t.baseline.anchors.length} anchors`;
+        const parts = traces.map(describe);
+        if (peaksOn) parts.push(`${activePeaks.length} peaks`);
+        parts.push(new Date().toISOString().slice(0, 10));
+        pdf.setFontSize(6);
+        pdf.setTextColor(90);
+        pdf.text(parts.join(" · ").slice(0, 118), 1.5, heightMM + 3);
         const fname = `AP-Lab_FTIR_${stamp()}.pdf`;
         pdf.save(fname);
         setToast({ msg: `Downloaded ${fname}`, t: Date.now() });
@@ -463,7 +504,11 @@ export function FtirPlotter() {
                 .map((xv, i) => (xv >= lo && xv <= hi ? `${xv},${yv[i]}` : null))
                 .filter(Boolean)
                 .join("\n");
-            return `# trace: ${t.label}\n# file: ${t.fileName}\n# baseline: ${method(t)}\nwavenumber,value\n${rows}`;
+            const peakLine =
+                peaksOn && t.id === active?.id && activePeaks.length
+                    ? `# peaks: ${activePeaks.map((pk) => (pk.text === String(Math.round(pk.x)) ? String(Math.round(pk.x)) : `${Math.round(pk.x)} ${pk.text}`)).join("; ")}\n`
+                    : "";
+            return `# trace: ${t.label}\n# file: ${t.fileName}\n# baseline: ${method(t)}\n${peakLine}wavenumber,value\n${rows}`;
         });
         const blob = new Blob([header + blocks.join("\n\n")], { type: "text/csv" });
         const url = URL.createObjectURL(blob);
@@ -569,11 +614,100 @@ export function FtirPlotter() {
                         </div>
                     )}
                 </div>
-                {manual && (
-                    <p className="mt-2 flex items-center gap-1.5 px-1 text-[11px] text-slate-400">
-                        <MousePointerClick className="h-3.5 w-3.5" />
-                        Click to place an anchor, drag it sideways to slide, shift-click to remove.
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1">
+                    <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                        {manual ? (
+                            <>
+                                <MousePointerClick className="h-3.5 w-3.5" />
+                                Click to place an anchor, drag it sideways to slide, shift-click to remove.
+                            </>
+                        ) : peaksOn ? (
+                            activePeaks.length
+                                ? `${activePeaks.length} band${activePeaks.length === 1 ? "" : "s"} above the threshold`
+                                : "No bands above the threshold. Lower the prominence to find weaker ones."
+                        ) : (
+                            "Turn on Peaks to label the bands on the corrected trace."
+                        )}
                     </p>
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                        <label className="flex items-center gap-1.5">
+                            <input
+                                type="checkbox"
+                                checked={peaksOn}
+                                onChange={(e) => setPeaksOn(e.target.checked)}
+                                className="accent-orange-500"
+                            />
+                            Peaks
+                        </label>
+                        {peaksOn && (
+                            <>
+                                <label className="flex items-center gap-1">
+                                    ≥
+                                    <input
+                                        type="number"
+                                        min={0.5}
+                                        max={30}
+                                        step={0.5}
+                                        value={prominence}
+                                        onChange={(e) => setProminence(Number(e.target.value))}
+                                        className="w-12 rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[11px] text-slate-100"
+                                        aria-label="Minimum prominence percent"
+                                    />
+                                    %
+                                </label>
+                                <label className="flex items-center gap-1">
+                                    <input
+                                        type="number"
+                                        min={2}
+                                        max={200}
+                                        step={2}
+                                        value={minSep}
+                                        onChange={(e) => setMinSep(Number(e.target.value))}
+                                        className="w-12 rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[11px] text-slate-100"
+                                        aria-label="Minimum separation in wavenumbers"
+                                    />
+                                    cm⁻¹
+                                </label>
+                            </>
+                        )}
+                    </div>
+                </div>
+                {peaksOn && activePeaks.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5 px-1">
+                        {activePeaks.map((pk) =>
+                            editingKey === pk.key ? (
+                                <input
+                                    key={pk.key}
+                                    autoFocus
+                                    value={labelEdits[pk.key] ?? pk.text}
+                                    onChange={(e) =>
+                                        setLabelEdits((prev) => ({ ...prev, [pk.key]: e.target.value }))
+                                    }
+                                    onBlur={() => setEditingKey(null)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === "Escape") setEditingKey(null);
+                                    }}
+                                    className="w-28 rounded border border-orange-500/60 bg-slate-900 px-1.5 py-0.5 text-[11px] text-slate-100"
+                                    aria-label="Peak label"
+                                />
+                            ) : (
+                                <button
+                                    key={pk.key}
+                                    onClick={() => {
+                                        setLabelEdits((prev) => ({
+                                            ...prev,
+                                            [pk.key]: prev[pk.key] ?? pk.text,
+                                        }));
+                                        setEditingKey(pk.key);
+                                    }}
+                                    title="Click to rename this label"
+                                    className="rounded border border-slate-600/60 bg-slate-900/60 px-1.5 py-0.5 text-[11px] text-slate-300 hover:border-slate-500 hover:text-slate-100"
+                                >
+                                    {labelEdits[pk.key] ?? pk.text}
+                                </button>
+                            ),
+                        )}
+                    </div>
                 )}
             </div>
 

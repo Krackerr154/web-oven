@@ -17,6 +17,7 @@ import {
     type Prim,
 } from "@/lib/plot/core";
 import type { AxisUnit } from "./parse";
+import { placeLabels } from "./peaks";
 
 export type FigureTrace = {
     id: string;
@@ -28,6 +29,8 @@ export type FigureTrace = {
     y: number[];
     /** Fitted baseline in display units, drawn dashed when present. */
     baseline?: number[] | null;
+    /** Annotated peaks in display units, with their label text. */
+    peaks?: Array<{ x: number; y: number; text: string }> | null;
     visible: boolean;
 };
 
@@ -235,6 +238,41 @@ export function buildFtirFigure(
         }
 
         out.push({ t: "poly", pts, stroke: t.color, w: 1.6 });
+    });
+
+    // ── Peak labels ──
+    shown.forEach((t) => {
+        if (!t.peaks?.length) return;
+        const fs = Math.max(9.5, L.tickFont - 2);
+        const reqs = t.peaks.map((p, i) => ({
+            key: `${t.id}:${i}`,
+            x: p.x,
+            y: p.y,
+            text: p.text,
+            widthPx: textWidth(p.text, fs) + 2,
+        }));
+        const placed = placeLabels(reqs, px, py, {
+            fontSize: fs,
+            plotLeft: M.l + 2,
+            plotRight: M.l + PW - 2,
+            plotTop: M.t + fs + 2,
+        });
+        for (const p of t.peaks) {
+            const X = px(p.x);
+            const Y = py(p.y);
+            out.push({ t: "line", x1: X, y1: Y, x2: X, y2: Y - 5, stroke: t.color, w: 1.2 });
+        }
+        for (const pl of placed) {
+            out.push({
+                t: "text",
+                x: pl.x,
+                y: pl.y,
+                s: pl.text,
+                size: fs,
+                fill: AXIS,
+                anchor: "middle",
+            });
+        }
     });
 
     // ── Residual strip ──
