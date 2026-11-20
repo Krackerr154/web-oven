@@ -270,7 +270,8 @@ export function XrdPlotter() {
     const layout = useMemo(() => {
         const base = screenLayout(canvasW || 860);
         const w = canvasW || 860;
-        const h = Math.round(Math.min(470, Math.max(200, Math.min(w * 0.36, vh - 566))));
+                const budget = w < 900 ? vh - 824 : vh - 566;
+        const h = Math.round(Math.min(470, Math.max(200, Math.min(w * 0.36, budget))));
         return { ...base, H: h };
     }, [canvasW, vh]);
 
@@ -1400,10 +1401,10 @@ export function XrdPlotter() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+            <div className="grid grid-cols-1 gap-3 items-start md:gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {/* ── Plot stage ─────────────────────────────────────── */}
                 <div
-                    className="relative rounded-xl border border-slate-700/50 bg-slate-800 p-3 lg:col-span-3"
+                    className="relative rounded-xl border border-slate-700/50 bg-slate-800 p-3 md:col-span-2 lg:col-span-3"
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
                         e.preventDefault();
@@ -1522,7 +1523,7 @@ export function XrdPlotter() {
                 </div>
 
                 {/* ── Settings ───────────────────────────────────────── */}
-                <section className="rounded-xl border border-slate-700/50 bg-slate-800 p-4 space-y-3 lg:h-[240px] lg:overflow-y-auto lg:flex lg:flex-col">
+                <section className="rounded-xl border border-slate-700/50 bg-slate-800 p-3 space-y-3 md:p-4 lg:h-[240px] lg:overflow-y-auto lg:flex lg:flex-col">
                     <div>
                         <div className="flex items-baseline justify-between mb-3">
                             <h3 className="text-xs font-semibold text-slate-300">
@@ -1695,7 +1696,7 @@ export function XrdPlotter() {
                 </section>
 
                 {!empty && (
-                    <section className="rounded-xl border border-slate-700/50 bg-slate-800 p-4 space-y-3 lg:h-[240px] lg:overflow-y-auto lg:flex lg:flex-col">
+                    <section className="rounded-xl border border-slate-700/50 bg-slate-800 p-3 space-y-3 md:p-4 lg:h-[240px] lg:overflow-y-auto lg:flex lg:flex-col">
                             <div className="space-y-3">
                                 <h3 className="text-xs font-semibold text-slate-300">
                                     Plot
@@ -1796,7 +1797,7 @@ export function XrdPlotter() {
                     </section>
                 )}
 
-                <section className="rounded-xl border border-slate-700/50 bg-slate-800 p-4 space-y-3 lg:h-[240px] lg:overflow-y-auto lg:flex lg:flex-col">
+                <section className="rounded-xl border border-slate-700/50 bg-slate-800 p-4 space-y-3 md:col-span-2 lg:col-span-1 lg:h-[240px] lg:overflow-y-auto lg:flex lg:flex-col">
                     <div className="space-y-2">
                     <h3 className="text-xs font-semibold text-slate-300">
                         Export
@@ -1907,7 +1908,7 @@ export function XrdPlotter() {
             ) : null}
 
             {traces.length > 0 && (
-                <p className="truncate text-center text-[11px] text-slate-400">
+                <p className="px-1 text-center text-[11px] leading-relaxed text-slate-400 sm:truncate">
                     {traces.map((t, i) => (
                         <span key={`sum-${t.id}`}>
                             {i > 0 && <span className="text-slate-600"> · </span>}
