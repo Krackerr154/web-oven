@@ -210,6 +210,13 @@ export function buildFtirFigure(
     const px = (w: number) => M.l + ((hi - w) / (hi - lo)) * PW;
     const py = (v: number) => M.t + ((yHi - v) / (yHi - yLo)) * mainH;
 
+    // ── Paper ──
+    // The whole figure is drawn on white, not just the plotting box. Axis text
+    // sits outside that box, and on a transparent canvas it inherited the dark
+    // card behind it: #111827 on #1e293b is 1.21:1, which is invisible. A sheet
+    // also makes the exported PNG/PDF honest, since paper is what they land on.
+    out.push({ t: "rect", x: 0, y: 0, w: W, h: H, stroke: "#FFFFFF", sw: 0, fill: "#FFFFFF" });
+
     // ── Plot frame ──
     out.push({
         t: "rect",
@@ -233,16 +240,18 @@ export function buildFtirFigure(
         weight: 600,
         anchor: "middle",
     });
+    // Horizontal, above the frame: a rotated title needs ~15px of clear margin
+    // beside the tick numbers, and the narrow layouts do not have it.
     out.push({
         t: "text",
-        x: M.l - 14,
-        y: M.t + mainH / 2,
+        x: M.l,
+        y: M.t - 7,
         s: opts.unit === "transmittance" ? "Transmittance (%)" : "Absorbance (a.u.)",
-        size: L.titleFont,
+        size: Math.max(11, L.titleFont - 1),
         fill: AXIS,
         weight: 600,
-        anchor: "middle",
-        rotate: -90,
+        anchor: "start",
+        baseline: "alphabetic",
     });
 
     // ── X ticks (descending) ──
@@ -321,7 +330,7 @@ export function buildFtirFigure(
             x: p.x,
             y: p.y,
             text: p.text,
-            widthPx: textWidth(p.text, fs) + 2,
+            widthPx: textWidth(p.text, fs) + 6,
         }));
         const placed = placeLabels(reqs, px, py, {
             fontSize: fs,

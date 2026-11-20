@@ -30,7 +30,7 @@ export type Release = {
     changes: Change[];
 };
 
-export const CURRENT_VERSION = "1.2.0";
+export const CURRENT_VERSION = "1.2.1";
 
 export const KIND_LABEL: Record<ChangeKind, string> = {
     new: "New",
@@ -40,6 +40,27 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 };
 
 export const RELEASES: Release[] = [
+    {
+        version: "1.2.1",
+        date: "2026-11-20",
+        title: "Readable axes",
+        summary:
+            "The axis labels were drawn in dark ink on the dark panel and were nearly impossible to read. The figure now has its own white sheet, and the Y title no longer fights the tick numbers for the margin.",
+        changes: [
+            {
+                kind: "fixed",
+                text: "Axis titles and tick numbers were invisible against the dark panel: dark ink was drawn outside the white plotting box, at about 1.2 to 1 contrast. The whole figure now sits on a white sheet, so every label reads on screen and the exported PNG and PDF match what you see.",
+            },
+            {
+                kind: "improved",
+                text: "The Y axis title is horizontal above the axis instead of a rotated line squeezed beside the numbers, so it stops colliding with them at narrow widths.",
+            },
+            {
+                kind: "fixed",
+                text: "A peak label at the right edge could be clipped by a few pixels; labels now reserve their full width.",
+            },
+        ],
+    },
     {
         version: "1.2.0",
         date: "2026-11-20",

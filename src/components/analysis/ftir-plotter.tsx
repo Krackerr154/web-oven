@@ -81,7 +81,16 @@ export function FtirPlotter({ userId }: { userId: string }) {
         // Height follows the viewport so the plot and the three control cards
         // share one screen on a laptop, instead of the cards starting below it.
         const h = Math.round(Math.min(470, Math.max(250, Math.min(width * 0.36, vh - 646 - (peaksOn ? 74 : 0)))));
-        return { ...base, H: h };
+        // Room for the horizontal axis title above the frame and the tick numbers
+        // beside it. Applied here, not inside the builder, so hit-testing reads
+        // the same numbers the figure was drawn with.
+        const M = {
+            ...base.M,
+            t: Math.max(base.M.t, 26),
+            l: Math.max(base.M.l, 54),
+            b: Math.max(base.M.b, 64),
+        };
+        return { ...base, H: h, M };
     }, [width, vh, peaksOn]);
     const active = traces.find((t) => t.id === activeId) ?? traces[0] ?? null;
     const residualOn = showResidual && unit === "absorbance";
